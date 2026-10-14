@@ -1,0 +1,856 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Albion Potion Craft Planı</title><link rel="manifest" href="manifest.webmanifest"><meta name="theme-color" content="#1a1210"><link rel="icon" href="icon-192.png"><link rel="apple-touch-icon" href="icon-192.png">
+<style>
+:root{--bg:#f3f5f2;--card:#fff;--ink:#16211c;--mut:#5d6b64;--line:#d5dcd7;--acc:#0f7a55;--bad:#b3261e;--warn:#9a6200}
+@media(prefers-color-scheme:dark){:root{--bg:#10171a;--card:#182125;--ink:#e6eee9;--mut:#93a39b;--line:#2b383d;--acc:#52d6a0;--bad:#ff8a80;--warn:#f0b64a}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 system-ui,sans-serif;padding:16px}
+main{max-width:1100px;margin:auto}
+h1{font:700 26px/1.2 Georgia,serif;margin:8px 0 4px}
+h2{font:600 16px Georgia,serif;margin:0 0 10px}
+p.s{color:var(--mut);margin:0 0 16px}
+section{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:14px;margin-bottom:14px}
+.g{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px}
+label{display:flex;flex-direction:column;gap:3px;font-size:13px;color:var(--mut)}
+label.c{flex-direction:row;align-items:center;gap:8px;color:var(--ink)}
+input,select,button{font:inherit;padding:7px 9px;border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--ink);min-width:0}
+button{background:var(--acc);color:#fff;border-color:var(--acc);cursor:pointer;font-weight:600}
+@media(prefers-color-scheme:dark){button{color:#07231a}}
+button.l{background:transparent;color:var(--acc)}
+button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid var(--acc);outline-offset:1px}
+.t{overflow-x:auto}
+table{border-collapse:collapse;width:100%;min-width:560px}
+#planTbl{min-width:760px}
+th,td{text-align:left;padding:5px 6px;border-bottom:1px solid var(--line);font-size:14px}
+.r{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:10px}
+.k{border:1px solid var(--line);border-radius:8px;padding:10px}
+.k b{display:block;font-size:20px}
+.pos{color:var(--acc)}.neg{color:var(--bad)}
+.st{color:var(--mut);font-size:13px;margin-top:8px;min-height:1.4em}
+.cp{width:100%;cursor:copy;min-width:70px}
+.row{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+.bar{display:flex;gap:10px;align-items:end;flex-wrap:wrap;margin:8px 0 4px}
+.il{flex-direction:row;align-items:center;gap:8px;color:var(--ink)}
+.pfm{flex-basis:100%}
+.pfm>summary{cursor:pointer;color:var(--acc);font-size:13px}
+.cfg>summary{list-style:none;cursor:pointer;display:flex;flex-wrap:wrap;gap:6px;align-items:center;background:var(--card);border:1px solid var(--line);border-radius:10px;padding:10px 12px;margin:10px 0}
+.cfg>summary::-webkit-details-marker{display:none}
+.cfg>summary::after{content:"Düzenle ▾";margin-left:auto;color:var(--acc);font-weight:600;font-size:13px}
+.cfg[open]>summary::after{content:"Kapat ▴"}
+.chip{background:var(--bg);border:1px solid var(--line);border-radius:12px;padding:2px 9px;font-size:13px}
+.dot{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:5px;vertical-align:middle}
+.d-g{background:var(--acc)}.d-y{background:var(--warn)}.d-r{background:var(--bad)}.d-n{background:var(--mut)}.d-m{border:2px solid var(--acc)}
+.bd{display:inline-block;padding:0 7px;border-radius:10px;font-size:12px;border:1px solid var(--line);white-space:nowrap}
+.bd-g{color:var(--acc);border-color:var(--acc)}.bd-y{color:var(--warn);border-color:var(--warn)}.bd-r{color:var(--bad);border-color:var(--bad)}.bd-n{color:var(--mut)}
+.warn{border:1px solid var(--bad);border-radius:8px;padding:8px 10px;margin:10px 0;font-size:14px}
+.warn.ok{border-color:var(--line);color:var(--mut)}
+.top{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:8px;margin:8px 0}
+.tc{display:flex;flex-direction:column;gap:2px;align-items:flex-start;text-align:left;background:var(--bg);color:var(--ink);border:1px solid var(--line);font-weight:400;padding:8px;border-radius:8px}
+.tc b{font-size:18px}
+.tc:hover{border-color:var(--acc)}
+#planWrap{overflow:auto;max-height:70vh}
+#planWrap thead th{position:sticky;top:0;background:var(--card);z-index:2;white-space:nowrap}
+#planTbl tr.pr td:first-child,#planTbl thead th:first-child{position:sticky;left:0;background:var(--card);z-index:1;min-width:190px}
+#planTbl thead th:first-child{z-index:3}
+tr.dt td{background:var(--bg);font-size:13px}
+.dg{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:4px 16px}
+button.ic{padding:3px 8px}
+button.sb{padding:3px 6px;margin-right:2px}
+button.sb.on{text-decoration:underline}
+@media(max-width:700px){
+#planTbl,#planTbl tbody{display:block;min-width:0}
+#planTbl thead,#planTbl thead tr{display:flex;flex-wrap:wrap;gap:4px}
+#planWrap thead th{position:static;display:block;border:0;padding:2px}
+#planTbl thead th.nb,#planTbl thead th:last-child{display:none}
+#planTbl tr.pr{display:grid;grid-template-columns:1fr 1fr;gap:4px 12px;padding:8px 0;border-bottom:1px solid var(--line)}
+#planTbl tr.pr td{display:block;border:0;padding:2px 4px;position:static!important;min-width:0!important}
+#planTbl tr.pr td:first-child{grid-column:1/-1}
+#planTbl tr.pr td[data-l]::before{content:attr(data-l);display:block;font-size:11px;color:var(--mut)}
+#planTbl tr.dt,#planTbl tr.dt td{display:block}
+}
+@media(prefers-reduced-motion:no-preference){.fl td{animation:fl 1.3s}}
+@keyframes fl{from{background:rgba(15,122,85,.3)}to{background:transparent}}
+</style>
+</head>
+<body>
+<main>
+<div class="row" style="gap:6px;margin:0 0 6px"><button id="modeP">Potion</button><button id="modeF">Food</button><button id="modeB">Black Market</button></div><div style="display:flex;align-items:center;gap:10px"><img src="logo.png" alt="KVF" width="48" height="48"><h1 id="ttl" style="margin:0">Potion Craft Planı</h1></div>
+<div class="bar">
+<label class="il">Profil<select id="pfSel"></select></label>
+<button id="pfSave">Kaydet</button>
+<details class="pfm"><summary>Profil işlemleri</summary>
+<div class="g" style="margin-top:8px"><label>Profil adı<input id="pfName" placeholder="örn. Brecilien focus"></label>
+<label class="c"><input type="checkbox" id="pfPlan" checked> Planı da kaydet</label></div>
+<div class="row"><button class="l" id="pfDel">Sil</button><button class="l" id="pfReset">Ayarları sıfırla</button><button class="l" id="pfExp">Dışa aktar</button><button class="l" id="pfImp">Yükle (dosyadan)</button><input type="file" id="pfFile" accept=".json" hidden></div>
+</details>
+</div>
+<div class="st" id="pfSt">Profil seçince ayarların ve (kayıtlıysa) planın yüklenir.</div>
+
+<div class="cfg" id="cfg">
+<div id="cfgSum" style="display:none"></div>
+<section>
+<h2>Piyasa, şehirler ve bonuslar</h2>
+<div class="g">
+<label>Sunucu<select id="srv"><option value="europe">Europe</option><option value="west">West (Americas)</option><option value="east">East (Asia)</option></select></label>
+<span id="cityBox" style="display:contents"><label>Malzeme alış şehri<select id="buyCity"></select></label>
+<label>Craft şehri<select id="craftCity"></select></label>
+<label>Satış şehri<select id="sellCity"></select></label></span>
+<label>Satış stratejisi<select id="strat"><option value="order">Sell order (vergi + kurulum ücreti)</option><option value="instant">Instant sell (sadece vergi)</option></select></label>
+<label class="c"><input type="checkbox" id="prem" checked> Premium (vergi %4, yoksa %8)</label>
+<label>Kurulum ücreti (%)<input type="number" id="setup" value="2.5" step="0.1"></label>
+
+<label class="c"><input type="checkbox" id="foc"> Focus kullan</label>
+<label class="c"><input type="checkbox" id="dailyOn"> Günlük bonus (+%10)</label>
+<label>Focus havuzu (elimdeki)<input type="number" id="pool" value="10000"></label>
+<div style="display:none">
+<input type="checkbox" id="cb" checked><input type="number" id="lpbBase" value="18"><input type="number" id="lpbCity" value="15"><input type="number" id="lpbFocus" value="59"><input type="number" id="daily" value="0">
+<input type="number" id="fee" value="400"><input type="checkbox" id="fmode" checked><input type="number" id="favg" value="6000"><button id="favgBtn" type="button"></button>
+</div>
+</div>
+<div class="st" id="rr"></div>
+</section>
+
+<section>
+<details>
+<summary style="cursor:pointer"><b>Mastery ağacı (focus maliyeti için)</b></summary>
+<div style="height:10px"></div>
+<p class="s" style="margin-bottom:8px">Focus maliyeti ağaç seviyelerine göre otomatik hesaplanır. Düşürdüğün seviyeler maliyete yansır.</p>
+<div class="g"><label>Mastery seviyesi (0-100)<input type="number" id="mast" value="100" min="0" max="100"></label><label>Referans potion (tam ağaçla)<input id="rid" value="T6_POTION_HEAL@1"></label><label>Referans focus (oyunda, 1 craft)<input type="number" id="rf" value="107"></label><label>Nadir referans potion (tam ağaçla)<input id="rrid" value="T8_POTION_LAVA"></label><label>Nadir referans focus (oyunda, 1 run)<input type="number" id="rrf" value="281"></label></div>
+<div class="g" id="specs" style="margin-top:10px"><span class="st">Spec seviyeleri için önce tarifleri yükle.</span></div>
+</details></section>
+
+</div>
+
+<section>
+<h2>Tarif ekle</h2>
+<div class="g">
+<label>Tier<select id="tier"></select></label>
+<label>Potion<select id="pot"><option>Önce tarifleri yükle</option></select></label>
+<label>Craft sayısı<input type="number" id="cnt" value="10" min="1"></label>
+</div>
+<div class="row"><img id="pimg" alt="" width="48" height="48" style="visibility:hidden"><button class="l" id="load">Tarifleri yükle</button><button id="addp">Plana ekle</button><button id="adda">Listedeki tümünü ekle</button></div>
+<div class="st" id="ls"></div>
+</section>
+
+<section>
+<h2>Plan</h2>
+<div class="row" style="margin-top:0;align-items:center"><label id="cityLbl" style="display:none;align-items:center;gap:6px;margin:0">Şehir <small style="color:var(--mut)">(alış = craft = satış)</small><select id="citySel"></select></label><button id="fetch">Fiyatları çek</button><button class="l" id="clr">Manuel fiyatları temizle</button><label class="c"><input type="checkbox" id="onlyIssues"> Sadece sorunlu satırlar</label></div>
+<div class="st" id="fs"></div>
+<div id="warn"></div>
+<div id="topWrap" style="display:none">
+<div class="row" style="align-items:center"><b>En iyi 5</b><label class="c">Ölçüt<select id="top5Sel"><option value="kf">Kâr / focus</option><option value="pct">Kâr oranı</option><option value="kar">Toplam kâr</option><option value="avg">Günlük satış</option></select></label></div>
+<div class="top" id="top5"></div><div class="st" id="topNote"></div>
+</div>
+<div class="t" id="planWrap"><table id="planTbl"><thead><tr><th class="nb">Potion</th><th class="nb">Craft</th><th class="nb">Satış fiyatı</th><th><button class="l sb" id="sortP">Kâr ↓</button><button class="l sb" id="sortM">% ↓</button></th><th class="nb">Focus</th><th><button class="l sb" id="sortF">Kâr/focus ↓</button></th><th><button class="l sb" id="sortH">Günlük satış ↓</button></th><th></th></tr></thead><tbody id="plan"></tbody></table></div>
+</section>
+
+<section>
+<h2>Enchant karşılaştırması</h2>
+<p class="s" style="margin-bottom:8px">Plandaki her potionun .0 - .3 versiyonlarını plandaki craft adedine göre karşılaştırır (planda olmayan versiyonlarda aynı potionun craft adedi kullanılır). Listeden tek bir potion seçebilir ya da hepsini görebilirsin. ★ en yüksek kâr/focus değerini gösterir.</p>
+<div class="row" style="align-items:end"><label style="min-width:260px">Potion<select id="cmpSel"></select></label><button id="cmp">Karşılaştır</button></div>
+<div class="st" id="cs"></div>
+<div class="t"><table><thead><tr><th>Versiyon</th><th>Craft</th><th>Malzeme (net)</th><th>Satış</th><th>Kâr</th><th>Focus</th><th>Kâr/focus</th><th>Havuzla craft</th><th>Havuzla kâr</th><th>Günlük satış (7 gün)</th></tr></thead><tbody id="cmpb"></tbody></table></div>
+</section>
+
+<section><h2>Toplam</h2><div class="r" id="out"></div></section>
+<section><h2>Alışveriş listesi</h2><div class="t"><table><thead><tr><th>Malzeme</th><th>Ad (kopyala)</th><th>Brüt adet (craft için gerekli)</th><th>Net adet (return sonrası, return olmayanlar brüt)</th><th>Birim fiyat</th></tr></thead><tbody id="shop"></tbody></table></div></section>
+<section id="bmApp" style="display:none">
+<h2>Black Market flip</h2>
+<p class="s" style="margin-bottom:8px">Şehir marketinden hazır eşya al, Caerleon'daki Black Market'in alış emrine sat. Kâr = Black Market fiyatı − satış vergisi − alış fiyatı. Fiyatlar Albion Data Project'ten gelir; veriyi oyuncular besler, yaşı eski olanlar güvenilmez.</p>
+<div class="g">
+<label>Sunucu<select id="bmSrv"><option value="europe">Europe</option><option value="west">West (Americas)</option><option value="east">East (Asia)</option></select></label>
+<label>Kalite<select id="bmQ"><option value="0">Hepsi</option><option value="1">Normal</option><option value="2">Good</option><option value="3">Outstanding</option><option value="4">Excellent</option><option value="5">Masterpiece</option></select></label>
+<label>En fazla veri yaşı (saat)<input type="number" id="bmAge" value="24" min="1"></label>
+<label>En az kâr %<input type="number" id="bmMin" value="5"></label>
+<label>En fazla kâr % (üstü şüpheli, gizlenir)<input type="number" id="bmMax" value="150"></label>
+<label>En az kâr (silver)<input type="number" id="bmMinS" value="0"></label>
+<label class="c"><input type="checkbox" id="bmPrem" checked> Premium (vergi %4, yoksa %8)</label>
+</div>
+<div class="row" style="margin-top:10px"><b>Tier</b><span id="bmTiers"></span><b style="margin-left:14px">Enchant</b><span id="bmEnc"></span></div>
+<div class="row"><b>Eşya</b><span id="bmCats"></span></div>
+<div class="row"><b>Alış şehirleri</b><span id="bmCities"></span></div>
+<div class="row" style="align-items:center"><button id="bmGo">Tara</button><button class="l" id="bmStop" style="display:none">Durdur</button><span class="st" id="bmSt">Taramak için Tara'ya bas. Eşya sayısı arttıkça tarama uzar (API sınırı için istekler yavaşlatılır).</span></div>
+
+<div class="t"><table id="bmTbl"><thead><tr><th class="nb"><button class="l sb" data-sk="n">Eşya</button></th><th class="nb"><button class="l sb" data-sk="b">Al (en ucuz şehir)</button></th><th class="nb"><button class="l sb" data-sk="v">Black Market</button></th><th><button class="l sb" data-sk="p">Kâr</button></th><th><button class="l sb" data-sk="m">Kâr %</button></th><th><button class="l sb" data-sk="h">BM satış hızı</button></th><th></th></tr></thead><tbody id="bmRows"></tbody></table></div>
+<h2 style="margin-top:16px">Taşıma planı</h2>
+<div class="row" style="align-items:end"><label>Bütçe (silver)<input type="number" id="bmBud" value="1000000"></label><button id="bmPlan">Plan oluştur</button><button class="l" id="bmCopy">Kopyala</button></div>
+<div class="st" id="bmPlanSt">Bütçeye göre en yüksek kâr %'li eşyaları şehir şehir gruplar (her eşyadan 1 adet).</div>
+<div id="bmPlanOut"></div><textarea id="bmPlanTxt" readonly style="width:100%;height:90px;margin-top:8px;display:none"></textarea>
+</section>
+</main>
+
+<script>
+const CITIES=["Caerleon","Bridgewatch","Lymhurst","Martlock","Fort Sterling","Thetford","Brecilien"];
+const pf=v=>parseFloat(String(v).replace(",","."));
+const $=id=>document.getElementById(id);
+function bindDaily(){$("dailyOn").checked=+$("daily").value>0}
+if("serviceWorker" in navigator&&location.protocol.startsWith("http"))navigator.serviceWorker.register("sw.js").catch(()=>{});
+const FOOD=location.hash==="#food",BM=location.hash==="#bm",KS=FOOD?"f":"";
+$("modeP").onclick=()=>{location.hash="";location.reload()};
+$("modeF").onclick=()=>{location.hash="#food";location.reload()};
+$("modeB").onclick=()=>{location.hash="#bm";location.reload()};
+{const cur=BM?"modeB":FOOD?"modeF":"modeP";["modeP","modeF","modeB"].forEach(i=>{if(i===cur)$(i).style.cssText="font-weight:700;box-shadow:0 0 0 2px var(--card),0 0 0 4px var(--acc)";else{$(i).classList.add("l");$(i).style.cssText="opacity:.6;border-color:var(--line)"}})}
+["rid","rf","rrid","rrf"].forEach(i=>$(i).parentElement.style.display="none");
+if(FOOD){
+  document.title="Albion Food Craft Planı";$("ttl").textContent="Food Craft Planı";
+  $("fmode").checked=false;$("cityLbl").style.display="flex";
+  {const h=document.querySelector("#planTbl thead tr"),l=h.lastElementChild;const th=document.createElement("th");th.className="nb";th.textContent="Şehirlere göre kâr %";h.insertBefore(th,l);
+   const w=document.createElement("div");w.className="t";w.id="cityCmp";w.style.marginTop="10px";document.querySelector("#cmpb").closest(".t").after(w)}$("mast").value="0";["rid","rf"].forEach(i=>$(i).parentElement.style.display="none");$("rid").value="T6_MEAL_STEW";$("rf").value="";$("rrid").value="";$("rrf").value="";
+  $("rrid").parentElement.style.display="none";$("rrf").parentElement.style.display="none";
+  const w=document.createTreeWalker(document.body,NodeFilter.SHOW_TEXT);let n;
+  while((n=w.nextNode())){if(n.parentElement.closest("script,style,#modeP,#modeF"))continue;n.nodeValue=n.nodeValue.replace(/potionun/g,"yemeğin").replace(/Potion/g,"Yemek").replace(/potion/g,"yemek")}
+}
+const num=id=>parseFloat($(id).value)||0;
+const fmt=n=>Math.round(n).toLocaleString("tr-TR");
+const DUMP="https://raw.githubusercontent.com/ao-data/ao-bin-dumps/master/items.json";
+let db={},plan=[],px={mats:{},outs:{},city:{}},man={mats:{},outs:{}};
+let spec={},fo={};
+const openRows=new Set();let lastSort="",lastFetch="";
+const base=id=>id.replace(/^T\d_/,"").replace(/@\d$/,"");
+const SH=22.5,SHR=11.25,sp=t=>t in spec?spec[t]:(FOOD?0:100);
+const save=()=>{try{localStorage.setItem("aoplan3"+KS,JSON.stringify({spec,fo,mast:num("mast"),rf:num("rf"),rid:$("rid").value,rrf:$("rrf").value,rrid:$("rrid").value}))}catch(e){}};
+function effFocus(id){
+  if(FOOD){
+    const d=db[id],S=[...new Set(Object.keys(db).map(base))].reduce((a,t)=>a+sp(t),0);
+    return d.focus*Math.pow(0.5,(30*num("mast")+SH*S+250*sp(base(id)))/10000);
+  }
+  const d=db[id],ref=db[$("rid").value.trim()],rf=num("rf");
+  const rr=db[$("rrid").value.trim()],rrf=num("rrf");
+  if(d.rare&&rr&&rr.rare&&rrf&&rr.focus){
+    const Er=10000*Math.log2(rr.focus/rrf);
+    const defR=[...new Set(Object.keys(db).map(base))].reduce((s,t)=>s+100-sp(t),0);
+    const effR=Math.max(0,Er-30*(100-num("mast"))-SHR*defR-250*(100-sp(base(id))));
+    return d.focus*Math.pow(0.5,effR/10000);
+  }
+  if(!ref||!rf||!ref.focus)return d.focus;
+  const E=10000*Math.log2(ref.focus/rf);
+  const shR=ref.rare?SHR:SH,shT=d.rare?SHR:SH;
+  const S=Math.max(0,(E-30*100-250*100)/shR);
+  const Efull=shT===shR?E:30*100+shT*S+250*100;
+  const def=[...new Set(Object.keys(db).map(base))].reduce((s,t)=>s+100-sp(t),0);
+  const eff=Math.max(0,Efull-30*(100-num("mast"))-shT*def-250*(100-sp(base(id))));
+  return d.focus*Math.pow(0.5,eff/10000);
+}
+function renderSpecs(){
+  const ids=Object.keys(db).filter(i=>!i.includes("@")),types=[...new Set(Object.keys(db).map(base))].sort();
+  const rep=t=>{const c=ids.filter(i=>base(i)===t);return c.find(i=>i.startsWith("T6_")&&nm0(i))||c.find(nm0)||c.find(i=>i.startsWith("T6_"))||c[0]||"T6_"+t};
+  const pretty=(id,t)=>{const n=nm0(id);return n?n.replace(/^(Beginner'?s?|Novice'?s?|Journeyman'?s?|Adept'?s?|Expert'?s?|Master'?s?|Grandmaster'?s?|Elder'?s?|Minor|Major|Greater|Lesser|Superior|Fine|Excellent|Mighty)\s+/i,""):t.replace(/^(POTION|MEAL)_/,"").replace(/_/g," ")};
+  $("specs").innerHTML=types.map(t=>{const id=rep(t);return `<label>${img(id)}${esc(pretty(id,t))} spec<input type="number" min="0" max="100" data-sp="${t}" value="${sp(t)}"></label>`}).join("");
+  document.querySelectorAll("[data-sp]").forEach(e=>e.oninput=()=>{spec[e.dataset.sp]=Math.min(100,Math.max(0,pf(e.value)||0));save();calc()});
+}
+let nm={};
+const esc=t=>String(t).replace(/&/g,"&amp;").replace(/"/g,"&quot;").replace(/</g,"&lt;");
+const nm0=id=>nm[id]||nm[id.replace(/@\d$/,"")]||"";
+const label=id=>{const n=nm0(id);if(!n)return id;const m=id.match(/^T(\d)_/),e=id.match(/@(\d)$/);return n+(m?" T"+m[1]:"")+(e?"."+e[1]:"")};
+$("favgBtn").onclick=()=>{
+  const d=db[$("rid").value.trim()];
+  if(!d||!(d.iv>0)){$("ls").textContent="Önce tarifleri yükle, referans potionun item değeri gerekli.";return}
+  const v=Math.round(d.iv*0.1125*d.out/100*num("fee"));
+  $("favg").value=v;calc();
+  $("ls").textContent="Ortalama istasyon ücreti, referans potiondan "+fmt(v)+" olarak hesaplandı.";
+};
+const clock=()=>new Date().toLocaleTimeString("tr-TR",{hour:"2-digit",minute:"2-digit"});
+function ageMin(iso){
+  if(!iso||iso.startsWith("0001"))return null;
+  const t=Date.parse(iso+"Z");
+  return isNaN(t)?null:(Date.now()-t)/6e4;
+}
+function pinfo(isMat,id){
+  if(isMat){
+    if(id in man.mats)return {m:1,has:1};
+    const o=px.mats[id];
+    return {has:!!(o&&o.sell>0),date:o&&o.date};
+  }
+  const order=$("strat").value==="order";
+  if(id in man.outs)return {m:1,has:1};
+  const o=px.outs[id],v=o&&(order?o.sell:o.buy);
+  return {has:!!(v>0),date:o&&(order?o.date:o.bdate)};
+}
+function lvl(i){
+  if(i.m)return 4;
+  if(!i.has)return 3;
+  const m=ageMin(i.date);
+  if(m===null)return 1;
+  return m<60?0:m<1440?1:2;
+}
+function tag(i){
+  const l=lvl(i),c=["d-g","d-y","d-r","d-n","d-m"][l];
+  let t;
+  if(l===4)t="elle girildi";
+  else if(l===3)t="fiyat yok";
+  else{const m=ageMin(i.date);t=m===null?"tarih yok":m<60?Math.max(1,Math.round(m))+" dk önce":m<1440?Math.round(m/60)+" sa önce":Math.round(m/1440)+" gün önce"}
+  return `<span class="dot ${c}"></span><small>${t}</small>`;
+}
+function rowStatus(p){
+  const d=db[p.id],miss=[],old=[];
+  d.mats.forEach(([m])=>{const l=lvl(pinfo(true,m));if(l===3)miss.push(m);else if(l===2)old.push(m)});
+  const l=lvl(pinfo(false,p.id));
+  if(l===3)miss.push(p.id);else if(l===2)old.push(p.id);
+  return {miss,old};
+}
+function mt(p){
+  const e=evalRec(p.id),d=db[p.id],h=hist[p.id];
+  const avg=h&&h.d?h.tot/7:null;
+  return {e,profit:e.profit*p.n,pct:e.net>0?e.profit/e.net:null,kf:e.fc>0?e.profit/e.fc:null,avg,arz:avg>0?d.out*p.n/avg:null,miss:rowStatus(p).miss.length>0};
+}
+const listNames=l=>[...l].slice(0,5).map(x=>esc(label(x))).join(", ")+(l.size>5?" ve "+(l.size-5)+" kalem daha":"");
+function renderTop(){
+  const wrap=$("topWrap");
+  if(!plan.length){wrap.style.display="none";return}
+  wrap.style.display="";
+  const key=$("top5Sel").value;
+  const rows=plan.map(p=>({p,m:mt(p)})),ok=rows.filter(x=>!x.m.miss),skipped=rows.length-ok.length;
+  const val=x=>key==="kf"?x.m.kf:key==="pct"?x.m.pct:key==="kar"?x.m.profit:x.m.avg;
+  const list=ok.filter(x=>val(x)!==null&&isFinite(val(x))).sort((a,b)=>val(b)-val(a)).slice(0,5);
+  const show=v=>key==="kf"?fmt(v)+" silver/focus":key==="pct"?(v*100).toFixed(1)+"%":key==="kar"?fmt(v)+" silver":fmt(v)+" adet/gün";
+  $("top5").innerHTML=list.map(x=>{
+    const m=x.m;
+    const dens=m.avg===0?'<span class="bd bd-r">satış yok</span>':m.arz>7?`<span class="bd bd-r">${m.arz.toFixed(1)} gün arz</span>`:m.arz>3?`<span class="bd bd-y">${m.arz.toFixed(1)} gün arz</span>`:"";
+    const oldN=rowStatus(x.p).old.length,ob=oldN?`<span class="bd bd-r">Eski fiyat (${oldN})</span>`:"";
+    return `<button class="tc" data-id="${esc(x.p.id)}"><span>${img(x.p.id)}${esc(label(x.p.id))}</span><b class="${val(x)>=0?"pos":"neg"}">${show(val(x))}</b><small>Kâr ${fmt(m.profit)}${m.pct===null?"":", %"+(m.pct*100).toFixed(1)}</small>${dens}${ob}</button>`;
+  }).join("");
+  document.querySelectorAll("#top5 .tc").forEach(b=>b.onclick=()=>focusRow(b.dataset.id));
+  $("topNote").textContent=(skipped?skipped+" potionun fiyatı eksik olduğu için sıralamaya girmedi. ":"")+(!list.length&&ok.length?"Bu ölçüt için veri yok. Günlük satış ve kâr/focus için önce Fiyatları çek'e bas.":"");
+}
+function focusRow(id){
+  openRows.add(id);$("onlyIssues").checked=false;calc();
+  const i=plan.findIndex(p=>p.id===id),el=$("r-"+i);
+  if(el){el.scrollIntoView({block:"center"});el.classList.add("fl");setTimeout(()=>el.classList.remove("fl"),1400)}
+}
+function updSum(r){
+  const b=$("buyCity").value,c=$("craftCity").value,s=$("sellCity").value;
+  const route=b===c&&c===s?b+" (alış, craft, satış)":b+" → "+c+" → "+s;
+  const chips=[$("srv").selectedOptions[0].text,route,$("strat").value==="order"?"Sell order":"Instant sell",$("prem").checked?"Premium":"Premium yok",
+    "Geri dönüş %"+(r*100).toFixed(1)+($("foc").checked?" (focus açık)":" (focus kapalı)"),
+    "İstasyon "+($("fmode").checked?fmt(num("favg"))+"/craft":num("fee")+"/100 nutrition")];
+  if($("foc").checked)chips.push("Focus havuzu "+fmt(num("pool")));
+  $("cfgSum").innerHTML=chips.map(x=>`<span class="chip">${esc(x)}</span>`).join("");
+}
+function cpy(el){el.select();const v=el.value;(navigator.clipboard?navigator.clipboard.writeText(v):Promise.reject()).catch(()=>{try{document.execCommand("copy")}catch(e){}});el.style.borderColor="var(--acc)"}
+async function loadNames(){
+  try{
+    const r=await fetch("https://raw.githubusercontent.com/ao-data/ao-bin-dumps/master/formatted/items.txt");
+    if(r.ok)(await r.text()).split("\n").forEach(l=>{const m=l.match(/^\s*\d+:\s*(\S+)\s*:\s*(.+?)\s*$/);if(m)nm[m[1]]=m[2]});
+  }catch(e){}
+  if(!Object.keys(nm).length){
+    try{
+      const r=await fetch("https://raw.githubusercontent.com/ao-data/ao-bin-dumps/master/formatted/items.json");
+      (await r.json()).forEach(i=>{const n=i.LocalizedNames&&i.LocalizedNames["EN-US"];if(n)nm[i.UniqueName]=n});
+    }catch(e){}
+  }
+}
+const TIERS=[4,5,6,7,8,3,2,1];
+const img=id=>`<img src="https://render.albiononline.com/v1/item/${id}.png?size=64" data-id="${id}" data-t="0" onerror="imgFix(this)" width="32" height="32" alt="" loading="lazy" style="vertical-align:middle;margin-right:6px">`;
+function imgFix(el){
+  const nb=el.dataset.id.replace(/@\d$/,""),t=+el.dataset.t;
+  const c=[nb,...TIERS.map(x=>nb.replace(/^T\d_/,"T"+x+"_"))];
+  if(t>=c.length){el.style.visibility="hidden";el.onerror=null;return}
+  el.dataset.t=t+1;el.src=`https://render.albiononline.com/v1/item/${c[t]}.png?size=64`;
+}
+
+["buyCity","craftCity","sellCity"].forEach(id=>$(id).innerHTML=CITIES.map(c=>`<option>${c}</option>`).join(""));
+$("citySel").innerHTML=CITIES.map(c=>`<option>${c}</option>`).join("");
+if(FOOD)["buyCity","craftCity","sellCity"].forEach(i=>$(i).value="Caerleon");
+$("sellCity").value=(FOOD?"Caerleon":"Brecilien");
+$("buyCity").value=(FOOD?"Caerleon":"Brecilien");
+$("craftCity").value=(FOOD?"Caerleon":"Brecilien");
+$("tier").innerHTML='<option value="all">Tüm tier\'lar</option>'+[1,2,3,4,5,6,7,8].map(t=>`<option value="${t}">T${t}</option>`).join("");
+$("tier").value="4";
+
+const arr=x=>x==null?[]:Array.isArray(x)?x:[x];
+function parseReq(id,cr,iv){
+  const c=arr(cr)[0];
+  if(!c)return;
+  const mats=arr(c.craftresource).map(r=>[r["@uniquename"],+r["@count"]||0,r["@maxreturnamount"]==="0"||/ALCHEMY_RARE/.test(r["@uniquename"]||"")]).filter(m=>m[0]&&!/JOURNAL/.test(m[0]));
+  if(!mats.length)return;
+  const rare=mats.some(m=>/ALCHEMY_RARE/.test(m[0]));
+  db[id]={mats,out:rare?10:+(c["@amountcrafted"]||5),focus:+(c["@craftingfocus"]||0),iv:+iv||0,rare};
+}
+
+$("load").onclick=async()=>{
+  $("ls").textContent="Tarifler yükleniyor (dosya büyük, biraz sürebilir)...";
+  try{
+    const res=await fetch(DUMP);
+    if(!res.ok)throw new Error("HTTP "+res.status);
+    const j=await res.json();
+    db={};
+    arr(j.items&&j.items.consumableitem).forEach(it=>{
+      const id=it["@uniquename"];
+      if(!(FOOD?/_MEAL_/:/_POTION_/).test(id))return;
+      parseReq(id,it.craftingrequirements,it["@itemvalue"]);
+      arr(it.enchantments&&it.enchantments.enchantment).forEach(e=>parseReq(id+"@"+e["@enchantmentlevel"],e.craftingrequirements,e["@itemvalue"]||it["@itemvalue"]));
+    });
+    fillPots();renderSpecs();
+    $("ls").textContent=Object.keys(db).length+(FOOD?" yemek":" potion")+" tarifi yüklendi. Eşya adları yükleniyor...";
+    if(pending.length){plan=plan.concat(pending.filter(p=>db[p.id]));pending=[]}
+    const cur=$("pot").value;
+    await loadNames();
+    fillPots();renderSpecs();if(db[cur])$("pot").value=cur;updImg();calc();
+    $("ls").textContent=Object.keys(db).length+(FOOD?" yemek":" potion")+" tarifi yüklendi. "+(Object.keys(nm).length?"Eşya adları yüklendi.":"Eşya adları yüklenemedi, ID'ler gösterilecek.");
+  }catch(e){$("ls").textContent="Tarifler yüklenemedi ("+e.message+"). Bağlantını kontrol et ve tekrar dene.";}
+};
+function fillPots(){
+  const t=$("tier").value;
+  const ids=Object.keys(db).filter(i=>t==="all"||i.startsWith("T"+t+"_")).sort();
+  $("pot").innerHTML=ids.length?ids.map(i=>`<option value="${i}">${esc(label(i))}</option>`).join(""):"<option>Bu tier için tarif yok</option>";
+  updImg();
+}
+function updImg(){const v=$("pot").value,im=$("pimg");im.style.visibility=db[v]?"visible":"hidden";if(db[v]){im.dataset.id=v;im.dataset.t="0";im.onerror=function(){imgFix(this)};im.src=`https://render.albiononline.com/v1/item/${v}.png?size=64`}}
+$("pot").onchange=updImg;
+$("tier").onchange=fillPots;
+
+$("addp").onclick=()=>{
+  const id=$("pot").value;
+  if(!db[id])return;
+  plan.push({id,n:num("cnt")||1});
+  calc();
+};
+
+$("adda").onclick=()=>{
+  const n=num("cnt")||1;
+  [...$("pot").options].map(o=>o.value).filter(v=>db[v]&&!plan.some(p=>p.id===v)).forEach(id=>plan.push({id,n}));
+  calc();
+};
+
+async function getPricesAll(ids){
+  const out={};
+  for(let i=0;i<ids.length;i+=30){
+    const url=`https://${$("srv").value}.albion-online-data.com/api/v2/stats/prices/${ids.slice(i,i+30).join(",")}.json?locations=${CITIES.map(c=>c.replace(" ","")).join(",")}`;
+    let res;
+    try{res=await fetch(url)}catch(e){throw new Error("bağlantı kurulamadı")}
+    if(res.status===429){await new Promise(r=>setTimeout(r,3000));res=await fetch(url)}
+    if(!res.ok)throw new Error("API "+res.status);
+    (await res.json()).forEach(d=>{
+      const c=CITIES.find(x=>x.replace(" ","")===(d.city||"").replace(" ",""));if(!c)return;
+      const m=out[c]||(out[c]={}),o=m[d.item_id]||(m[d.item_id]={sell:0,buy:0,date:""});
+      if(d.sell_price_min>0&&(!o.sell||d.sell_price_min<o.sell)){o.sell=d.sell_price_min;o.date=d.sell_price_min_date}
+      if(d.buy_price_max>o.buy){o.buy=d.buy_price_max;o.bdate=d.buy_price_max_date}
+    });
+  }
+  return out;
+}
+const mergeCity=(a,b)=>{const o=Object.assign({},a);Object.keys(b).forEach(c=>o[c]=Object.assign({},o[c],b[c]));return o};
+function cityRes(id){
+  const d=db[id],order=$("strat").value==="order",e=evalRec(id),tax=($("prem").checked?4:8)+(order?num("setup"):0);
+  return CITIES.map(c=>{
+    const o=px.city[c]&&px.city[c][id];
+    const p=c===$("sellCity").value&&id in man.outs?man.outs[id]:(o?(order?o.sell:o.buy):0);
+    if(!(p>0)||!(e.net>0))return {c,pct:null};
+    return {c,pct:(p*d.out*(1-tax/100)-e.net)/e.net};
+  });
+}
+const pc=v=>(v*100).toFixed(1)+"%";
+function cityCell(id){
+  if(!FOOD)return "";
+  const l=cityRes(id).filter(x=>x.pct!==null).sort((a,b)=>b.pct-a.pct);
+  if(!l.length)return '<td data-l="Şehirlere göre kâr %"><small>Fiyatları çek</small></td>';
+  return `<td data-l="Şehirlere göre kâr %" style="min-width:150px">${l.map((x,i)=>`<div style="white-space:nowrap;font-size:12px"${i===0?' class="pos"':x.pct<0?' class="neg"':""}>${i===0?"★ ":""}${esc(x.c)} <b>${pc(x.pct)}</b></div>`).join("")}</td>`;
+}
+async function getPrices(ids,city){
+  const out={},loc=city.replace(" ","");
+  for(let i=0;i<ids.length;i+=30){
+    const url=`https://${$("srv").value}.albion-online-data.com/api/v2/stats/prices/${ids.slice(i,i+30).join(",")}.json?locations=${loc}`;
+    let res;
+    try{res=await fetch(url)}catch(e){throw new Error("bağlantı kurulamadı")}
+    if(res.status===429){await new Promise(r=>setTimeout(r,3000));res=await fetch(url)}
+    if(!res.ok)throw new Error("API "+res.status);
+    (await res.json()).forEach(d=>{
+      const o=out[d.item_id]||(out[d.item_id]={sell:0,buy:0,date:""});
+      if(d.sell_price_min>0&&(!o.sell||d.sell_price_min<o.sell)){o.sell=d.sell_price_min;o.date=d.sell_price_min_date}
+      if(d.buy_price_max>o.buy){o.buy=d.buy_price_max;o.bdate=d.buy_price_max_date}
+    });
+  }
+  return out;
+}
+$("fetch").onclick=async()=>{
+  const outs=[...new Set(plan.map(p=>p.id))];
+  const mats=[...new Set(plan.flatMap(p=>db[p.id].mats.map(m=>m[0])))];
+  if(!outs.length){$("fs").textContent="Önce plana potion ekle.";return}
+  $("fs").textContent="Fiyatlar çekiliyor...";
+  try{
+    px.mats=await getPrices(mats,$("buyCity").value);
+    px.outs=await getPrices(outs,$("sellCity").value);
+    if(FOOD)px.city=mergeCity(px.city,await getPricesAll(outs));
+    const miss=mats.filter(m=>!(px.mats[m]&&px.mats[m].sell)).concat(outs.filter(o=>!(px.outs[o]&&px.outs[o][$("strat").value==="order"?"sell":"buy"])));
+    const old=mats.filter(m=>px.mats[m]&&px.mats[m].date&&Date.now()-Date.parse(px.mats[m].date+"Z")>864e5);
+    lastFetch=clock();$("fs").textContent="Fiyatlar "+clock()+" itibarıyla güncellendi ("+(mats.length-miss.filter(x=>mats.includes(x)).length)+"/"+mats.length+" malzeme bulundu)."+(miss.length?" Fiyatı bulunamayan: "+miss.join(", ")+" (elle girebilirsin)."  :"")+(old.length?" 24 saatten eski fiyat: "+old.length+" malzeme.":"");
+    await loadHist(outs,"fs");
+  }catch(e){$("fs").textContent="Fiyat çekilemedi ("+e.message+"). Sunucuyu kontrol et, birkaç saniye bekleyip tekrar dene ya da fiyatları elle gir.";}
+  calc();
+};
+
+function rrr(){
+  const lpb=num("lpbBase")+($("cb").checked?num("lpbCity"):0)+($("foc").checked?num("lpbFocus"):0)+num("daily");
+  return 1-1/(1+lpb/100);
+}
+const pM=m=>m in man.mats?man.mats[m]:((px.mats[m]&&px.mats[m].sell)||0);
+const pO=(id,o)=>id in man.outs?man.outs[id]:((px.outs[id]&&px.outs[id][o?"sell":"buy"])||0);
+$("clr").onclick=()=>{man={mats:{},outs:{}};calc()};
+function calc(){
+  bindDaily();if(FOOD&&$("citySel").value!==$("craftCity").value)$("citySel").value=$("craftCity").value;$("cb").checked=$("craftCity").value===(FOOD?"Caerleon":"Brecilien");
+  const ae=document.activeElement,ak=ae&&ae.dataset&&ae.dataset.k;const cp=ae&&typeof ae.selectionStart==="number"?ae.selectionStart:null;
+  const r=rrr(),order=$("strat").value==="order";
+  const tax=($("prem").checked?4:8)+(order?num("setup"):0);
+  $("rr").textContent="Kaynak geri dönüşü: %"+(r*100).toFixed(1)+" | satış kesintisi: %"+tax.toFixed(1);
+  updSum(r);
+  let gross=0,ret=0,rev=0,st=0,focus=0;
+  const shop={},nrs={};
+  const rowsH=[],wMiss=new Set(),wOld=new Set();
+  plan.forEach((p,i)=>{
+    const d=db[p.id],fc=p.id in fo?fo[p.id]:effFocus(p.id);
+    let mc=0,mr=0;
+    d.mats.forEach(([m,q,nr])=>{shop[m]=(shop[m]||0)+q*p.n;if(nr)nrs[m]=1;const c=q*p.n*pM(m);mc+=c;if(!nr)mr+=c});
+    const auto=(px.outs[p.id]&&px.outs[p.id][order?"sell":"buy"])||0;
+    const sp=pO(p.id,order);
+    const rv=sp*d.out*p.n*(1-tax/100);
+    const fee=stFee(p.id)*p.n;
+    const net=mc-mr*r+fee;
+    gross+=mc;ret+=mr*r;rev+=rv;st+=fee;
+    if($("foc").checked)focus+=fc*p.n;
+    const pr=rv-net,stt=rowStatus(p);
+    stt.miss.forEach(x=>wMiss.add(x));stt.old.forEach(x=>wOld.add(x));
+    const bad=stt.miss.length||stt.old.length;
+    if($("onlyIssues").checked&&!bad)return;
+    const bdg=stt.miss.length?`<br><span class="bd bd-r">Fiyat eksik (${stt.miss.length})</span>`:stt.old.length?`<br><span class="bd bd-r">Eski fiyat (${stt.old.length})</span>`:"";
+    const open=openRows.has(p.id),kf=fc>0?pr/(fc*p.n):null,cl=pr>=0?"pos":"neg";
+    rowsH.push(`<tr class="pr" id="r-${i}"><td>${img(p.id)}${esc(label(p.id))}${bdg}</td><td data-l="Craft"><input type="text" inputmode="decimal" data-k="n${i}" data-n="${i}" value="${p.n}" style="width:64px"></td><td data-l="Satış fiyatı"><input type="text" inputmode="decimal" data-k="o:${p.id}" data-o="${p.id}" value="${p.id in man.outs?man.outs[p.id]:""}" placeholder="${fmt(auto)}" style="width:96px"><br>${tag(pinfo(false,p.id))}</td><td data-l="Kâr / oran" class="${cl}">${fmt(pr)}<br><small>${net>0?(pr/net*100).toFixed(1)+"%":"-"}</small></td><td data-l="Focus">${fc?fmt(fc*p.n):"-"}<br><small>${fc?fc.toFixed(1)+"/craft":""}</small></td><td data-l="Kâr / focus">${kf===null?"-":fmt(kf)}</td><td data-l="Günlük satış">${histCell(p.id,p.n,d.out)}</td>${cityCell(p.id)}<td style="white-space:nowrap"><button class="l ic tg" data-t="${esc(p.id)}" aria-label="Ayrıntı" aria-expanded="${open}">${open?"▾":"▸"}</button><button class="l ic" data-i="${i}" aria-label="Sil">✕</button></td></tr>`);
+    if(open)rowsH.push(`<tr class="dt"><td colspan="${FOOD?9:8}"><div class="dg"><div>Çıkan potion: <b>${fmt(d.out*p.n)}</b></div><div>Malzeme (brüt): <b>${fmt(mc)}</b></div><div>Geri dönen: <b>-${fmt(mr*r)}</b></div><div>İstasyon: <b>${fmt(fee)}</b> (${fmt(stFee(p.id))}/craft)</div><div>Net maliyet: <b>${fmt(net)}</b></div><div>Satış (kesinti sonrası): <b>${fmt(rv)}</b></div><div>Focus: <b>${fmt(fc*p.n)}</b> (${fc.toFixed(1)}/craft, taban ${fmt(d.focus)})</div>${d.rare?'<div>Nadir malzemeli potion: ortak focus bonusu 11,25, malzeme return yok</div>':""}${stt.miss.length?`<div class="neg">Eksik fiyat: ${esc(stt.miss.map(label).join(", "))}</div>`:""}${stt.old.length?`<div class="neg">24 saatten eski: ${esc(stt.old.map(label).join(", "))}</div>`:""}</div></td></tr>`);
+  });
+  $("plan").innerHTML=rowsH.join("")||`<tr><td colspan="${FOOD?9:8}">${plan.length?"Sorunlu satır yok.":"Plan boş. Yukarıdan tarif ekle."}</td></tr>`;
+  const fetched=Object.keys(px.mats).length||Object.keys(px.outs).length;
+  $("warn").innerHTML=!plan.length?"":!fetched&&!wMiss.size?"":!fetched?'<div class="warn">Fiyatlar henüz çekilmedi. Fiyatları çek düğmesine bas.</div>':(wMiss.size||wOld.size)?`<div class="warn"><b>Dikkat:</b> ${wMiss.size?`${wMiss.size} kalemin fiyatı eksik (${listNames(wMiss)}). `:""}${wOld.size?`${wOld.size} kalemin fiyatı 24 saatten eski (${listNames(wOld)}). `:""}Bu fiyatlar kâr hesabını yanıltabilir. Oyunda pazara bakıp tekrar çek ya da elle gir.</div>`:`<div class="warn ok">Eksik ya da 24 saatten eski fiyat yok${lastFetch?" (son çekme "+lastFetch+")":""}.</div>`;
+  ["P","M","H","F"].forEach(k=>$("sort"+k).classList.toggle("on",lastSort===k));
+  const cost=gross-ret+st,profit=rev-cost,left=num("pool")-focus;
+  $("out").innerHTML=[["Brüt malzeme",fmt(gross)],["Geri dönen değer","-"+fmt(ret)],["İstasyon ücreti",fmt(st)],["Toplam maliyet",fmt(cost)],["Satış (kesinti sonrası)",fmt(rev)],["Focus kullanımı",fmt(focus)]]
+   .map(([a,b])=>`<div class="k"><div>${a}</div><b>${b}</b></div>`).join("")
+   +`<div class="k"><div>Kâr</div><b class="${profit>=0?"pos":"neg"}">${fmt(profit)}</b><div>Marj: ${cost?(profit/cost*100).toFixed(1)+"%":"-"}</div>${focus?`<div>Focus başına: ${fmt(profit/focus)}</div>`:""}</div>`+($("foc").checked?`<div class="k"><div>Kalan focus</div><b class="${left>=0?"pos":"neg"}">${fmt(left)}</b>${left<0?"<div>Havuz yetmiyor</div>":""}</div>`:"");
+  $("shop").innerHTML=Object.entries(shop).map(([m,q])=>`<tr><td>${img(m)}${esc(label(m))}${nrs[m]?" <small>(return yok)</small>":""}</td><td><input readonly class="cp" value="${esc(nm0(m)||m)}" onclick="cpy(this)"></td><td><input readonly class="cp" style="width:100px" value="${Math.round(q)}" onclick="cpy(this)"></td><td><input readonly class="cp" style="width:100px" value="${nrs[m]?Math.round(q):Math.ceil(q*(1-r))}" onclick="cpy(this)"></td><td><input type="text" inputmode="decimal" data-k="m:${m}" data-m="${m}" value="${m in man.mats?man.mats[m]:""}" placeholder="${fmt((px.mats[m]&&px.mats[m].sell)||0)}" style="width:100px"><br>${tag(pinfo(true,m))}</td></tr>`).join("")||'<tr><td colspan="5">Liste boş.</td></tr>';
+  document.querySelectorAll("#plan button[data-i]").forEach(b=>b.onclick=()=>{plan.splice(+b.dataset.i,1);calc()});
+  document.querySelectorAll("#plan .tg").forEach(b=>b.onclick=()=>{const id=b.dataset.t;if(openRows.has(id))openRows.delete(id);else openRows.add(id);calc()});
+  document.querySelectorAll("[data-n]").forEach(e=>e.oninput=()=>{plan[+e.dataset.n].n=pf(e.value)||0;calc()});
+  document.querySelectorAll("[data-o]").forEach(e=>e.oninput=()=>{if(e.value==="")delete man.outs[e.dataset.o];else man.outs[e.dataset.o]=pf(e.value)||0;calc()});
+  document.querySelectorAll("[data-f]").forEach(e=>e.oninput=()=>{if(e.value==="")delete fo[e.dataset.f];else fo[e.dataset.f]=pf(e.value)||0;save();calc()});
+  document.querySelectorAll("[data-m]").forEach(e=>e.oninput=()=>{if(e.value==="")delete man.mats[e.dataset.m];else man.mats[e.dataset.m]=pf(e.value)||0;calc()});
+  syncCmpSel();if(cmpShown)renderCmp();
+  renderTop();
+  if(ak){const e=document.querySelector(`[data-k="${ak}"]`);if(e){e.focus();if(cp!==null)try{e.setSelectionRange(cp,cp)}catch(x){}}}
+}
+function evalRec(id){
+  const d=db[id],r=rrr(),order=$("strat").value==="order";
+  const tax=($("prem").checked?4:8)+(order?num("setup"):0);
+  const mc=d.mats.reduce((s,[m,q])=>s+q*pM(m),0),mr=d.mats.reduce((s,[m,q,nr])=>s+(nr?0:q*pM(m)),0);
+  const rv=pO(id,order)*d.out*(1-tax/100);
+  const net=mc-mr*r+stFee(id);
+  return {net,rv,profit:rv-net,fc:id in fo?fo[id]:effFocus(id)};
+}
+let hist={};
+async function getHist(ids,city){
+  const out={},loc=city.replace(" ",""),cut=Date.now()-7*864e5;
+  for(let i=0;i<ids.length;i+=30){
+    const url=`https://${$("srv").value}.albion-online-data.com/api/v2/stats/history/${ids.slice(i,i+30).join(",")}.json?locations=${loc}&time-scale=24`;
+    let res;
+    try{res=await fetch(url)}catch(e){throw new Error("bağlantı kurulamadı")}
+    if(res.status===429){await new Promise(r=>setTimeout(r,3000));res=await fetch(url)}
+    if(!res.ok)throw new Error("API "+res.status);
+    (await res.json()).forEach(x=>{
+      const o=out[x.item_id]||(out[x.item_id]={tot:0,days:new Set()});
+      (x.data||[]).forEach(d=>{if(Date.parse(d.timestamp+"Z")>=cut){o.tot+=d.item_count||0;o.days.add(d.timestamp)}});
+    });
+  }
+  Object.values(out).forEach(o=>{o.d=o.days.size;delete o.days});
+  return out;
+}
+async function loadHist(ids,el){
+  try{Object.assign(hist,await getHist(ids,$("sellCity").value));$(el).textContent+=" Satış verisi güncellendi."}
+  catch(e){$(el).textContent+=" Satış verisi alınamadı ("+e.message+")."}
+}
+function histCell(id,n,out){
+  const h=hist[id];
+  if(!h)return "-";
+  if(!h.d)return '<span class="bd bd-n">veri yok</span>';
+  const avg=h.tot/7;
+  if(!(avg>0))return '<span class="bd bd-r">satış yok</span>';
+  const arz=out*n/avg,c=arz>7?"bd-r":arz>3?"bd-y":"bd-g",w=arz>7?" (yüksek)":arz>3?" (dikkat)":"";
+  return `${fmt(avg)}/gün<br><span class="bd ${c}" title="Bu miktarı satmak piyasanın yaklaşık bu kadar günlük satışına denk gelir">${arz.toFixed(1)} gün arz${w}</span>${h.d<7?" <small>("+h.d+" gün veri)</small>":""}`;
+}
+let cmpKey="",cmpShown=false;
+function cmpBases(){
+  const b=[...new Set(plan.map(p=>p.id.replace(/@\d$/,"")))];
+  if(b.length)return b;
+  const v=$("pot").value;
+  return db[v]?[v.replace(/@\d$/,"")]:[];
+}
+function syncCmpSel(){
+  const b=cmpBases(),key=b.join("|");
+  if(key===cmpKey)return;
+  cmpKey=key;
+  const cur=$("cmpSel").value;
+  $("cmpSel").innerHTML=(b.length>1?`<option value="all">Hepsi (${b.length})</option>`:"")+b.map(i=>`<option value="${i}">${esc(label(i))}</option>`).join("");
+  if([...$("cmpSel").options].some(o=>o.value===cur))$("cmpSel").value=cur;
+}
+const stFee=id=>{const d=db[id];if($("fmode").checked)return num("favg");return d&&d.iv>0?d.iv*0.1125*d.out/100*num("fee"):0};
+const cnt=id=>{const x=plan.find(p=>p.id===id)||plan.find(p=>p.id.replace(/@\d$/,"")===id.replace(/@\d$/,""));return x?x.n:1};
+function renderCmp(){
+  const sel=$("cmpSel").value||"all",b=cmpBases(),list=sel==="all"?b:b.filter(x=>x===sel),pool=num("pool");
+  $("cmpb").innerHTML=list.map(base=>{
+    const rows=[base,base+"@1",base+"@2",base+"@3"].filter(i=>db[i]).map(id=>({id,e:evalRec(id)}));
+    let best=-1,bv=-Infinity;
+    rows.forEach((r,i)=>{const v=r.e.fc>0?r.e.profit/r.e.fc:r.e.profit;if(v>bv){bv=v;best=i}});
+    return `<tr><td colspan="10"><b>${img(base)}${esc(label(base))}</b></td></tr>`+rows.map((r,i)=>{
+      const n=cnt(r.id),e=r.e,k=e.fc>0?Math.floor(pool/e.fc):0,c=e.profit>=0?"pos":"neg";
+      return `<tr><td>${esc(r.id.includes("@")?"."+r.id.split("@")[1]:".0")}${i===best?" ★":""}</td><td>${fmt(n)}<br><small>${fmt(n*db[r.id].out)} potion</small></td><td>${fmt(e.net*n)}</td><td>${fmt(e.rv*n)}<br>${tag(pinfo(false,r.id))}</td><td class="${c}">${fmt(e.profit*n)}</td><td>${fmt(e.fc*n)}</td><td>${e.fc>0?fmt(e.profit/e.fc):"-"}</td><td>${k}</td><td class="${c}">${fmt(e.profit*k)}</td><td>${histCell(r.id,n,db[r.id].out)}</td></tr>`;
+    }).join("");
+  }).join("")||'<tr><td colspan="10">Karşılaştırılacak potion yok. Plana potion ekle.</td></tr>';
+}
+const _rc=renderCmp;
+renderCmp=function(){
+  _rc();
+  if(!FOOD)return;
+  const sel=$("cmpSel").value||"all",b=cmpBases(),list=sel==="all"?b:b.filter(x=>x===sel);
+  $("cityCmp").innerHTML=list.length?`<table><thead><tr><th>Şehirlere göre kâr % (satış şehri)</th>${CITIES.map(c=>`<th>${esc(c)}</th>`).join("")}</tr></thead><tbody>`+list.map(base=>{
+    const rows=[base,base+"@1",base+"@2",base+"@3"].filter(i=>db[i]).map(id=>({id,r:cityRes(id)}));
+    let bv=-Infinity;rows.forEach(x=>x.r.forEach(y=>{if(y.pct!==null&&y.pct>bv)bv=y.pct}));
+    return `<tr><td colspan="${CITIES.length+1}"><b>${img(base)}${esc(label(base))}</b></td></tr>`+rows.map(x=>`<tr><td>${esc(x.id.includes("@")?"."+x.id.split("@")[1]:".0")}</td>${x.r.map(y=>y.pct===null?"<td>-</td>":`<td class="${y.pct<0?"neg":"pos"}">${y.pct===bv?"★ ":""}${pc(y.pct)}</td>`).join("")}</tr>`).join("");
+  }).join("")+"</tbody></table>":"";
+};
+$("cmpSel").onchange=renderCmp;
+$("cmp").onclick=async()=>{
+  syncCmpSel();
+  const b=cmpBases();
+  if(!b.length){$("cs").textContent="Önce plana potion ekle.";return}
+  const ids=b.flatMap(x=>[x,x+"@1",x+"@2",x+"@3"]).filter(i=>db[i]);
+  const mats=[...new Set(ids.flatMap(i=>db[i].mats.map(m=>m[0])))];
+  $("cs").textContent="Fiyatlar çekiliyor...";
+  try{
+    px.mats=Object.assign({},px.mats,await getPrices(mats,$("buyCity").value));
+    px.outs=Object.assign({},px.outs,await getPrices(ids,$("sellCity").value));
+    if(FOOD)px.city=mergeCity(px.city,await getPricesAll(ids));
+    $("cs").textContent="Fiyatlar "+clock()+" itibarıyla güncellendi.";
+    await loadHist(ids,"cs");
+  }catch(e){$("cs").textContent="Fiyat çekilemedi ("+e.message+"). Eldeki fiyatlarla gösteriliyor."}
+  cmpShown=true;
+  calc();
+};
+const SET=["srv","buyCity","craftCity","sellCity","strat","setup","lpbBase","lpbCity","lpbFocus","daily","fee","pool","mast","rf","rid","rrf","rrid","favg"],CHK=["prem","cb","foc","fmode"];
+let pending=[];
+const pfs=()=>{try{return JSON.parse(localStorage.getItem("aoprofiles"+KS)||"{}")}catch(e){return{}}};
+function pfList(sel){
+  const o=pfs();
+  $("pfSel").innerHTML='<option value="">Profil seç</option>'+Object.keys(o).map(n=>`<option value="${esc(n)}">${esc(n)}</option>`).join("");
+  $("pfSel").value=sel&&o[sel]?sel:"";
+}
+function snap(){
+  return {v:Object.fromEntries(SET.map(i=>[i,$(i).value])),c:Object.fromEntries(CHK.map(i=>[i,$(i).checked])),
+    spec:Object.assign({},spec),man:JSON.parse(JSON.stringify(man)),
+    plan:$("pfPlan").checked?plan.map(p=>({id:p.id,n:p.n})):null};
+}
+function applyPf(d){
+  SET.forEach(i=>{if(d.v&&i in d.v)$(i).value=d.v[i]});
+  CHK.forEach(i=>{if(d.c&&i in d.c)$(i).checked=d.c[i]});
+  spec=Object.assign({},d.spec||{});
+  man=d.man||{mats:{},outs:{}};
+  if(d.plan){plan=d.plan.filter(p=>db[p.id]);pending=d.plan.filter(p=>!db[p.id])}
+  save();
+  if(Object.keys(db).length)renderSpecs();
+  calc();
+}
+const setActive=n=>{try{localStorage.setItem("aoactive"+KS,n)}catch(e){}};
+$("pfSel").onchange=()=>{
+  const n=$("pfSel").value,o=pfs();
+  if(!n||!o[n])return;
+  applyPf(o[n]);$("pfName").value=n;setActive(n);
+  $("pfSt").textContent=`"${n}" profili yüklendi.`+(pending.length?" Plandaki potionlar için Tarifleri yükle düğmesine bas.":"");
+};
+$("pfSave").onclick=()=>{
+  const n=$("pfName").value.trim()||$("pfSel").value;
+  if(!n){document.querySelector(".pfm").open=true;$("pfName").focus();$("pfSt").textContent="Önce bir profil adı yaz (Profil işlemleri bölümünde).";return}
+  const o=pfs();o[n]=snap();
+  try{localStorage.setItem("aoprofiles"+KS,JSON.stringify(o))}catch(e){$("pfSt").textContent="Tarayıcı kaydetmeye izin vermedi.";return}
+  setActive(n);pfList(n);$("pfName").value=n;
+  $("pfSt").textContent=`"${n}" kaydedildi.`;
+};
+$("pfDel").onclick=()=>{
+  const n=$("pfSel").value;
+  if(!n||!confirm(`"${n}" profili silinsin mi?`))return;
+  const o=pfs();delete o[n];
+  try{localStorage.setItem("aoprofiles"+KS,JSON.stringify(o))}catch(e){}
+  pfList("");$("pfName").value="";$("pfSt").textContent=`"${n}" silindi.`;
+};
+const DEF={srv:"europe",buyCity:FOOD?"Caerleon":"Brecilien",craftCity:FOOD?"Caerleon":"Brecilien",sellCity:FOOD?"Caerleon":"Brecilien",strat:"order",setup:"2.5",lpbBase:"18",lpbCity:"15",lpbFocus:"59",daily:"0",fee:"400",pool:"10000",mast:FOOD?"0":"100",rf:FOOD?"":"107",rid:FOOD?"T6_MEAL_STEW":"T6_POTION_HEAL@1",rrf:FOOD?"":"281",rrid:FOOD?"":"T8_POTION_LAVA",favg:"6000"};
+$("pfReset").onclick=()=>{
+  if(!confirm("Ayarlar, plan ve elle girilen fiyatlar sıfırlansın mı? Kayıtlı profillerin silinmez."))return;
+  applyPf({v:DEF,c:{prem:true,cb:true,foc:false,fmode:!FOOD},spec:{},man:{mats:{},outs:{}},plan:[]});
+  $("pfSel").value="";$("pfName").value="";setActive("");
+  $("pfSt").textContent="Ayarlar sıfırlandı. Kayıtlı profillerin duruyor.";
+};
+$("pfExp").onclick=()=>{
+  const o=pfs();
+  if(!Object.keys(o).length){$("pfSt").textContent="Dışa aktarılacak profil yok.";return}
+  const a=document.createElement("a");
+  a.href=URL.createObjectURL(new Blob([JSON.stringify(o)],{type:"application/json"}));
+  a.download="albion-profiller.json";a.click();
+  setTimeout(()=>URL.revokeObjectURL(a.href),1000);
+  $("pfSt").textContent="Profiller albion-profiller.json olarak indirildi.";
+};
+$("pfImp").onclick=()=>$("pfFile").click();
+$("pfFile").onchange=async()=>{
+  const f=$("pfFile").files[0];
+  if(!f)return;
+  try{
+    const j=JSON.parse(await f.text());
+    const names=Object.keys(j||{}).filter(n=>j[n]&&j[n].v);
+    if(!names.length)throw 0;
+    const o=pfs();
+    names.forEach(n=>o[n]=j[n]);
+    localStorage.setItem("aoprofiles"+KS,JSON.stringify(o));
+    pfList($("pfSel").value);
+    $("pfSt").textContent=names.length+" profil yüklendi: "+names.join(", ")+". Aynı adlı profillerin üzerine yazıldı.";
+  }catch(e){$("pfSt").textContent="Dosya okunamadı. Dışa aktardığın albion-profiller.json dosyasını seç."}
+  $("pfFile").value="";
+};
+const miss1=p=>rowStatus(p).miss.length?1:0;
+const sortBy=(f,k)=>{plan.sort((a,b)=>miss1(a)-miss1(b)||f(b)-f(a));lastSort=k;calc()};
+$("sortM").onclick=()=>sortBy(p=>{const e=evalRec(p.id);return e.net>0?e.profit/e.net:-1e9},"M");
+$("sortP").onclick=()=>sortBy(p=>evalRec(p.id).profit*p.n,"P");
+$("sortH").onclick=()=>sortBy(p=>hist[p.id]&&hist[p.id].d?hist[p.id].tot/7:-1,"H");
+$("sortF").onclick=()=>sortBy(p=>{const e=evalRec(p.id);return e.fc>0?e.profit/e.fc:-1e9},"F");
+try{const x=JSON.parse(localStorage.getItem("aoplan3"+KS)||"{}");spec=x.spec||{};fo={};$("mast").value=x.mast==null?(FOOD?0:100):x.mast;if(x.rf)$("rf").value=x.rf;if(x.rid)$("rid").value=x.rid;if(x.rrf)$("rrf").value=x.rrf;if(x.rrid)$("rrid").value=x.rrid}catch(e){}
+["mast","rf","rid","rrf","rrid"].forEach(i=>$(i).addEventListener("input",save));
+try{const act=localStorage.getItem("aoactive"+KS),o=pfs();pfList(act);if(act&&o[act]){applyPf(o[act]);$("pfName").value=act}}catch(e){}
+$("citySel").addEventListener("change",()=>{
+  const v=$("citySel").value;["buyCity","craftCity","sellCity"].forEach(i=>$(i).value=v);
+  px={mats:{},outs:{},city:px.city};hist={};
+  calc();
+  if(plan.length)$("fetch").click();
+});
+$("dailyOn").addEventListener("change",()=>{$("daily").value=$("dailyOn").checked?"10":"0";calc()});
+
+document.querySelectorAll("#srv,#buyCity,#craftCity,#sellCity,#onlyIssues,#top5Sel,#strat,#prem,#setup,#cb,#foc,#lpbBase,#lpbCity,#lpbFocus,#daily,#mast,#rf,#rid,#rrf,#rrid,#fee,#pool,#favg,#fmode").forEach(e=>e.addEventListener("input",calc));
+calc();
+
+const BMC={weapon:["Silah",/^T\d_(MAIN|2H)_/],armor:["Zırh",/^T\d_ARMOR_/],head:["Kafalık",/^T\d_HEAD_/],shoes:["Ayakkabı",/^T\d_SHOES_/],off:["Offhand",/^T\d_OFF_/],bag:["Çanta/Pelerin",/^T\d_(BAG|CAPE)/]};
+function initBM(){
+  [...document.querySelector("main").children].forEach(el=>{if(el.id!=="bmApp"&&!el.classList.contains("row")&&el!==$("ttl").parentElement)el.style.display="none"});
+  $("bmApp").style.display="block";document.title="Albion Black Market Flip";$("ttl").textContent="Black Market Flip";
+  const chk=(box,items,def)=>{$(box).innerHTML=items.map(([v,t])=>`<label class="c" style="display:inline-flex;margin-right:10px"><input type="checkbox" data-bm="${box}" value="${v}"${def(v)?" checked":""}> ${t}</label>`).join("")};
+  chk("bmTiers",[4,5,6,7,8].map(t=>[t,"T"+t]),()=>true);
+  chk("bmEnc",[0,1,2,3].map(e=>[e,"."+e]),()=>true);
+  chk("bmCats",Object.entries(BMC).map(([k,v])=>[k,v[0]]),()=>true);
+  chk("bmCities",CITIES.map(c=>[c,c]),()=>true);
+  const SV=["bmSrv","bmQ","bmAge","bmMin","bmMax","bmMinS","bmBud"];
+  try{const x=JSON.parse(localStorage.getItem("aobm1")||"{}");SV.forEach(i=>{if(x[i]!=null)$(i).value=x[i]});if(x.prem!=null)$("bmPrem").checked=x.prem;(x.box||[]).forEach(([k,v,c])=>{const e=document.querySelector(`[data-bm="${k}"][value="${v}"]`);if(e)e.checked=c})}catch(e){}
+  const saveBm=()=>{try{const o={prem:$("bmPrem").checked,box:[...document.querySelectorAll("[data-bm]")].map(e=>[e.dataset.bm,e.value,e.checked])};SV.forEach(i=>o[i]=$(i).value);localStorage.setItem("aobm1",JSON.stringify(o))}catch(e){}};
+  document.querySelectorAll("#bmApp input,#bmApp select").forEach(e=>e.addEventListener("change",saveBm));
+  const picks=k=>[...document.querySelectorAll(`[data-bm="${k}"]:checked`)].map(e=>e.value);
+  const ageOk=iso=>{const m=ageMin(iso);return m!==null&&m<=num("bmAge")*60};
+  const ageTxt=iso=>{const m=ageMin(iso);return m===null?"?":m<60?Math.max(1,Math.round(m))+" dk":m<1440?Math.round(m/60)+" sa":Math.round(m/1440)+" gün"};
+  const dot=iso=>{const m=ageMin(iso);return `<span class="dot ${m===null?"d-n":m<60?"d-g":m<1440?"d-y":"d-r"}"></span><small>${ageTxt(iso)} önce</small>`};
+  const QN=["","Normal","Good","Outstanding","Excellent","Masterpiece"];
+  const qp=()=>$("bmQ").value==="0"?"1,2,3,4,5":$("bmQ").value;
+  const qOk=q=>$("bmQ").value==="0"?(+q>=1&&+q<=5):+q===+$("bmQ").value;
+  const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+  let stop=false,rows=[],sortK="p",hist={};
+  async function api(path){
+    const url=`https://${$("bmSrv").value}.albion-online-data.com/api/v2/stats/${path}`;
+    for(let t=0;t<3;t++){
+      let res;try{res=await fetch(url)}catch(e){throw new Error("bağlantı kurulamadı")}
+      if(res.status===429){await sleep(10000);continue}
+      if(!res.ok)throw new Error("API "+res.status);
+      return res.json();
+    }
+    throw new Error("istek sınırı (429), biraz bekleyip tekrar dene");
+  }
+  async function scan(){
+    const tiers=picks("bmTiers"),encs=picks("bmEnc"),cats=picks("bmCats"),cities=picks("bmCities");
+    if(!tiers.length||!encs.length||!cats.length||!cities.length){$("bmSt").textContent="Tier, enchant, eşya türü ve alış şehri seçmelisin.";return}
+    stop=false;$("bmGo").disabled=true;$("bmStop").style.display="";rows=[];hist={};render();
+    try{
+      $("bmSt").textContent="Eşya listesi yükleniyor...";
+      if(!Object.keys(nm).length)await loadNames();
+      const baseIds=[...new Set(Object.keys(nm).map(k=>k.replace(/@\d$/,"")))].filter(k=>/^T[4-8]_/.test(k)&&cats.some(c=>BMC[c][1].test(k))&&tiers.includes(k[1]));
+      if(!baseIds.length)throw new Error("eşya listesi alınamadı");
+      const ids=baseIds.flatMap(b=>encs.map(e=>+e?b+"@"+e:b)),q=qp(),bm={};
+      const CH=80,total=Math.ceil(ids.length/CH);
+      for(let i=0,n=0;i<ids.length&&!stop;i+=CH,n++){
+        $("bmSt").textContent=`Black Market fiyatları taranıyor ${n+1}/${total} (${ids.length} eşya)...`;
+        (await api(`prices/${ids.slice(i,i+CH).join(",")}.json?locations=BlackMarket&qualities=${q}`)).forEach(d=>{
+          if(d.buy_price_max>0&&qOk(d.quality)&&ageOk(d.buy_price_max_date))bm[d.item_id+"|"+d.quality]={p:d.buy_price_max,d:d.buy_price_max_date}});
+        await sleep(600);
+      }
+      const cand=[...new Set(Object.keys(bm).map(k=>k.split("|")[0]))],cp={};
+      const loc=cities.map(c=>c.replace(" ","")).join(",");
+      for(let i=0,n=0;i<cand.length&&!stop;i+=CH,n++){
+        $("bmSt").textContent=`Şehir fiyatları alınıyor ${n+1}/${Math.ceil(cand.length/CH)} (${cand.length} eşya BM'de alınıyor)...`;
+        (await api(`prices/${cand.slice(i,i+CH).join(",")}.json?locations=${loc}&qualities=${q}`)).forEach(d=>{
+          const c=CITIES.find(x=>x.replace(" ","")===(d.city||"").replace(" ",""));
+          const k=d.item_id+"|"+d.quality;if(c&&d.sell_price_min>0&&bm[k]&&ageOk(d.sell_price_min_date))((cp[k]=cp[k]||{})[c]={p:d.sell_price_min,d:d.sell_price_min_date})});
+        await sleep(600);
+      }
+      const tax=$("bmPrem").checked?4:8;
+      rows=Object.keys(bm).filter(k=>cp[k]).map(k=>{
+        const id=k.split("|")[0],ql=+k.split("|")[1],alts=Object.entries(cp[k]).map(([c,v])=>({c,p:v.p,d:v.d})).sort((a,b)=>a.p-b.p),b=alts[0],net=bm[k].p*(1-tax/100);
+        return {k,id,ql,city:b.c,buy:b.p,bd:b.d,bm:bm[k].p,md:bm[k].d,tax:bm[k].p*tax/100,profit:net-b.p,pct:(net-b.p)/b.p,alts};
+      });
+      stop?$("bmSt").textContent="Durduruldu.":await speed();
+      $("bmSt").textContent=`Tarama bitti ${clock()}: ${rows.length} eşyada alış ve BM fiyatı var.`;
+    }catch(e){$("bmSt").textContent="Tarama durdu ("+e.message+"). Seçimi daraltıp tekrar dene."}
+    $("bmGo").disabled=false;$("bmStop").style.display="none";render();
+  }
+  async function speed(){
+    const topR=filtered().slice(0,40),top=[...new Set(topR.map(r=>r.id))];if(!top.length)return;
+    $("bmSt").textContent="Satış hızı alınıyor...";
+    try{
+      for(let i=0;i<top.length;i+=30){
+        (await api(`history/${top.slice(i,i+30).join(",")}.json?locations=BlackMarket&time-scale=24&qualities=${qp()}`)).forEach(x=>{
+          const cut=Date.now()-7*864e5,hk=x.item_id+"|"+x.quality,o=hist[hk]||(hist[hk]={tot:0,d:0});
+          (x.data||[]).forEach(d=>{if(Date.parse(d.timestamp+"Z")>=cut){o.tot+=d.item_count||0;o.d++}})});
+        await sleep(600);
+      }
+      topR.forEach(r=>{hist[r.k]=hist[r.k]||{tot:0,d:0}});
+    }catch(e){}
+  }
+  let sortD=-1;
+  const hv=r=>{const h=hist[r.k];return h&&h.d?h.tot/7:-1};
+  const filtered=()=>{
+    const mn=num("bmMin")/100,mx=num("bmMax")/100,ms=num("bmMinS");
+    const key={p:r=>r.profit,m:r=>r.pct,b:r=>r.buy,v:r=>r.bm,h:hv,n:r=>(nm[r.id]||nm[r.id.replace(/@\d$/,"")]||r.id)+r.id+r.ql};
+    const f=key[sortK]||key.p;
+    return rows.filter(r=>r.pct>=mn&&r.pct<=mx&&r.profit>=ms).sort((a,b)=>{const x=f(a),y=f(b);return (typeof x==="string"?x.localeCompare(y):x-y)*sortD});
+  };
+  const pn=id=>nm[id]||nm[id.replace(/@\d$/,"")]||id;
+  const nameOf=id=>{const m=id.match(/^T(\d)_/),e=id.match(/@(\d)$/),n=nm[id]||nm[id.replace(/@\d$/,"")]||id;return `${esc(n)} <small>T${m?m[1]:"?"}${e?"."+e[1]:""}</small>`};
+  const qTag=r=>` <span class="bd bd-n" title="Kalite">${QN[r.ql]||r.ql}</span>`;
+  function render(){
+    document.querySelectorAll("#bmTbl [data-sk]").forEach(b=>{b.textContent=b.textContent.replace(/ [↓↑]$/,"")+(b.dataset.sk===sortK?(sortD<0?" ↓":" ↑"):"")});
+    const f=filtered().slice(0,300);
+    $("bmRows").innerHTML=f.map((r,i)=>{
+      const h=hist[r.k],hs=!h?"-":h.d?fmt(h.tot/7)+"/gün":"veri yok";
+      return `<tr class="pr"><td>${img(r.id)}${nameOf(r.id)}${qTag(r)}${r.pct>.8?' <span class="bd bd-y" title="Çok yüksek kâr genelde hatalı ya da eski fiyattır, oyunda doğrula">doğrula</span>':""}</td><td data-l="Al">${esc(r.city)}<br><b>${fmt(r.buy)}</b><br>${dot(r.bd)}</td><td data-l="Black Market"><b>${fmt(r.bm)}</b><br>${dot(r.md)}</td><td data-l="Kâr" class="pos">${fmt(r.profit)}</td><td data-l="Kâr %" class="pos">${(r.pct*100).toFixed(1)}%</td><td data-l="BM satış hızı">${hs}</td><td><button class="l ic" data-bmd="${i}" aria-label="Ayrıntı">▸</button></td></tr><tr class="dt" id="bmd${i}" style="display:none"><td colspan="7"><div class="dg"><div>BM fiyatı: <b>${fmt(r.bm)}</b></div><div>Satış vergisi: <b>-${fmt(r.tax)}</b></div><div>Alış: <b>-${fmt(r.buy)}</b></div><div>Net kâr: <b>${fmt(r.profit)}</b></div><div style="grid-column:1/-1">Şehirler: ${r.alts.map(a=>`${esc(a.c)} ${fmt(a.p)} (${ageTxt(a.d)})`).join(" · ")}</div></div></td></tr>`}).join("")||`<tr><td colspan="7">${rows.length?"Filtrelere uyan eşya yok. En az kâr %'yi düşürmeyi dene.":"Henüz tarama yapılmadı."}</td></tr>`;
+    $("bmRows").querySelectorAll("[data-bmd]").forEach(b=>b.onclick=()=>{const e=$("bmd"+b.dataset.bmd);e.style.display=e.style.display==="none"?"":"none";b.textContent=e.style.display==="none"?"▸":"▾"});
+  }
+  $("bmGo").onclick=scan;$("bmStop").onclick=()=>{stop=true};
+  document.querySelectorAll("#bmTbl [data-sk]").forEach(b=>b.onclick=()=>{const k=b.dataset.sk;if(sortK===k)sortD=-sortD;else{sortK=k;sortD=k==="b"||k==="n"?1:-1}render()});
+  ["bmMin","bmMax","bmMinS"].forEach(i=>$(i).addEventListener("input",render));
+  $("bmPlan").onclick=()=>{
+    let left=num("bmBud");const pick=filtered().slice().sort((a,b)=>b.pct-a.pct),by={};
+    pick.forEach(r=>{if(r.buy<=left){left-=r.buy;(by[r.city]=by[r.city]||[]).push(r)}});
+    const cs=Object.keys(by);
+    if(!cs.length){$("bmPlanSt").textContent="Bütçeye uyan eşya yok ya da önce tarama yap.";$("bmPlanOut").innerHTML="";$("bmPlanTxt").style.display="none";return}
+    let inv=0,pr=0,txt="";
+    $("bmPlanOut").innerHTML=cs.map(c=>{const l=by[c],i=l.reduce((s,r)=>s+r.buy,0),p=l.reduce((s,r)=>s+r.profit,0);inv+=i;pr+=p;
+      txt+=`${c} (yatırım ${fmt(i)}, kâr ${fmt(p)}):\n`+l.map(r=>`- ${pn(r.id)} T${r.id[1]}${(r.id.match(/@(\d)/)||[])[1]?"."+r.id.match(/@(\d)/)[1]:""} (${QN[r.ql]}): al ${fmt(r.buy)}, BM ${fmt(r.bm)}`).join("\n")+"\n";
+      return `<div style="margin-top:8px"><b>${esc(c)}</b>: ${l.length} eşya, yatırım ${fmt(i)}, beklenen kâr <span class="pos">${fmt(p)}</span><br><small>${l.map(r=>esc(pn(r.id))+" T"+r.id[1]+((r.id.match(/@(\d)/)||[])[1]?"."+r.id.match(/@(\d)/)[1]:"")+" ("+QN[r.ql]+")").join(", ")}</small></div>`}).join("");
+    $("bmPlanSt").textContent=`Toplam yatırım ${fmt(inv)}, beklenen kâr ${fmt(pr)} (kalan bütçe ${fmt(left)}). Her eşyadan 1 adet; Black Market'te alış emri miktarı API'de yok.`;
+    $("bmPlanTxt").value=txt;$("bmPlanTxt").style.display="";
+  };
+  $("bmCopy").onclick=()=>{const t=$("bmPlanTxt");if(!t.value)return;t.select();try{navigator.clipboard.writeText(t.value)}catch(e){document.execCommand("copy")}};
+  render();
+}
+if(BM)initBM();
+</script>
+</body>
+</html>
