@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Yönetim Paneli</title><link rel="icon" href="icon-192.png">
+<script src="config.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<style>
+:root{--bg:#f3f5f2;--card:#fff;--ink:#16211c;--mut:#5d6b64;--line:#d5dcd7;--acc:#0f7a55;--bad:#b3261e;--warn:#9a6200}
+@media(prefers-color-scheme:dark){:root{--bg:#10171a;--card:#182125;--ink:#e6eee9;--mut:#93a39b;--line:#2b383d;--acc:#52d6a0;--bad:#ff8a80;--warn:#f0b64a}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 system-ui,sans-serif;padding:16px}
+main{max-width:1100px;margin:auto}
+h1{font:700 26px/1.2 Georgia,serif;margin:0}
+h2{font:600 16px Georgia,serif;margin:0 0 10px}
+a{color:var(--acc)}
+section{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:14px;margin-bottom:14px}
+input,textarea,button{font:inherit;padding:7px 9px;border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--ink);min-width:0}
+textarea{width:100%;resize:vertical}
+button{background:var(--acc);color:#fff;border-color:var(--acc);cursor:pointer;font-weight:600}
+@media(prefers-color-scheme:dark){button{color:#07231a}}
+button.l{background:transparent;color:var(--acc)}
+button.bad{background:transparent;color:var(--bad);border-color:var(--bad)}
+button:disabled{opacity:.5;cursor:default}
+button:focus-visible,input:focus-visible,textarea:focus-visible{outline:2px solid var(--acc);outline-offset:1px}
+.hd{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:14px}
+.me{margin-left:auto;display:flex;gap:8px;align-items:center;font-size:13px}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:10px}
+.st{color:var(--mut);font-size:13px;min-height:1.4em}
+.r{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:14px}
+.k{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:10px}
+.k b{display:block;font-size:22px}
+.t{overflow-x:auto}
+table{border-collapse:collapse;width:100%;min-width:640px}
+th,td{text-align:left;padding:6px;border-bottom:1px solid var(--line);font-size:14px;vertical-align:middle}
+th{color:var(--mut);font-weight:600;font-size:13px}
+.bd{display:inline-block;padding:0 7px;border-radius:10px;font-size:12px;border:1px solid var(--line);white-space:nowrap}
+.bd-g{color:var(--acc);border-color:var(--acc)}.bd-r{color:var(--bad);border-color:var(--bad)}.bd-n{color:var(--mut)}
+.av{width:28px;height:28px;border-radius:50%;vertical-align:middle;margin-right:8px;background:var(--line)}
+.an{display:flex;gap:10px;align-items:start;border-top:1px solid var(--line);padding:8px 0}
+.an p{flex:1;margin:0;white-space:pre-wrap}
+.an.off p{color:var(--mut);text-decoration:line-through}
+</style>
+</head>
+<body>
+<main>
+<div class="hd"><img src="logo.png" alt="" width="40" height="40"><h1>Yönetim Paneli</h1><a href="/">Siteye dön</a><div class="me" id="me"></div></div>
+<div class="st" id="gate">Yükleniyor...</div>
+<div id="app" hidden>
+<div class="r" id="stats"></div>
+<section>
+<h2>Duyuru yayınla</h2>
+<textarea id="anTxt" rows="3" maxlength="500" placeholder="Sitedeki herkese görünecek mesaj"></textarea>
+<div class="row"><button id="anAdd">Yayınla</button><span class="st" id="anSt"></span></div>
+<div id="anList" style="margin-top:10px"></div>
+</section>
+<section>
+<h2>Kullanıcılar</h2>
+<div class="row" style="margin:0 0 10px"><input id="uQ" placeholder="İsimle ara" style="min-width:220px"><button class="l" id="uRef">Yenile</button><span class="st" id="uSt"></span></div>
+<div class="t"><table><thead><tr><th>Kullanıcı</th><th>Kayıt</th><th>Son görülme</th><th>Bulut verisi</th><th>Durum</th><th></th></tr></thead><tbody id="uRows"></tbody></table></div>
+</section>
+</div>
+</main>
+<script>
+const $=id=>document.getElementById(id);
+const esc=t=>String(t==null?"":t).replace(/&/g,"&amp;").replace(/"/g,"&quot;").replace(/</g,"&lt;");
+const C=window.AO_CFG||{};
+if(!C.url||/XXX/.test(C.url)||!window.supabase){$("gate").textContent="Supabase ayarı yapılmamış (config.js).";throw 0}
+const sb=window.supabase.createClient(C.url,C.key,{auth:{flowType:"pkce",detectSessionInUrl:true,persistSession:true}});
+const dt=s=>s?new Date(s).toLocaleString("tr-TR",{day:"2-digit",month:"2-digit",year:"numeric",hour:"2-digit",minute:"2-digit"}):"-";
+const ago=s=>{if(!s)return "hiç";const m=(Date.now()-Date.parse(s))/6e4;return m<60?Math.max(1,Math.round(m))+" dk önce":m<1440?Math.round(m/60)+" sa önce":Math.round(m/1440)+" gün önce"};
+let users=[],myId=null;
+
+async function start(){
+  const {data:{session}}=await sb.auth.getSession();
+  if(new URLSearchParams(location.search).has("code"))history.replaceState(null,"",location.pathname);
+  if(!session){
+    $("gate").innerHTML='Panele girmek için giriş yap. <button id="in">Discord ile giriş</button>';
+    $("in").onclick=()=>sb.auth.signInWithOAuth({provider:"discord",options:{redirectTo:location.origin+location.pathname}});
+    return;
+  }
+  myId=session.user.id;
+  const {data:p}=await sb.from("profiles").select("name,avatar,is_admin").eq("id",myId).maybeSingle();
+  $("me").innerHTML=`${p&&p.avatar?`<img class="av" src="${esc(p.avatar)}" alt="">`:""}<b>${esc(p&&p.name)}</b><button class="l" id="out">Çıkış</button>`;
+  $("out").onclick=async()=>{await sb.auth.signOut();location.reload()};
+  if(!p||!p.is_admin){$("gate").textContent="Bu sayfa için yetkin yok.";return}
+  $("gate").hidden=true;$("app").hidden=false;
+  loadUsers();loadAnn();
+}
+
+async function loadUsers(){
+  $("uSt").textContent="Yükleniyor...";
+  const {data,error}=await sb.rpc("admin_users");
+  if(error){$("uSt").textContent="Liste alınamadı: "+error.message;return}
+  users=data||[];$("uSt").textContent="";
+  const wk=Date.now()-7*864e5;
+  $("stats").innerHTML=[["Toplam kullanıcı",users.length],["Son 7 günde aktif",users.filter(u=>u.last_seen&&Date.parse(u.last_seen)>wk).length],["Son 7 günde kayıt",users.filter(u=>Date.parse(u.created_at)>wk).length],["Engelli",users.filter(u=>u.banned).length]]
+    .map(([a,b])=>`<div class="k"><div>${a}</div><b>${b}</b></div>`).join("");
+  renderUsers();
+}
+
+function renderUsers(){
+  const q=$("uQ").value.trim().toLowerCase();
+  const list=users.filter(u=>!q||(u.name||"").toLowerCase().includes(q));
+  $("uRows").innerHTML=list.map(u=>`<tr><td>${u.avatar?`<img class="av" src="${esc(u.avatar)}" alt="">`:'<span class="av" style="display:inline-block"></span>'}${esc(u.name||"-")}${u.is_admin?' <span class="bd bd-g">admin</span>':""}</td><td>${dt(u.created_at)}</td><td>${ago(u.last_seen)}</td><td>${u.keys} kayıt, ${(u.bytes/1024).toFixed(1)} KB</td><td>${u.banned?'<span class="bd bd-r">Engelli</span>':'<span class="bd bd-g">Aktif</span>'}</td><td>${u.id===myId?"":`<button class="${u.banned?"l":"bad"}" data-ban="${u.id}" data-b="${u.banned?0:1}">${u.banned?"Engeli kaldır":"Engelle"}</button>`}</td></tr>`).join("")||`<tr><td colspan="6">${users.length?"Eşleşen kullanıcı yok.":"Henüz kullanıcı yok."}</td></tr>`;
+  $("uRows").querySelectorAll("[data-ban]").forEach(b=>b.onclick=async()=>{
+    const u=users.find(x=>x.id===b.dataset.ban),ban=b.dataset.b==="1";
+    if(ban&&!confirm(`${u.name} engellensin mi? Siteyi misafir olarak kullanmaya devam edebilir ama bulut kaydı kapanır.`))return;
+    b.disabled=true;
+    const {error}=await sb.rpc("admin_set_banned",{uid:u.id,b:ban});
+    if(error){alert("İşlem yapılamadı: "+error.message);b.disabled=false;return}
+    loadUsers();
+  });
+}
+
+async function loadAnn(){
+  const {data,error}=await sb.from("announcements").select("*").order("created_at",{ascending:false}).limit(50);
+  if(error){$("anSt").textContent="Duyurular alınamadı: "+error.message;return}
+  $("anList").innerHTML=(data||[]).map(a=>`<div class="an${a.active?"":" off"}"><p>${esc(a.text)}<br><small style="color:var(--mut);text-decoration:none">${dt(a.created_at)}${a.active?"":" · yayından kaldırıldı"}</small></p><button class="l" data-tg="${a.id}" data-v="${a.active?0:1}">${a.active?"Yayından kaldır":"Tekrar yayınla"}</button><button class="bad" data-del="${a.id}">Sil</button></div>`).join("")||'<div class="st">Henüz duyuru yok.</div>';
+  $("anList").querySelectorAll("[data-tg]").forEach(b=>b.onclick=async()=>{await sb.from("announcements").update({active:b.dataset.v==="1"}).eq("id",b.dataset.tg);loadAnn()});
+  $("anList").querySelectorAll("[data-del]").forEach(b=>b.onclick=async()=>{if(!confirm("Duyuru silinsin mi?"))return;await sb.from("announcements").delete().eq("id",b.dataset.del);loadAnn()});
+}
+
+$("anAdd").onclick=async()=>{
+  const t=$("anTxt").value.trim();
+  if(!t){$("anSt").textContent="Önce bir mesaj yaz.";return}
+  $("anAdd").disabled=true;
+  const {error}=await sb.from("announcements").insert({text:t});
+  $("anAdd").disabled=false;
+  if(error){$("anSt").textContent="Yayınlanamadı: "+error.message;return}
+  $("anTxt").value="";$("anSt").textContent="Yayınlandı.";loadAnn();
+};
+$("uQ").oninput=renderUsers;
+$("uRef").onclick=loadUsers;
+start().catch(e=>{$("gate").textContent="Hata: "+(e.message||e)});
+</script>
+</body>
+</html>
