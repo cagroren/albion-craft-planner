@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Albion DPS Meter</title><link rel="manifest" href="manifest.webmanifest"><link rel="icon" href="icon-192.png"><meta name="theme-color" content="#0b0f14"><link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap">
+<script src="config.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<script src="auth.js"></script>
+<style>
+:root{--bg:#0b0f14;--card:#11161d;--card2:#151b23;--in:#0d1218;--ink:#e6e9ee;--mut:#8b95a3;--line:#252d38;--line2:#323c49;--acc:#f0883e;--acc2:#7a3e16;--accT:#ffd6b3;--good:#3fb950;--bad:#f85149;--warn:#e3b341;--heal:#3fb950;color-scheme:dark}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 "Inter",system-ui,-apple-system,"Segoe UI",sans-serif;padding:20px 16px;-webkit-font-smoothing:antialiased}
+main{max-width:1180px;margin:auto}
+h1{font:800 30px/1.2 "Inter",system-ui,sans-serif;letter-spacing:-.01em;margin:0}
+h2{font:700 12px/1.4 "Inter",system-ui,sans-serif;letter-spacing:.12em;text-transform:uppercase;color:var(--acc);margin:0 0 14px}
+section{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:20px;margin-bottom:16px}
+button,select{font:inherit;padding:9px 12px;border:1px solid var(--line2);border-radius:9px;background:var(--in);color:var(--ink);min-width:0}
+button{background:var(--acc2);color:var(--accT);border-color:#b8602a;cursor:pointer;font-weight:700;transition:background .15s,border-color .15s,color .15s}
+button:hover{background:#8f4a1b;border-color:var(--acc)}
+button.l{background:transparent;color:var(--acc);border-color:#5a3a24}
+button.l:hover{background:rgba(240,136,62,.08);border-color:var(--acc)}
+button:focus-visible,select:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
+img[src*="render.albiononline.com"]{filter:drop-shadow(0 2px 3px rgba(0,0,0,.45))}
+.row{display:flex;gap:10px;flex-wrap:wrap;margin-top:12px}
+.topbar{margin:0;align-items:center;gap:10px}
+.tabs{display:flex;gap:4px;margin:0;padding:4px;background:var(--card);border:1px solid var(--line);border-radius:12px;width:fit-content;max-width:100%;overflow-x:auto;flex-wrap:nowrap}
+.tabs button{flex:none;background:transparent;border-color:transparent;color:var(--mut);white-space:nowrap;padding:8px 14px}
+.tabs button:hover{color:var(--ink);background:var(--card2);border-color:transparent}
+.tabs button.on{background:var(--acc2);color:var(--accT);border-color:#b8602a}
+.st{color:var(--mut);font-size:13px}
+.warn{border:1px solid rgba(248,81,73,.55);background:rgba(248,81,73,.06);border-radius:12px;padding:10px 14px;margin:12px 0;font-size:14px}
+.conn{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+.live{font-size:10px;font-weight:800;letter-spacing:.1em;border-radius:20px;padding:4px 12px;border:1px solid var(--line2);color:var(--mut);text-transform:uppercase}
+.live.on{color:var(--good);border-color:rgba(63,185,80,.6);background:rgba(63,185,80,.12)}
+.live.wait{color:var(--warn);border-color:rgba(227,179,65,.6);background:rgba(227,179,65,.1)}
+.chip{display:inline-flex;align-items:center;background:var(--card2);border:1px solid var(--line);border-radius:12px;padding:2px 9px;font-size:13px;font-weight:600}
+.chip.me{border-color:#b8602a;color:var(--accT)}
+.steps{margin:14px 0 0;padding-left:22px;display:grid;gap:10px}
+.steps li{padding-left:4px}
+.steps code{background:var(--in);border:1px solid var(--line2);border-radius:6px;padding:1px 6px;font-size:13px}
+.steps a{color:var(--acc);font-weight:600}
+.lay{display:grid;grid-template-columns:300px minmax(0,1fr);gap:16px;align-items:start}
+.lay>div{min-width:0}
+.list{display:flex;flex-direction:column;gap:6px;max-height:640px;overflow:auto;padding-right:2px}
+.fi{display:grid;grid-template-columns:1fr auto;gap:2px 10px;text-align:left;background:var(--card2);border:1px solid var(--line);color:var(--ink);font-weight:500;padding:10px 12px;border-radius:12px}
+.fi:hover{background:var(--card2);border-color:#46515f}
+.fi.on{border-color:var(--acc);background:linear-gradient(135deg,rgba(240,136,62,.12),rgba(240,136,62,.02) 70%),var(--card2)}
+.fi b{font-size:14px;font-weight:800}
+.fi small{color:var(--mut);font-size:12px}
+.fi .n{text-align:right;font-variant-numeric:tabular-nums}
+.fi.lv{border-style:dashed}
+.day{font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--mut);margin:8px 2px 0}
+.k4{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:16px}
+.k{background:var(--card2);border:1px solid var(--line);border-radius:12px;padding:12px 14px;font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--mut)}
+.k b{display:block;font-size:22px;font-weight:800;color:var(--ink);letter-spacing:0;text-transform:none;margin-top:2px;font-variant-numeric:tabular-nums}
+.dh{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:14px}
+.dh h2{margin:0}
+.dh .sp{flex:1}
+.seg{display:inline-flex;gap:2px;padding:3px;background:var(--in);border:1px solid var(--line2);border-radius:10px}
+.seg button{background:transparent;border-color:transparent;color:var(--mut);padding:5px 11px;font-size:13px}
+.seg button:hover{background:var(--card2);color:var(--ink)}
+.seg button.on{background:var(--acc2);color:var(--accT);border-color:#b8602a}
+.t{overflow-x:auto}
+table{border-collapse:collapse;width:100%;min-width:640px}
+th,td{text-align:left;padding:8px;border-bottom:1px solid var(--line);font-size:14px;white-space:nowrap}
+th{color:var(--mut);font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase}
+td.n,th.n{text-align:right;font-variant-numeric:tabular-nums}
+tbody tr:hover td{background:rgba(255,255,255,.015)}
+tr.me .pn{color:var(--accT)}
+.pn{display:flex;align-items:center;gap:8px;font-weight:700}
+.pn img{width:34px;height:34px;flex:none}
+.pn .ph{width:34px;height:34px;flex:none;border-radius:8px;background:var(--card2);border:1px solid var(--line)}
+.bar{position:relative;min-width:200px}
+.bar i{position:absolute;left:0;top:50%;height:22px;transform:translateY(-50%);border-radius:5px;background:linear-gradient(90deg,rgba(240,136,62,.55),rgba(240,136,62,.25))}
+.bar.h i{background:linear-gradient(90deg,rgba(63,185,80,.5),rgba(63,185,80,.2))}
+.bar.tk i{background:linear-gradient(90deg,rgba(248,81,73,.5),rgba(248,81,73,.2))}
+.bar span{position:relative;padding-left:8px;font-weight:700;font-variant-numeric:tabular-nums}
+.bar small{position:relative;color:var(--mut);margin-left:6px;font-weight:600}
+.rk{color:var(--mut);font-weight:700;width:28px}
+.empty{color:var(--mut);padding:30px 10px;text-align:center}
+@media(max-width:860px){.lay{grid-template-columns:1fr}.list{max-height:300px}}
+@media(max-width:700px){body{padding:12px 16px}section{padding:16px;border-radius:14px}.tabs button{padding:8px 11px}h1{font-size:24px}}
+</style>
+</head>
+<body>
+<main>
+<div class="row topbar"><div class="tabs"><button data-go="./">Alchemy</button><button data-go="./#food">Cooking</button><button data-go="./#craft">Craft</button><button data-go="./#bm">Black Market Flips</button><button data-go="./#db">Item Database</button><button class="on" aria-current="page">DPS Meter</button></div></div>
+<div style="display:flex;align-items:center;gap:12px;margin:14px 0 16px"><img src="logo.png" alt="KVF" width="48" height="48"><h1>DPS Meter</h1></div>
+
+<section>
+  <div class="conn">
+    <span class="live" id="cState">Bağlanıyor</span>
+    <div id="cInfo" class="st"></div>
+  </div>
+  <div id="party" class="row" hidden></div>
+  <div id="setup" hidden>
+    <ol class="steps">
+      <li><b>Npcap'i kur</b> (bir kere): <a href="https://npcap.com/#download" target="_blank" rel="noopener">npcap.com</a> adresinden indir, varsayılan ayarlarla kur. Windows'un oyun trafiğini okuyabilmesini sağlar.</li>
+      <li><b>Toplayıcıyı başlat:</b> proje klasöründeki <code>dps-meter</code> klasörüne gir ve <code>DPS Meter Baslat.bat</code> dosyasına çift tıkla. Siyah pencere açık kalsın.</li>
+      <li><b>Albion'a gir.</b> Partinin doğru görünmesi için toplayıcıyı karakter seçim ekranındayken başlatman en iyisi.</li>
+      <li>Tarayıcı <b>"yerel ağdaki cihazlara erişim"</b> izni sorarsa <b>İzin ver</b> de. Bu sayfa bağlanınca otomatik dolacak.</li>
+    </ol>
+  </div>
+</section>
+
+<section id="main" hidden>
+  <div class="lay">
+    <div>
+      <div class="dh"><h2>Savaşlar</h2><span class="sp"></span><button class="l" id="clearAll" style="padding:5px 10px;font-size:12px">Tümünü sil</button></div>
+      <div class="list" id="list"></div>
+    </div>
+    <div>
+      <div id="detail"></div>
+    </div>
+  </div>
+</section>
+
+<section id="avgSec" hidden>
+  <div class="dh"><h2>Oyuncu ortalamaları</h2><span class="sp"></span>
+    <div class="seg" id="avgN"><button data-n="10" class="on">Son 10 savaş</button><button data-n="30">Son 30</button><button data-n="0">Tümü</button></div>
+  </div>
+  <div class="t"><table><thead><tr><th>Oyuncu</th><th class="n">Savaş</th><th class="n">Ort. DPS</th><th class="n">En iyi DPS</th><th class="n">Toplam hasar</th><th class="n">Ort. HPS</th><th class="n">Toplam heal</th></tr></thead><tbody id="avg"></tbody></table></div>
+</section>
+<p class="st">Veriler sadece senin bilgisayarında tutulur (dps-meter/kayitlar klasörü). Toplayıcı oyuna hiçbir şey göndermez, sadece okur.</p>
+</main>
+<script>
+const API="http://127.0.0.1:47700";
+const $=id=>document.getElementById(id);
+const esc=t=>String(t==null?"":t).replace(/&/g,"&amp;").replace(/"/g,"&quot;").replace(/</g,"&lt;");
+const nf=new Intl.NumberFormat("tr-TR");
+const fmt=n=>nf.format(Math.round(n||0));
+const fmtK=n=>n>=1e6?(n/1e6).toFixed(2).replace(".",",")+"M":n>=1e4?(n/1e3).toFixed(1).replace(".",",")+"K":fmt(n);
+const dur=s=>{s=Math.round(s);return s>=60?Math.floor(s/60)+" dk "+String(s%60).padStart(2,"0")+" sn":s+" sn"};
+const tm=ms=>new Date(ms).toLocaleTimeString("tr-TR",{hour:"2-digit",minute:"2-digit"});
+const dayOf=ms=>new Date(ms).toLocaleDateString("tr-TR",{weekday:"long",day:"numeric",month:"long"});
+const icon=w=>w?`<img src="https://render.albiononline.com/v1/item/${encodeURIComponent(w)}.png?size=64" alt="" loading="lazy">`:`<span class="ph"></span>`;
+let LS={};try{LS=JSON.parse(localStorage.getItem("aodps1")||"{}")}catch(e){}
+const saveLS=()=>{try{localStorage.setItem("aodps1",JSON.stringify(LS))}catch(e){}};
+
+document.querySelectorAll("[data-go]").forEach(b=>b.onclick=()=>{location.href=b.dataset.go});
+
+let fights=[],status=null,sel=null,sortBy=LS.sort||"damage",lastCount=-1,connected=false,avgN=LS.avgN??10;
+
+async function api(path,opt){const r=await fetch(API+path,{cache:"no-store",...opt});if(!r.ok)throw new Error(r.status);return r.json()}
+
+async function poll(){
+  try{
+    status=await api("/status");
+    if(!connected||status.fightCount!==lastCount){fights=await api("/fights");lastCount=status.fightCount;if(sel&&sel!=="live"&&!fights.some(f=>f.id===sel))sel=null}
+    connected=true;
+  }catch(e){connected=false;status=null}
+  render();
+}
+
+function render(){
+  const cs=$("cState");
+  $("setup").hidden=connected;$("main").hidden=!connected;$("avgSec").hidden=!connected||!fights.length;
+  if(!connected){cs.className="live";cs.textContent="Bağlı değil";$("cInfo").textContent="Toplayıcı çalışmıyor ya da tarayıcı bağlantıya izin vermedi.";$("party").hidden=true;return}
+  const cap=status.capturing;
+  cs.className="live "+(cap?"on":"wait");cs.textContent=cap?"Oyun verisi geliyor":"Bağlı, oyun bekleniyor";
+  $("cInfo").innerHTML=status.character?`Karakter: <b style="color:var(--ink)">${esc(status.character)}</b>${status.partyKnown?"":" · parti bilgisi henüz gelmedi, şimdilik sadece sen sayılıyorsun"}`:"Karakter henüz görülmedi. Oyuna gir ya da bir bölge değiştir.";
+  const pt=status.party||[];
+  $("party").hidden=!pt.length;
+  $("party").innerHTML=pt.length?`<span class="st" style="align-self:center">Takip edilen:</span>`+pt.map(n=>`<span class="chip${n===status.character?" me":""}">${esc(n)}</span>`).join(""):"";
+  renderList();renderDetail();renderAvg();
+}
+
+function renderList(){
+  let h="",lastDay="";const cur=current(),act=cur&&cur.final===false?"live":cur&&cur.id;
+  if(status&&status.live){const f=status.live;h+=`<button class="fi lv${act==="live"?" on":""}" data-id="live"><b>Devam eden savaş</b><span class="n"><b>${fmtK(f.totalDamage)}</b></span><small>${dur(f.duration)} · ${f.players.length} oyuncu</small><small class="n">hasar</small></button>`}
+  for(const f of fights){
+    const d=dayOf(f.start);if(d!==lastDay){h+=`<div class="day">${esc(d)}</div>`;lastDay=d}
+    const top=f.players[0];
+    h+=`<button class="fi${act===f.id?" on":""}" data-id="${esc(f.id)}"><b>${tm(f.start)} · ${dur(f.duration)}</b><span class="n"><b>${fmtK(f.totalDamage)}</b></span><small>${top?"En yüksek: "+esc(top.name):""}</small><small class="n">${f.players.length} oyuncu</small></button>`;
+  }
+  $("list").innerHTML=h||`<div class="empty">Henüz savaş yok. Partinle bir mob'a ya da oyuncuya vurduğunda burada görünecek.</div>`;
+  $("list").querySelectorAll("[data-id]").forEach(b=>b.onclick=()=>{sel=b.dataset.id;render()});
+}
+
+function current(){
+  if(sel==="live")return status&&status.live;
+  if(sel)return fights.find(f=>f.id===sel);
+  return fights[0]||(status&&status.live);
+}
+
+function renderDetail(){
+  const f=current();
+  if(!f){$("detail").innerHTML=`<div class="empty">Savaş seçilmedi.</div>`;return}
+  const key=sortBy,ps=[...f.players].sort((a,b)=>b[key]-a[key]||b.damage-a.damage);
+  const max=Math.max(1,...ps.map(p=>p[key])),tot=ps.reduce((s,p)=>s+p[key],0)||1;
+  const cls=key==="heal"?"h":key==="taken"?"tk":"";
+  const lbl={damage:"Hasar",heal:"Heal",taken:"Alınan hasar"}[key];
+  $("detail").innerHTML=`
+  <div class="dh"><h2>${f.final===false?"Devam eden savaş":tm(f.start)+" savaşı"}</h2><span class="sp"></span>
+   <div class="seg" id="sortSeg"><button data-s="damage"${key==="damage"?' class="on"':""}>Hasar</button><button data-s="heal"${key==="heal"?' class="on"':""}>Heal</button><button data-s="taken"${key==="taken"?' class="on"':""}>Alınan</button></div>
+   ${f.final===false?"":`<button class="l" id="delF" style="padding:6px 10px;font-size:12px">Sil</button>`}</div>
+  <div class="k4"><div class="k">Süre<b>${dur(f.duration)}</b></div><div class="k">Toplam hasar<b>${fmt(f.totalDamage)}</b></div><div class="k">Parti DPS<b>${fmt(f.totalDamage/Math.max(1,f.duration))}</b></div><div class="k">Toplam heal<b>${fmt(f.totalHeal)}</b></div></div>
+  <div class="t"><table><thead><tr><th class="rk">#</th><th>Oyuncu</th><th>${lbl}</th><th class="n">DPS</th><th class="n">Hasar</th><th class="n">HPS</th><th class="n">Heal</th><th class="n">Overheal</th><th class="n">Alınan</th></tr></thead><tbody>
+  ${ps.map((p,i)=>`<tr class="${p.me?"me":""}"><td class="rk">${i+1}</td><td><span class="pn">${icon(p.weapon)}${esc(p.name)}</span></td>
+  <td><div class="bar ${cls}"><i style="width:${(p[key]/max*100).toFixed(1)}%"></i><span>${fmt(p[key])}</span><small>${(p[key]/tot*100).toFixed(1).replace(".",",")}%</small></div></td>
+  <td class="n"><b>${fmt(p.dps)}</b></td><td class="n">${fmt(p.damage)}</td><td class="n">${fmt(p.hps)}</td><td class="n">${fmt(p.heal)}</td><td class="n" style="color:var(--mut)">${fmt(p.overheal)}</td><td class="n">${fmt(p.taken)}</td></tr>`).join("")}
+  </tbody></table></div>`;
+  $("sortSeg").querySelectorAll("button").forEach(b=>b.onclick=()=>{sortBy=LS.sort=b.dataset.s;saveLS();renderDetail()});
+  const d=$("delF");if(d)d.onclick=async()=>{try{await api("/fights/"+encodeURIComponent(f.id),{method:"DELETE"});fights=fights.filter(x=>x.id!==f.id);sel=null;render()}catch(e){}};
+}
+
+function renderAvg(){
+  const src=avgN?fights.slice(0,avgN):fights,m={};
+  for(const f of src)for(const p of f.players){const a=m[p.name]||(m[p.name]={n:0,dps:0,best:0,dmg:0,hps:0,heal:0,w:p.weapon,me:p.me});a.n++;a.dps+=p.dps;a.best=Math.max(a.best,p.dps);a.dmg+=p.damage;a.hps+=p.hps;a.heal+=p.heal;if(!a.w)a.w=p.weapon;a.me=a.me||p.me}
+  const rows=Object.entries(m).sort((a,b)=>b[1].dps/b[1].n-a[1].dps/a[1].n);
+  $("avg").innerHTML=rows.map(([n,a])=>`<tr class="${a.me?"me":""}"><td><span class="pn">${icon(a.w)}${esc(n)}</span></td><td class="n">${a.n}</td><td class="n"><b>${fmt(a.dps/a.n)}</b></td><td class="n">${fmt(a.best)}</td><td class="n">${fmt(a.dmg)}</td><td class="n">${fmt(a.hps/a.n)}</td><td class="n">${fmt(a.heal)}</td></tr>`).join("");
+  $("avgN").querySelectorAll("button").forEach(b=>b.classList.toggle("on",+b.dataset.n===avgN));
+}
+$("avgN").querySelectorAll("button").forEach(b=>b.onclick=()=>{avgN=LS.avgN=+b.dataset.n;saveLS();renderAvg()});
+
+let armed=false;
+$("clearAll").onclick=async()=>{
+  const b=$("clearAll");
+  if(!armed){armed=true;b.textContent="Emin misin? Tekrar bas";setTimeout(()=>{armed=false;b.textContent="Tümünü sil"},4000);return}
+  armed=false;b.textContent="Tümünü sil";
+  try{await api("/fights",{method:"DELETE"});fights=[];sel=null;render()}catch(e){}
+};
+
+poll();setInterval(poll,2000);
+</script>
+</body>
+</html>

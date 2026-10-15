@@ -1,2 +1,5 @@
 .vercel
 node_modules
+dps-meter/kayitlar/
+dps-meter/onbellek/
+__pycache__/

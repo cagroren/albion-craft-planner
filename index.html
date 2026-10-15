@@ -195,7 +195,7 @@ section{padding:16px;border-radius:14px}
 </head>
 <body>
 <main>
-<div class="row topbar"><div class="tabs"><button id="modeP">Alchemy</button><button id="modeF">Cooking</button><button id="modeC">Craft</button><button id="modeB">Black Market Flips</button><button id="modeD">Item Database</button></div></div>
+<div class="row topbar"><div class="tabs"><button id="modeP">Alchemy</button><button id="modeF">Cooking</button><button id="modeC">Craft</button><button id="modeB">Black Market Flips</button><button id="modeD">Item Database</button><button id="modeDps">DPS Meter</button></div></div>
 <div style="display:flex;align-items:center;gap:12px;margin:14px 0 4px"><img src="logo.png" alt="KVF" width="48" height="48"><h1 id="ttl" style="margin:0">Alchemy</h1></div>
 <section class="pfc" id="pfCard">
 <div class="pfh"><h2 style="margin:0">Profil</h2><span class="pfa" id="pfAct"></span><label class="c" style="margin-left:auto"><input type="checkbox" id="pfPlan" checked> Plan da kaydedilsin</label></div>
@@ -341,6 +341,7 @@ $("modeF").onclick=()=>{location.hash="#food";location.reload()};
 $("modeB").onclick=()=>{location.hash="#bm";location.reload()};
 $("modeC").onclick=()=>{location.hash="#craft";location.reload()};
 $("modeD").onclick=()=>{location.hash="#db";location.reload()};
+$("modeDps").onclick=()=>{location.href="dps.html"};
 $(DB?"modeD":BM?"modeB":CRAFT?"modeC":FOOD?"modeF":"modeP").classList.add("on");
 ["rid","rf","rrid","rrf"].forEach(i=>$(i).parentElement.style.display="none");
 if(FOOD){
