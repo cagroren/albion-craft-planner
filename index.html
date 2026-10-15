@@ -226,7 +226,6 @@ section{padding:16px;border-radius:14px}
 <label>Focus havuzu (elimdeki)<input type="number" id="pool" value="10000"></label>
 <div style="display:none">
 <input type="checkbox" id="cb" checked><input type="number" id="lpbBase" value="18"><input type="number" id="lpbCity" value="15"><input type="number" id="lpbFocus" value="59"><input type="number" id="daily" value="10">
-<input type="checkbox" id="fmode" checked><input type="number" id="favg" value="6000"><button id="favgBtn" type="button"></button>
 </div>
 </div>
 <div class="rrb" id="rr"></div>
@@ -347,7 +346,7 @@ $(DB?"modeD":BM?"modeB":CRAFT?"modeC":FOOD?"modeF":"modeP").classList.add("on");
 ["rid","rf","rrid","rrf"].forEach(i=>$(i).parentElement.style.display="none");
 if(FOOD){
   document.title="Albion Cooking";$("ttl").textContent="Cooking";
-  $("fmode").checked=false;$("cityLbl").style.display="flex";
+  $("cityLbl").style.display="flex";
   {const h=document.querySelector("#planTbl thead tr"),l=$("sortF").closest("th").nextElementSibling;const th=document.createElement("th");th.className="nb";th.textContent="Şehirlere göre kâr %";h.insertBefore(th,l);
    const w=document.createElement("div");w.className="t";w.id="cityCmp";w.style.marginTop="10px";document.querySelector("#cmpb").closest(".t").after(w)}$("mast").value="0";["rid","rf"].forEach(i=>$(i).parentElement.style.display="none");$("rid").value="T6_MEAL_STEW";$("rf").value="";$("rrid").value="";$("rrf").value="";
   $("rrid").parentElement.style.display="none";$("rrf").parentElement.style.display="none";
@@ -363,7 +362,7 @@ const CBON={"Fort Sterling":["cloth_armor","plate_helmet","hammer","spear","holy
 const bonusCity=c=>Object.keys(CBON).find(k=>CBON[k].includes(c))||"";
 if(CRAFT){
   document.title="Albion Craft";$("ttl").textContent="Craft";
-  $("fmode").checked=false;$("catL").hidden=false;$("mast").parentElement.style.display="none";
+  $("catL").hidden=false;$("mast").parentElement.style.display="none";
   $("cat").innerHTML=CCAT.map(([g,l])=>`<optgroup label="${g}">${l.map(([v,t])=>`<option value="${v}">${t}</option>`).join("")}</optgroup>`).join("");
   $("mstNote").textContent="Plandaki her kategori için mastery seviyeni, her eşya için spec seviyeni gir. Focus maliyeti buna göre yaklaşık hesaplanır (mastery seviye başı 30, eşyanın kendi spec'i seviye başı 250, aynı ağaçtaki diğer spec'ler seviye başı 30 focus verimi).";
   $("specs").innerHTML='<span class="st">Plana eşya ekleyince burada mastery ve spec seviyeleri çıkar.</span>';
@@ -444,13 +443,6 @@ let nm={};
 const esc=t=>String(t).replace(/&/g,"&amp;").replace(/"/g,"&quot;").replace(/</g,"&lt;");
 const nm0=id=>nm[id]||nm[id.replace(/@\d$/,"")]||"";
 const label=id=>{const n=nm0(id);if(!n)return id;const m=id.match(/^T(\d)_/),e=id.match(/@(\d)$/);return n+(m?" T"+m[1]:"")+(e?"."+e[1]:"")};
-$("favgBtn").onclick=()=>{
-  const d=db[$("rid").value.trim()];
-  if(!d||!(d.iv>0)){$("ls").textContent="Önce tarifleri yükle, referans potionun item değeri gerekli.";return}
-  const v=Math.round(d.iv*0.1125*d.out/100*num("fee"));
-  $("favg").value=v;calc();
-  $("ls").textContent="Ortalama istasyon ücreti, referans potiondan "+fmt(v)+" olarak hesaplandı.";
-};
 const clock=()=>new Date().toLocaleTimeString("tr-TR",{hour:"2-digit",minute:"2-digit"});
 function ageMin(iso){
   if(!iso||iso.startsWith("0001"))return null;
@@ -928,7 +920,7 @@ $("cmp").onclick=async()=>{
   cmpShown=true;
   calc();
 };
-const SET=["srv","buyCity","craftCity","sellCity","strat","setup","lpbBase","lpbCity","lpbFocus","daily","fee","pool","mast","rf","rid","rrf","rrid","favg"],CHK=["prem","cb","foc","fmode"];
+const SET=["srv","buyCity","craftCity","sellCity","strat","setup","lpbBase","lpbCity","lpbFocus","daily","fee","pool","mast","rf","rid","rrf","rrid"],CHK=["prem","cb","foc"];
 let pending=[];
 const pfs=()=>{try{return JSON.parse(localStorage.getItem("aoprofiles"+KS)||"{}")}catch(e){return{}}};
 function pfList(sel){
@@ -988,10 +980,10 @@ $("pfDel").onclick=()=>{
   try{localStorage.setItem("aoprofiles"+KS,JSON.stringify(o))}catch(e){}
   setActive("");pfList("");$("pfSt").textContent=`"${n}" silindi.`;
 };
-const DEF={srv:"europe",buyCity:DCITY,craftCity:DCITY,sellCity:DCITY,strat:"order",setup:"2.5",lpbBase:"18",lpbCity:"15",lpbFocus:"59",daily:"10",fee:"400",pool:"10000",mast:FOOD?"0":"100",rf:FOOD?"":"107",rid:FOOD?"T6_MEAL_STEW":"T6_POTION_HEAL@1",rrf:FOOD?"":"281",rrid:FOOD?"":"T8_POTION_LAVA",favg:"6000"};
+const DEF={srv:"europe",buyCity:DCITY,craftCity:DCITY,sellCity:DCITY,strat:"order",setup:"2.5",lpbBase:"18",lpbCity:"15",lpbFocus:"59",daily:"10",fee:"400",pool:"10000",mast:FOOD?"0":"100",rf:FOOD?"":"107",rid:FOOD?"T6_MEAL_STEW":"T6_POTION_HEAL@1",rrf:FOOD?"":"281",rrid:FOOD?"":"T8_POTION_LAVA"};
 $("pfReset").onclick=()=>{
   if(!confirm("Ayarlar, plan ve elle girilen fiyatlar sıfırlansın mı? Kayıtlı profillerin silinmez."))return;
-  applyPf({v:DEF,c:{prem:true,cb:true,foc:false,fmode:!FOOD&&!CRAFT},spec:{},man:{mats:{},outs:{}},plan:[]});
+  applyPf({v:DEF,c:{prem:true,cb:true,foc:false},spec:{},man:{mats:{},outs:{}},plan:[]});
   setActive("");pfList("");
   $("pfSt").textContent="Ayarlar sıfırlandı. Kayıtlı profillerin duruyor.";
 };
@@ -1036,7 +1028,7 @@ $("citySel").addEventListener("change",()=>{
   if(plan.length)$("fetch").click();
 });
 const dayStr=()=>{const d=new Date();return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0")};
-const dbKind=FOOD?"food":"potion",dbPct=()=>{const m=(dbRows||[]).filter(r=>r.server===$("srv").value&&r.kind===dbKind);return m.length?Math.max(...m.map(r=>r.pct)):10};
+const dbKind=FOOD?"food":"potion";
 function renderDaily(){
   $("dailyLbl").textContent=CRAFT?"Günlük bonus (kategoriye göre)":FOOD?"Günlük bonus (yemek bonusuna göre)":"Günlük bonus (potion bonusuna göre)";
   $("dbSrv").textContent=$("srv").selectedOptions[0].text;
@@ -1083,7 +1075,7 @@ $("dailyOn").addEventListener("change",()=>{$("daily").value=$("dailyOn").checke
 $("srv").addEventListener("change",()=>{renderDaily();calc()});
 window.__dr=true;renderDaily();loadDaily();
 
-document.querySelectorAll("#srv,#buyCity,#craftCity,#sellCity,#onlyIssues,#top5Sel,#strat,#prem,#setup,#cb,#foc,#lpbBase,#lpbCity,#lpbFocus,#daily,#mast,#rf,#rid,#rrf,#rrid,#fee,#pool,#favg,#fmode").forEach(e=>e.addEventListener("input",calc));
+document.querySelectorAll("#srv,#buyCity,#craftCity,#sellCity,#onlyIssues,#top5Sel,#strat,#prem,#setup,#cb,#foc,#lpbBase,#lpbCity,#lpbFocus,#daily,#mast,#rf,#rid,#rrf,#rrid,#fee,#pool").forEach(e=>e.addEventListener("input",calc));
 calc();
 
 const BMC={weapon:["Silah",/^T\d_(MAIN|2H)_/],armor:["Zırh",/^T\d_ARMOR_/],head:["Kafalık",/^T\d_HEAD_/],shoes:["Ayakkabı",/^T\d_SHOES_/],off:["Offhand",/^T\d_OFF_/],bag:["Çanta/Pelerin",/^T\d_(BAG|CAPE)/]};
