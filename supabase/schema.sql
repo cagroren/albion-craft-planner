@@ -110,3 +110,22 @@ end $$;
 -- KENDİNİ ADMİN YAP: siteye Discord ile ilk kez giriş yaptıktan sonra
 -- aşağıdaki satırın başındaki "--" işaretini silip sadece onu çalıştır.
 -- update public.profiles set is_admin = true where id = (select id from public.profiles order by created_at limit 1);
+
+-- Günlük bonuslar (herkes okur, sadece admin girer). Yeni eklendi: bu bölümü SQL Editor'de çalıştırman yeterli.
+create table if not exists public.daily_bonus (
+  id bigint generated always as identity primary key,
+  server text not null default 'europe' check (server in ('europe','west','east')),
+  day date not null default current_date,
+  name text not null check (length(name) between 1 and 60),
+  pct int not null default 10 check (pct between 1 and 100),
+  kind text not null default 'other' check (kind in ('potion','food','other')),
+  created_at timestamptz not null default now()
+);
+alter table public.daily_bonus enable row level security;
+
+drop policy if exists "bonus okuma" on public.daily_bonus;
+create policy "bonus okuma" on public.daily_bonus for select using (true);
+
+drop policy if exists "bonus yönetim" on public.daily_bonus;
+create policy "bonus yönetim" on public.daily_bonus
+  for all using (public.is_admin()) with check (public.is_admin());

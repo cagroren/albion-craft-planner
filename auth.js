@@ -4,7 +4,7 @@
   if(!C.url||!C.key||/XXX/.test(C.url)||!window.supabase)return;
   const sb=window.supabase.createClient(C.url,C.key,{auth:{flowType:"pkce",detectSessionInUrl:true,persistSession:true}});
   window.aoSb=sb;
-  const KEYS=["aoplan3","aoplan3f","aoprofiles","aoprofilesf","aoactive","aoactivef","aobm1"];
+  const KEYS=["aoplan3","aoplan3f","aoplan3c","aoprofiles","aoprofilesf","aoprofilesc","aoactive","aoactivef","aoactivec","aobm1","aodb1"];
   const esc=t=>String(t==null?"":t).replace(/&/g,"&amp;").replace(/"/g,"&quot;").replace(/</g,"&lt;");
   const get=k=>{try{return LS.getItem(k)}catch(e){return null}};
   const orig=Storage.prototype.setItem;

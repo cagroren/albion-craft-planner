@@ -4,44 +4,52 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex">
-<title>Yönetim Paneli</title><link rel="icon" href="icon-192.png">
+<title>Yönetim Paneli</title><link rel="icon" href="icon-192.png"><link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap">
 <script src="config.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
 <style>
-:root{--bg:#f3f5f2;--card:#fff;--ink:#16211c;--mut:#5d6b64;--line:#d5dcd7;--acc:#0f7a55;--bad:#b3261e;--warn:#9a6200}
-@media(prefers-color-scheme:dark){:root{--bg:#10171a;--card:#182125;--ink:#e6eee9;--mut:#93a39b;--line:#2b383d;--acc:#52d6a0;--bad:#ff8a80;--warn:#f0b64a}}
+:root{--bg:#0b0f14;--card:#11161d;--card2:#151b23;--in:#0d1218;--ink:#e6e9ee;--mut:#8b95a3;--line:#252d38;--line2:#323c49;--acc:#f0883e;--acc2:#7a3e16;--accT:#ffd6b3;--good:#3fb950;--bad:#f85149;--warn:#e3b341;color-scheme:dark}
 *{box-sizing:border-box}
-body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 system-ui,sans-serif;padding:16px}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 "Inter",system-ui,-apple-system,"Segoe UI",sans-serif;padding:20px 16px;-webkit-font-smoothing:antialiased}
 main{max-width:1100px;margin:auto}
-h1{font:700 26px/1.2 Georgia,serif;margin:0}
-h2{font:600 16px Georgia,serif;margin:0 0 10px}
-a{color:var(--acc)}
-section{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:14px;margin-bottom:14px}
-input,textarea,button{font:inherit;padding:7px 9px;border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--ink);min-width:0}
+h1{font:800 26px/1.2 "Inter",system-ui,sans-serif;margin:0}
+h2{font:700 12px/1.4 "Inter",system-ui,sans-serif;letter-spacing:.12em;text-transform:uppercase;color:var(--acc);margin:0 0 14px}
+a{color:var(--acc);font-weight:600}
+section{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:20px;margin-bottom:16px}
+input,textarea,button,select{font:inherit;padding:9px 12px;border:1px solid var(--line2);border-radius:9px;background:var(--in);color:var(--ink);min-width:0}
+input,select{font-weight:600}
+select{appearance:none;-webkit-appearance:none;padding-right:34px;cursor:pointer;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1.5l5 5 5-5' fill='none' stroke='%23e6e9ee' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 12px center}
+select option{background:var(--card)}
 textarea{width:100%;resize:vertical}
-button{background:var(--acc);color:#fff;border-color:var(--acc);cursor:pointer;font-weight:600}
-@media(prefers-color-scheme:dark){button{color:#07231a}}
-button.l{background:transparent;color:var(--acc)}
-button.bad{background:transparent;color:var(--bad);border-color:var(--bad)}
+label{display:flex;flex-direction:column;gap:6px;font-size:12px;font-weight:600;color:#c3cad4}
+button{background:var(--acc2);color:var(--accT);border-color:#b8602a;cursor:pointer;font-weight:700}
+button:hover{background:#8f4a1b;border-color:var(--acc)}
+button.l{background:transparent;color:var(--acc);border-color:#5a3a24}
+button.l:hover{background:rgba(240,136,62,.08);border-color:var(--acc)}
+button.bad{background:transparent;color:var(--bad);border-color:rgba(248,81,73,.55)}
+button.bad:hover{background:rgba(248,81,73,.08)}
 button:disabled{opacity:.5;cursor:default}
-button:focus-visible,input:focus-visible,textarea:focus-visible{outline:2px solid var(--acc);outline-offset:1px}
-.hd{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:14px}
+button:focus-visible,input:focus-visible,textarea:focus-visible,select:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
+.hd{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:16px}
 .me{margin-left:auto;display:flex;gap:8px;align-items:center;font-size:13px}
-.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:10px}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:end;margin-top:12px}
 .st{color:var(--mut);font-size:13px;min-height:1.4em}
-.r{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:14px}
-.k{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:10px}
-.k b{display:block;font-size:22px}
+.r{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:16px}
+.k{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px;font-size:13px;color:var(--mut)}
+.k b{display:block;font-size:24px;font-weight:800;color:var(--ink)}
 .t{overflow-x:auto}
 table{border-collapse:collapse;width:100%;min-width:640px}
-th,td{text-align:left;padding:6px;border-bottom:1px solid var(--line);font-size:14px;vertical-align:middle}
-th{color:var(--mut);font-weight:600;font-size:13px}
-.bd{display:inline-block;padding:0 7px;border-radius:10px;font-size:12px;border:1px solid var(--line);white-space:nowrap}
-.bd-g{color:var(--acc);border-color:var(--acc)}.bd-r{color:var(--bad);border-color:var(--bad)}.bd-n{color:var(--mut)}
+th,td{text-align:left;padding:8px;border-bottom:1px solid var(--line);font-size:14px;vertical-align:middle}
+th{color:var(--mut);font-weight:700;font-size:11px;letter-spacing:.08em;text-transform:uppercase}
+.bd{display:inline-block;padding:1px 8px;border-radius:20px;font-size:11px;font-weight:700;border:1px solid var(--line2);white-space:nowrap}
+.bd-g{color:var(--good);border-color:rgba(63,185,80,.5);background:rgba(63,185,80,.08)}.bd-r{color:var(--bad);border-color:rgba(248,81,73,.5);background:rgba(248,81,73,.08)}.bd-n{color:var(--mut)}
 .av{width:28px;height:28px;border-radius:50%;vertical-align:middle;margin-right:8px;background:var(--line)}
-.an{display:flex;gap:10px;align-items:start;border-top:1px solid var(--line);padding:8px 0}
+.an{display:flex;gap:10px;align-items:start;border-top:1px solid var(--line);padding:10px 0}
 .an p{flex:1;margin:0;white-space:pre-wrap}
 .an.off p{color:var(--mut);text-decoration:line-through}
+.dbc{display:inline-flex;align-items:center;gap:8px;border:1px solid rgba(63,185,80,.4);background:rgba(63,185,80,.08);border-radius:9px;padding:4px 4px 4px 10px;font-size:13px;font-weight:700;margin:0 8px 8px 0}
+.dbc b{color:var(--good)}
+.dbc button{padding:2px 8px}
 </style>
 </head>
 <body>
@@ -50,6 +58,13 @@ th{color:var(--mut);font-weight:600;font-size:13px}
 <div class="st" id="gate">Yükleniyor...</div>
 <div id="app" hidden>
 <div class="r" id="stats"></div>
+<section>
+<h2>Günlük bonuslar</h2>
+<div class="st" style="margin-bottom:4px">Oyunda gördüğün günün bonuslarını gir, sitede herkese "Günlük bonuslar" kutusunda görünür. Türü Potion ya da Yemek seçersen o sekmede günlük bonus yüzdesi otomatik bu değer olur. Craft sekmesi için kategori adını oyundaki gibi yaz (örn. Fire Staff, Plate Armor, Sword) ve türü Diğer seç, o kategorideki eşyalara otomatik uygulanır.</div>
+<div class="row"><label>Tarih<input type="date" id="dbDay"></label><label>Sunucu<select id="dbSrv"><option value="europe">Europe</option><option value="west">West (Americas)</option><option value="east">East (Asia)</option></select></label><label>Kategori adı<input id="dbName" maxlength="60" placeholder="örn. Potions, Firestaff"></label><label>Bonus<select id="dbPct"><option value="10">+10%</option><option value="20">+20%</option></select></label><label>Tür<select id="dbKind"><option value="potion">Potion</option><option value="food">Yemek</option><option value="other">Diğer</option></select></label><button id="dbAdd">Ekle</button></div>
+<div class="st" id="dbSt" style="margin-top:8px"></div>
+<div id="dbList" style="margin-top:6px"></div>
+</section>
 <section>
 <h2>Duyuru yayınla</h2>
 <textarea id="anTxt" rows="3" maxlength="500" placeholder="Sitedeki herkese görünecek mesaj"></textarea>
@@ -87,7 +102,7 @@ async function start(){
   $("out").onclick=async()=>{await sb.auth.signOut();location.reload()};
   if(!p||!p.is_admin){$("gate").textContent="Bu sayfa için yetkin yok.";return}
   $("gate").hidden=true;$("app").hidden=false;
-  loadUsers();loadAnn();
+  loadUsers();loadAnn();initDb();
 }
 
 async function loadUsers(){
@@ -131,6 +146,24 @@ $("anAdd").onclick=async()=>{
   $("anAdd").disabled=false;
   if(error){$("anSt").textContent="Yayınlanamadı: "+error.message;return}
   $("anTxt").value="";$("anSt").textContent="Yayınlandı.";loadAnn();
+};
+const today=()=>{const d=new Date();return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0")};
+const KN={potion:"Potion",food:"Yemek",other:"Diğer"},SN={europe:"Europe",west:"West",east:"East"};
+function initDb(){$("dbDay").value=today();$("dbDay").onchange=loadDb;$("dbSrv").onchange=loadDb;loadDb()}
+async function loadDb(){
+  const {data,error}=await sb.from("daily_bonus").select("*").eq("day",$("dbDay").value).eq("server",$("dbSrv").value).order("created_at");
+  if(error){$("dbSt").textContent="Bonuslar alınamadı: "+error.message+(/daily_bonus/.test(error.message)?" (schema.sql'deki günlük bonus bölümünü Supabase'de çalıştırdın mı?)":"");return}
+  $("dbList").innerHTML=(data||[]).map(r=>`<span class="dbc">${esc(r.name)} <b>+${r.pct}%</b> <small style="color:var(--mut)">${KN[r.kind]}</small><button class="bad" data-dbd="${r.id}" aria-label="Sil">✕</button></span>`).join("")||`<div class="st">${esc(SN[$("dbSrv").value])} için bu tarihe bonus girilmedi.</div>`;
+  $("dbList").querySelectorAll("[data-dbd]").forEach(b=>b.onclick=async()=>{b.disabled=true;await sb.from("daily_bonus").delete().eq("id",b.dataset.dbd);loadDb()});
+}
+$("dbAdd").onclick=async()=>{
+  const n=$("dbName").value.trim();
+  if(!n){$("dbSt").textContent="Önce kategori adını yaz.";$("dbName").focus();return}
+  $("dbAdd").disabled=true;
+  const {error}=await sb.from("daily_bonus").insert({day:$("dbDay").value,server:$("dbSrv").value,name:n,pct:+$("dbPct").value,kind:$("dbKind").value});
+  $("dbAdd").disabled=false;
+  if(error){$("dbSt").textContent="Eklenemedi: "+error.message;return}
+  $("dbName").value="";$("dbSt").textContent="Eklendi.";loadDb();
 };
 $("uQ").oninput=renderUsers;
 $("uRef").onclick=loadUsers;
