@@ -219,13 +219,14 @@ section{padding:16px;border-radius:14px}
 <label>Satış stratejisi<select id="strat"><option value="order">Sell order (vergi + kurulum ücreti)</option><option value="instant">Instant sell (sadece vergi)</option></select></label>
 <label class="c"><input type="checkbox" id="prem" checked> Premium (vergi %4, yoksa %8)</label>
 <label>Kurulum ücreti (%)<input type="number" id="setup" value="2.5" step="0.1"></label>
+<label>İstasyon ücreti (100 nutrition başına)<input type="number" id="fee" value="400" min="0" max="1000" step="10"></label>
 
 <label class="c"><input type="checkbox" id="foc"> Focus kullan</label>
 <label class="c"><input type="checkbox" id="dailyOn"> <span id="dailyLbl">Günlük bonus (+%10)</span></label>
 <label>Focus havuzu (elimdeki)<input type="number" id="pool" value="10000"></label>
 <div style="display:none">
 <input type="checkbox" id="cb" checked><input type="number" id="lpbBase" value="18"><input type="number" id="lpbCity" value="15"><input type="number" id="lpbFocus" value="59"><input type="number" id="daily" value="10">
-<input type="number" id="fee" value="400"><input type="checkbox" id="fmode" checked><input type="number" id="favg" value="6000"><button id="favgBtn" type="button"></button>
+<input type="checkbox" id="fmode" checked><input type="number" id="favg" value="6000"><button id="favgBtn" type="button"></button>
 </div>
 </div>
 <div class="rrb" id="rr"></div>
@@ -373,6 +374,18 @@ if(FOOD||CRAFT){
 }
 const num=id=>parseFloat($(id).value)||0;
 const fmt=n=>Math.round(n).toLocaleString("tr-TR");
+let IVM={},IVC={};
+function buildIV(j){IVM={};IVC={};Object.values(j.items).forEach(v=>arr(v).forEach(it=>{if(it&&it["@uniquename"])IVM[it["@uniquename"]]=it}))}
+// Oyundaki eşya değeri: dosyada varsa o, yoksa tarifteki malzemelerden zincirleme (Bread, Schnapps gibi ara malzemeler)
+function ivOf(n,dep=0){
+  n=String(n).replace(/@\d$/,"");
+  if(n in IVC)return IVC[n];
+  const it=IVM[n];let v=0;
+  if(it&&it["@itemvalue"]!=null)v=+it["@itemvalue"]||0;
+  else if(it&&dep<6){const c=arr(it.craftingrequirements)[0];if(c)v=arr(c.craftresource).reduce((a,r)=>a+(+r["@count"]||0)*ivOf(r["@uniquename"],dep+1),0)/(+c["@amountcrafted"]||1)}
+  return IVC[n]=v;
+}
+const batchIV=c=>arr(c&&c.craftresource).reduce((a,r)=>a+(+r["@count"]||0)*ivOf(r["@uniquename"]),0);
 const DUMP="https://raw.githubusercontent.com/ao-data/ao-bin-dumps/master/items.json";
 let db={},plan=[],px={mats:{},outs:{},city:{}},man={mats:{},outs:{}};
 let spec={},fo={};
@@ -511,7 +524,7 @@ function updSum(r){
   const route=b===c&&c===s?b+" (alış, craft, satış)":b+" → "+c+" → "+s;
   const chips=[$("srv").selectedOptions[0].text,route,!isInst()?"Sell order":"Instant sell",$("prem").checked?"Premium":"Premium yok",
     "Geri dönüş %"+(r*100).toFixed(1)+($("foc").checked?" (focus açık)":" (focus kapalı)"),
-    "İstasyon "+($("fmode").checked?fmt(num("favg"))+"/craft":num("fee")+"/100 nutrition")];
+    "İstasyon "+num("fee")+"/100 nutrition"];
   if($("foc").checked)chips.push("Focus havuzu "+fmt(num("pool")));
   $("cfgSum").innerHTML=chips.map(x=>`<span class="chip">${esc(x)}</span>`).join("");
 }
@@ -553,19 +566,17 @@ function parseReq(id,cr,iv){
   const mats=arr(c.craftresource).map(r=>[r["@uniquename"],+r["@count"]||0,r["@maxreturnamount"]==="0"||/ALCHEMY_RARE/.test(r["@uniquename"]||"")]).filter(m=>m[0]&&!/JOURNAL/.test(m[0]));
   if(!mats.length)return;
   const rare=mats.some(m=>/ALCHEMY_RARE/.test(m[0]));
-  db[id]={mats,out:rare?10:+(c["@amountcrafted"]||5),focus:+(c["@craftingfocus"]||0),iv:+iv||0,rare};
+  db[id]={mats,out:rare?10:+(c["@amountcrafted"]||5),focus:+(c["@craftingfocus"]||0),iv:+iv||0,biv:batchIV(c),rare};
 }
 
 function parseGear(j){
-  const iv={};
-  Object.values(j.items).forEach(v=>arr(v).forEach(it=>{if(it&&it["@uniquename"]&&it["@itemvalue"])iv[it["@uniquename"]]=+it["@itemvalue"]}));
   const SC=new Set(["weapons","offhands","armors","head","shoes","bags","capes"]);
   const one=(id,cr,cat)=>{
     const c=arr(cr)[0];if(!c)return;
     const mats=arr(c.craftresource).filter(r=>r["@uniquename"]&&!/JOURNAL/.test(r["@uniquename"])).map(r=>{const e=+r["@enchantmentlevel"]||0;return [r["@uniquename"]+(e?"@"+e:""),+r["@count"]||0,r["@maxreturnamount"]==="0"]});
     if(!mats.length)return;
-    const v=arr(c.craftresource).reduce((a,r)=>a+(+r["@count"]||0)*(iv[r["@uniquename"]]||0),0);
-    db[id]={mats,out:+(c["@amountcrafted"]||1),focus:+(c["@craftingfocus"]||0),iv:v,rare:false,cat};
+    const v=batchIV(c);
+    db[id]={mats,out:+(c["@amountcrafted"]||1),focus:+(c["@craftingfocus"]||0),iv:v,biv:v,rare:false,cat};
     baseCat[base(id)]=cat;
   };
   ["weapon","equipmentitem","transformationweapon"].forEach(k=>arr(j.items[k]).forEach(it=>{
@@ -585,6 +596,7 @@ $("load").onclick=async()=>{
     if(!res.ok)throw new Error("HTTP "+res.status);
     const j=await res.json();
     db={};
+    buildIV(j);
     if(CRAFT)parseGear(j);
     else arr(j.items&&j.items.consumableitem).forEach(it=>{
       const id=it["@uniquename"];
@@ -796,7 +808,7 @@ function calc(){
     const bdg=stt.miss.length?`<br><span class="bd bd-r">Fiyat eksik (${stt.miss.length})</span>`:stt.old.length?`<br><span class="bd bd-r">Eski fiyat (${stt.old.length})</span>`:"";
     const open=openRows.has(p.id),kf=fc>0?pr/(fc*p.n):null,cl=pr>=0?"pos":"neg";
     rowsH.push(`<tr class="pr" id="r-${i}"><td>${img(p.id)}${esc(label(p.id))}${bdg}</td><td data-l="Craft"><input type="text" inputmode="decimal" data-k="n${i}" data-n="${i}" value="${p.n}" style="width:64px"></td><td data-l="Satış fiyatı"><input type="text" inputmode="decimal" data-k="o:${p.id}" data-o="${p.id}" value="${p.id in man.outs?man.outs[p.id]:""}" placeholder="${fmt(auto)}" style="width:96px"><br>${tag(pinfo(false,p.id))}</td><td data-l="Kâr / oran" class="${cl}">${fmt(pr)}<br><small>${net>0?(pr/net*100).toFixed(1)+"%":"-"}</small></td><td data-l="Focus">${fc?fmt(fc*p.n):"-"}<br><small>${fc?fc.toFixed(1)+"/craft":""}</small></td><td data-l="Kâr / focus">${kf===null?"-":fmt(kf)}</td>${cityCell(p.id)}<td data-l="Günlük satış">${histCell(p.id,p.n,d.out)}</td><td style="white-space:nowrap"><button class="l ic tg" data-t="${esc(p.id)}" aria-label="Ayrıntı" aria-expanded="${open}">${open?"▾":"▸"}</button><button class="l ic" data-i="${i}" aria-label="Sil">✕</button></td></tr>`);
-    if(open)rowsH.push(`<tr class="dt"><td colspan="${FOOD?9:8}"><div class="dg"><div>Çıkan ${W}: <b>${fmt(d.out*p.n)}</b></div><div>Malzeme (brüt): <b>${fmt(mc)}</b></div><div>Geri dönen: <b>-${fmt(mr*r)}</b></div><div>İstasyon: <b>${fmt(fee)}</b> (${fmt(stFee(p.id))}/craft)</div><div>Net maliyet: <b>${fmt(net)}</b></div><div>Satış (kesinti sonrası): <b>${fmt(rv)}</b></div><div>Focus: <b>${fmt(fc*p.n)}</b> (${fc.toFixed(1)}/craft, taban ${fmt(d.focus)})</div>${d.rare&&!CRAFT?'<div>Nadir malzemeli potion: ortak focus bonusu 11,25, malzeme return yok</div>':""}${stt.miss.length?`<div class="neg">Eksik fiyat: ${esc(stt.miss.map(label).join(", "))}</div>`:""}${stt.old.length?`<div class="neg">24 saatten eski: ${esc(stt.old.map(label).join(", "))}</div>`:""}</div></td></tr>`);
+    if(open)rowsH.push(`<tr class="dt"><td colspan="${FOOD?9:8}"><div class="dg"><div>Çıkan ${W}: <b>${fmt(d.out*p.n)}</b></div><div>Malzeme (brüt): <b>${fmt(mc)}</b></div><div>Geri dönen: <b>-${fmt(mr*r)}</b></div><div>İstasyon: <b>${fmt(fee)}</b> (${fmt(stFee(p.id))}/craft, ${fmt(nutr(p.id))} nutrition × ${num("fee")}/100)</div><div>Net maliyet: <b>${fmt(net)}</b></div><div>Satış (kesinti sonrası): <b>${fmt(rv)}</b></div><div>Focus: <b>${fmt(fc*p.n)}</b> (${fc.toFixed(1)}/craft, taban ${fmt(d.focus)})</div>${d.rare&&!CRAFT?'<div>Nadir malzemeli potion: ortak focus bonusu 11,25, malzeme return yok</div>':""}${stt.miss.length?`<div class="neg">Eksik fiyat: ${esc(stt.miss.map(label).join(", "))}</div>`:""}${stt.old.length?`<div class="neg">24 saatten eski: ${esc(stt.old.map(label).join(", "))}</div>`:""}</div></td></tr>`);
   });
   $("plan").innerHTML=rowsH.join("")||`<tr><td colspan="${FOOD?9:8}">${plan.length?"Sorunlu satır yok.":"Plan boş. Yukarıdan tarif ekle."}</td></tr>`;
   const fetched=Object.keys(px.mats).length||Object.keys(px.outs).length;
@@ -872,7 +884,8 @@ function syncCmpSel(){
   $("cmpSel").innerHTML=(b.length>1?`<option value="all">Hepsi (${b.length})</option>`:"")+b.map(i=>`<option value="${i}">${esc(label(i))}</option>`).join("");
   if([...$("cmpSel").options].some(o=>o.value===cur))$("cmpSel").value=cur;
 }
-const stFee=id=>{const d=db[id];if($("fmode").checked)return num("favg");return d&&d.iv>0?d.iv*0.1125*d.out/100*num("fee"):0};
+const nutr=id=>{const d=db[id];return d&&d.biv>0?d.biv*0.1125:0};
+const stFee=id=>nutr(id)*num("fee")/100;
 const cnt=id=>{const x=plan.find(p=>p.id===id)||plan.find(p=>p.id.replace(/@\d$/,"")===id.replace(/@\d$/,""));return x?x.n:1};
 function renderCmp(){
   const sel=$("cmpSel").value||"all",b=cmpBases(),list=sel==="all"?b:b.filter(x=>x===sel),pool=num("pool");
