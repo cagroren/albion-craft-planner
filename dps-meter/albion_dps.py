@@ -28,6 +28,7 @@ COMBAT_FAME_GRACE = 6        # savaş anından sonra bu kadar saniye içinde gel
 FP = 10000.0                 # oyunun sabit noktalı sayı çarpanı
 GAINS = ("fame", "combatFame", "silver", "might", "favor", "faction")
 MAX_FIGHTS_IN_MEMORY = 300
+MAX_OBJECTS = 5000           # hatırlanan karakter sayısı (en eskiler silinir)
 PHOTON_PORTS = (5055, 5056, 5058)
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -616,6 +617,10 @@ class Tracker:
                 if oid is not None and isinstance(name, str):
                     w = self.weapon_from(p.get(40))
                     self.objects[oid] = {"name": name}
+                    if len(self.objects) > MAX_OBJECTS:
+                        for k in list(self.objects)[:len(self.objects) - MAX_OBJECTS]:
+                            if k != self.local_id:
+                                del self.objects[k]
                     if w:
                         self.weapons[name] = w
             elif code == EV["CharacterEquipmentChanged"]:
@@ -687,7 +692,9 @@ class Tracker:
             with self.lock:
                 oid = to_int(p.get(0))
                 name = p.get(2)
-                self.objects = {}
+                # Karakter listesi silinmez: oyun bölge geçişinde Join'i iki kez gönderebiliyor ve
+                # aradaki "yeni karakter" mesajları kaybolursa parti arkadaşları tanınmaz.
+                # Nesne numaraları oturum boyunca tekrar kullanılmadığı için eski kayıtlar zararsız.
                 self.last_health = {}
                 if oid is not None and isinstance(name, str):
                     self.local_id, self.local_name = oid, name
