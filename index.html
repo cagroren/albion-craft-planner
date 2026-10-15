@@ -191,6 +191,13 @@ section{padding:16px;border-radius:14px}
 }
 @media(prefers-reduced-motion:no-preference){.fl td{animation:fl 1.3s}}
 @keyframes fl{from{background:rgba(240,136,62,.25)}to{background:transparent}}
+.bmp{background:var(--card2);border:1px solid var(--line);border-radius:12px;padding:10px 12px;margin-top:10px}
+.bmph{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:6px}
+.bmpt{min-width:560px}
+.bmpt td,.bmpt th{padding:6px 8px}
+.bmpn{display:flex;align-items:center;gap:8px}
+.bmpn img{width:32px;height:32px}
+.bmpn button{padding:2px 7px;font-size:13px}
 </style>
 </head>
 <body>
@@ -295,9 +302,9 @@ section{padding:16px;border-radius:14px}
 
 <div class="t"><table id="bmTbl"><thead><tr><th class="nb"><button class="l sb" data-sk="n">Eşya</button></th><th class="nb"><button class="l sb" data-sk="b">Al (en ucuz şehir)</button></th><th class="nb"><button class="l sb" data-sk="v">Black Market</button></th><th><button class="l sb" data-sk="p">Kâr</button></th><th><button class="l sb" data-sk="m">Kâr %</button></th><th><button class="l sb" data-sk="h">BM satış hızı</button></th><th></th></tr></thead><tbody id="bmRows"></tbody></table></div>
 <h2 style="margin-top:16px">Taşıma planı</h2>
-<div class="row" style="align-items:end"><label>Bütçe (silver)<input type="number" id="bmBud" value="1000000"></label><button id="bmPlan">Plan oluştur</button><button class="l" id="bmCopy">Kopyala</button></div>
-<div class="st" id="bmPlanSt">Bütçeye göre en yüksek kâr %'li eşyaları şehir şehir gruplar (her eşyadan 1 adet).</div>
-<div id="bmPlanOut"></div><textarea id="bmPlanTxt" readonly style="width:100%;height:90px;margin-top:8px;display:none"></textarea>
+<div class="row" style="align-items:end"><label>Bütçe (silver)<input type="number" id="bmBud" value="1000000"></label><button id="bmPlan">Plan oluştur</button><button class="l" id="bmCopy">Tüm planı kopyala</button></div>
+<div class="st" id="bmPlanSt">Bütçeye göre en yüksek kâr %'li eşyaları şehir şehir gruplar (her eşyadan 1 adet). Eşya adının yanındaki ⧉ düğmesi adı kopyalar, oyunda pazarda aratabilirsin.</div>
+<div id="bmPlanOut"></div>
 </section>
 <section id="dbApp" hidden>
 <h2>Eşya ara</h2>
@@ -399,8 +406,8 @@ function effFocus(id){
     return d.focus*Math.pow(0.5,(30*sp("M:"+d.cat)+250*sp(b)+30*others)/10000);
   }
   if(FOOD){
-    const d=db[id],S=[...new Set(Object.keys(db).map(base))].reduce((a,t)=>a+sp(t),0);
-    return d.focus*Math.pow(0.5,(30*num("mast")+SH*S+250*sp(base(id)))/10000);
+    const d=db[id],S=FTYPES.reduce((a,t)=>a+sp("F:"+t),0),ft=ftype(id);
+    return d.focus*Math.pow(0.5,(30*num("mast")+SH*S+(ft?250*sp("F:"+ft):0))/10000);
   }
   const d=db[id],ref=db[$("rid").value.trim()],rf=num("rf");
   const rr=db[$("rrid").value.trim()],rrf=num("rrf");
@@ -419,6 +426,10 @@ function effFocus(id){
   const eff=Math.max(0,Efull-30*(100-num("mast"))-shT*def-250*(100-sp(base(id))));
   return d.focus*Math.pow(0.5,eff/10000);
 }
+// Oyunda yemek spec'leri türe göre: her tür bütün kademeleri ve çeşitleri (balık, Avalon, Leyfin) kapsar
+const FTYPES=["SOUP","SALAD","PIE","OMELETTE","STEW","SANDWICH","ROAST"];
+const FTN={SOUP:"Soup",SALAD:"Salad",PIE:"Pie",OMELETTE:"Omelette",STEW:"Stew",SANDWICH:"Sandwich",ROAST:"Roast"};
+const ftype=id=>{const m=base(id).match(/^MEAL_(SOUP|SALAD|PIE|OMELETTE|STEW|SANDWICH|ROAST)(_|$)/);return m?m[1]:null};
 let baseCat={},specKey="";
 const planBases=()=>[...new Set(plan.map(p=>base(p.id)))];
 const tierStrip=n=>n.replace(/^(Beginner'?s?|Novice'?s?|Journeyman'?s?|Adept'?s?|Expert'?s?|Master'?s?|Grandmaster'?s?|Elder'?s?|Minor|Major|Greater|Lesser|Superior|Fine|Excellent|Mighty)\s+/i,"");
@@ -433,6 +444,14 @@ function renderCraftSpecs(force){
 }
 function renderSpecs(){
   if(CRAFT){renderCraftSpecs(true);return}
+  if(FOOD){
+    const ids=Object.keys(db).filter(i=>!i.includes("@"));
+    FTYPES.forEach(t=>{if(!(("F:"+t) in spec)){const old=Object.keys(spec).filter(k=>/^MEAL_/.test(k)&&ftype("T1_"+k)===t).map(k=>spec[k]);if(old.length)spec["F:"+t]=Math.max(...old)}});
+    $("specs").innerHTML=FTYPES.map(t=>{const m=ids.filter(i=>ftype(i)===t),id=m.find(i=>/^T[67]_/.test(i)&&!/_/.test(base(i).slice(5)))||m[0]||"T6_MEAL_"+t;
+      return `<label title="${esc(m.map(i=>nm0(i)||i).join(", "))}"><span class="spl">${img(id)}${FTN[t]} spec <small class="st" style="margin:0">(${m.length} tarif)</small></span><input type="number" min="0" max="100" data-sp="F:${t}" value="${sp("F:"+t)}"></label>`}).join("");
+    document.querySelectorAll("[data-sp]").forEach(e=>e.oninput=()=>{spec[e.dataset.sp]=Math.min(100,Math.max(0,pf(e.value)||0));save();calc()});
+    return;
+  }
   const ids=Object.keys(db).filter(i=>!i.includes("@")),types=[...new Set(Object.keys(db).map(base))].sort();
   const rep=t=>{const c=ids.filter(i=>base(i)===t);return c.find(i=>i.startsWith("T6_")&&nm0(i))||c.find(nm0)||c.find(i=>i.startsWith("T6_"))||c[0]||"T6_"+t};
   const pretty=(id,t)=>{const n=nm0(id);return n?n.replace(/^(Beginner'?s?|Novice'?s?|Journeyman'?s?|Adept'?s?|Expert'?s?|Master'?s?|Grandmaster'?s?|Elder'?s?|Minor|Major|Greater|Lesser|Superior|Fine|Excellent|Mighty)\s+/i,""):t.replace(/^(POTION|MEAL)_/,"").replace(/_/g," ")};
@@ -1181,19 +1200,29 @@ function initBM(){
   $("bmGo").onclick=scan;$("bmStop").onclick=()=>{stop=true};
   document.querySelectorAll("#bmTbl [data-sk]").forEach(b=>b.onclick=()=>{const k=b.dataset.sk;if(sortK===k)sortD=-sortD;else{sortK=k;sortD=k==="b"||k==="n"?1:-1}render()});
   ["bmMin","bmMax","bmMinS"].forEach(i=>$(i).addEventListener("input",render));
+  const tierOf=id=>"T"+id[1]+((id.match(/@(\d)/)||[])[1]?"."+id.match(/@(\d)/)[1]:"");
+  async function copyText(t,btn){
+    try{await navigator.clipboard.writeText(t)}catch(e){const a=document.createElement("textarea");a.value=t;document.body.appendChild(a);a.select();document.execCommand("copy");a.remove()}
+    if(btn){const o=btn.textContent;btn.textContent="✓";btn.disabled=true;setTimeout(()=>{btn.textContent=o;btn.disabled=false},1200)}
+  }
+  let planTxt="";
   $("bmPlan").onclick=()=>{
     let left=num("bmBud");const pick=filtered().slice().sort((a,b)=>b.pct-a.pct),by={};
     pick.forEach(r=>{if(r.buy<=left){left-=r.buy;(by[r.city]=by[r.city]||[]).push(r)}});
-    const cs=Object.keys(by);
-    if(!cs.length){$("bmPlanSt").textContent="Bütçeye uyan eşya yok ya da önce tarama yap.";$("bmPlanOut").innerHTML="";$("bmPlanTxt").style.display="none";return}
-    let inv=0,pr=0,txt="";
-    $("bmPlanOut").innerHTML=cs.map(c=>{const l=by[c],i=l.reduce((s,r)=>s+r.buy,0),p=l.reduce((s,r)=>s+r.profit,0);inv+=i;pr+=p;
-      txt+=`${c} (yatırım ${fmt(i)}, kâr ${fmt(p)}):\n`+l.map(r=>`- ${pn(r.id)} T${r.id[1]}${(r.id.match(/@(\d)/)||[])[1]?"."+r.id.match(/@(\d)/)[1]:""} (${QN[r.ql]}): al ${fmt(r.buy)}, BM ${fmt(r.bm)}`).join("\n")+"\n";
-      return `<div style="margin-top:8px"><b>${esc(c)}</b>: ${l.length} eşya, yatırım ${fmt(i)}, beklenen kâr <span class="pos">${fmt(p)}</span><br><small>${l.map(r=>esc(pn(r.id))+" T"+r.id[1]+((r.id.match(/@(\d)/)||[])[1]?"."+r.id.match(/@(\d)/)[1]:"")+" ("+QN[r.ql]+")").join(", ")}</small></div>`}).join("");
-    $("bmPlanSt").textContent=`Toplam yatırım ${fmt(inv)}, beklenen kâr ${fmt(pr)} (kalan bütçe ${fmt(left)}). Her eşyadan 1 adet; Black Market'te alış emri miktarı API'de yok.`;
-    $("bmPlanTxt").value=txt;$("bmPlanTxt").style.display="";
+    const cs=Object.keys(by).sort((a,b)=>by[b].reduce((s,r)=>s+r.profit,0)-by[a].reduce((s,r)=>s+r.profit,0));
+    if(!cs.length){$("bmPlanSt").textContent="Bütçeye uyan eşya yok ya da önce tarama yap.";$("bmPlanOut").innerHTML="";planTxt="";return}
+    let inv=0,pr=0;const parts=[];
+    $("bmPlanOut").innerHTML=cs.map((c,ci)=>{const l=by[c],i=l.reduce((s,r)=>s+r.buy,0),p=l.reduce((s,r)=>s+r.profit,0);inv+=i;pr+=p;
+      const ct=`${c} → Black Market (${l.length} eşya, yatırım ${fmt(i)}, kâr ${fmt(p)})\n`+l.map(r=>`${pn(r.id)} | ${tierOf(r.id)} | ${QN[r.ql]} | al ${fmt(r.buy)} | BM ${fmt(r.bm)} | kâr ${fmt(r.profit)}`).join("\n");
+      parts.push(ct);
+      return `<div class="bmp"><div class="bmph"><b>${esc(c)}</b><span class="st" style="margin:0">${l.length} eşya · yatırım ${fmt(i)} · kâr <span class="pos">${fmt(p)}</span></span><button class="l ic" data-cc="${ci}" style="margin-left:auto">Şehri kopyala</button></div>
+      <div class="t"><table class="bmpt"><thead><tr><th>Eşya</th><th>Kademe</th><th>Kalite</th><th class="n">Alış</th><th class="n">BM</th><th class="n">Kâr</th></tr></thead><tbody>${l.map(r=>`<tr><td><span class="bmpn">${img(r.id)}<span>${esc(pn(r.id))}</span><button class="l ic" data-cn="${esc(pn(r.id))}" title="Adı kopyala" aria-label="${esc(pn(r.id))} adını kopyala">⧉</button></span></td><td>${tierOf(r.id)}</td><td>${QN[r.ql]}</td><td class="n">${fmt(r.buy)}</td><td class="n">${fmt(r.bm)}</td><td class="n pos">${fmt(r.profit)} <small>(${(r.pct*100).toFixed(0)}%)</small></td></tr>`).join("")}</tbody></table></div></div>`}).join("");
+    planTxt=parts.join("\n\n");
+    $("bmPlanOut").querySelectorAll("[data-cn]").forEach(b=>b.onclick=()=>copyText(b.dataset.cn,b));
+    $("bmPlanOut").querySelectorAll("[data-cc]").forEach(b=>b.onclick=()=>copyText(parts[+b.dataset.cc],b));
+    $("bmPlanSt").textContent=`Toplam yatırım ${fmt(inv)}, beklenen kâr ${fmt(pr)} (kalan bütçe ${fmt(left)}). Her eşyadan 1 adet; Black Market'in alış miktarı API'de yok.`;
   };
-  $("bmCopy").onclick=()=>{const t=$("bmPlanTxt");if(!t.value)return;t.select();try{navigator.clipboard.writeText(t.value)}catch(e){document.execCommand("copy")}};
+  $("bmCopy").onclick=()=>{if(planTxt)copyText(planTxt,$("bmCopy"))};
   render();
 }
 if(BM)initBM();
