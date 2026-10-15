@@ -3,3 +3,6 @@ node_modules
 dps-meter/kayitlar/
 dps-meter/onbellek/
 __pycache__/
+build/
+dist/
+*.spec

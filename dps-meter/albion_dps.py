@@ -19,6 +19,7 @@ import sys
 import threading
 import time
 import urllib.request
+import webbrowser
 import zlib
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
@@ -31,7 +32,13 @@ MAX_FIGHTS_IN_MEMORY = 300
 MAX_OBJECTS = 5000           # hatırlanan karakter sayısı (en eskiler silinir)
 PHOTON_PORTS = (5055, 5056, 5058)
 
-HERE = os.path.dirname(os.path.abspath(__file__))
+PANEL_URL = "https://albion-craft-planner-lovat.vercel.app/dps"
+# Sadece bu adreslerden açılan sayfalar toplayıcıya bağlanabilir (başka siteler kayıtları okuyamaz/silemez)
+ALLOWED_ORIGINS = ("https://albion-craft-planner-lovat.vercel.app",)
+LOCAL_ORIGIN = re.compile(r"^http://(localhost|127\.0\.0\.1)(:\d+)?$")
+
+# .exe olarak çalışırken kayıtlar exe'nin yanındaki klasörlere yazılır
+HERE = os.path.dirname(sys.executable if getattr(sys, "frozen", False) else os.path.abspath(__file__))
 SAVE_DIR = os.path.join(HERE, "kayitlar")
 CACHE_DIR = os.path.join(HERE, "onbellek")
 LIVE_FILE = os.path.join(CACHE_DIR, "aktif-oturum.json")
@@ -957,11 +964,18 @@ def make_handler(tracker):
         def log_message(self, *a):
             pass
 
+        def origin_ok(self):
+            o = self.headers.get("Origin")
+            return o is None or o in ALLOWED_ORIGINS or bool(LOCAL_ORIGIN.match(o))
+
         def cors(self):
-            self.send_header("Access-Control-Allow-Origin", "*")
-            self.send_header("Access-Control-Allow-Methods", "GET, POST, DELETE, OPTIONS")
-            self.send_header("Access-Control-Allow-Headers", "*")
-            self.send_header("Access-Control-Allow-Private-Network", "true")
+            o = self.headers.get("Origin")
+            if o and self.origin_ok():
+                self.send_header("Access-Control-Allow-Origin", o)
+                self.send_header("Vary", "Origin")
+                self.send_header("Access-Control-Allow-Methods", "GET, POST, DELETE, OPTIONS")
+                self.send_header("Access-Control-Allow-Headers", "*")
+                self.send_header("Access-Control-Allow-Private-Network", "true")
 
         def send_json(self, obj, code=200):
             b = json.dumps(obj, ensure_ascii=False).encode("utf-8")
@@ -979,6 +993,8 @@ def make_handler(tracker):
             self.end_headers()
 
         def do_GET(self):
+            if not self.origin_ok():
+                return self.send_json({"error": "izin yok"}, 403)
             path = self.path.split("?")[0].rstrip("/")
             if path in ("", "/status"):
                 self.send_json(tracker.status())
@@ -989,6 +1005,8 @@ def make_handler(tracker):
                 self.send_json({"error": "bulunamadı"}, 404)
 
         def do_POST(self):
+            if not self.origin_ok():
+                return self.send_json({"error": "izin yok"}, 403)
             if self.path.split("?")[0].rstrip("/") == "/end":
                 with tracker.lock:
                     s = tracker.end_fight()
@@ -997,6 +1015,8 @@ def make_handler(tracker):
                 self.send_json({"error": "bulunamadı"}, 404)
 
         def do_DELETE(self):
+            if not self.origin_ok():
+                return self.send_json({"error": "izin yok"}, 403)
             path = self.path.split("?")[0]
             m = re.match(r"^/fights/([\w\-]+)$", path)
             if m:
@@ -1019,6 +1039,12 @@ def main():
     print("  Albion DPS Meter toplayıcısı")
     print("  Panelde 'DPS Meter' sekmesini aç. Bu pencere açık kalsın.")
     print("=" * 60, flush=True)
+    if os.name == "nt" and not os.path.exists(os.path.join(os.environ.get("SystemRoot", r"C:\Windows"), "System32", "Npcap", "wpcap.dll")):
+        log("Npcap kurulu değil. Açılan sayfadan indirip varsayılan ayarlarla kur,")
+        log("sonra bu programı tekrar çalıştır.")
+        webbrowser.open("https://npcap.com/#download")
+        input("Kapatmak için Enter'a bas...")
+        return
     update_codes()
     load_items()
     tracker = Tracker()
@@ -1032,6 +1058,8 @@ def main():
         return
     threading.Thread(target=srv.serve_forever, daemon=True).start()
     log(f"Panel bağlantısı hazır: http://127.0.0.1:{PORT}")
+    if getattr(sys, "frozen", False) and not os.environ.get("ALBION_NO_BROWSER"):
+        webbrowser.open(PANEL_URL)
 
     def ticker():
         while True:

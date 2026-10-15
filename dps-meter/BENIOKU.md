@@ -18,16 +18,23 @@ Sonuçları panelin **DPS Meter** sekmesinde görürsün.
 ## Kurulum (bir kere)
 
 1. **Npcap** kur: https://npcap.com/#download (varsayılan ayarlarla).
-2. **Python** kurulu değilse kur: https://www.python.org/downloads/
-   (kurarken "Add python.exe to PATH" kutusunu işaretle).
+2. **AlbionDPSMeter.exe** indir:
+   https://github.com/cagroren/albion-craft-planner/releases/latest/download/AlbionDPSMeter.exe
+   Python gerekmez. Windows uyarı verirse "Ek bilgi" → "Yine de çalıştır".
 
 ## Kullanım
 
-1. `DPS Meter Baslat.bat` dosyasına çift tıkla. Siyah pencere açık kalsın.
-   İlk açılışta gerekli paketi (scapy) kendisi kurar.
+1. `AlbionDPSMeter.exe` dosyasına çift tıkla. Siyah pencere açık kalsın,
+   panel tarayıcıda kendiliğinden açılır.
 2. Albion'a gir. En iyisi toplayıcıyı karakter seçim ekranındayken başlatmak,
    böylece parti bilgisini baştan görür.
-3. Panelde **DPS Meter** sekmesini aç.
+
+Python kuruluysa exe yerine `DPS Meter Baslat.bat` ile kaynak koddan da çalıştırabilirsin.
+
+## Exe'yi yeniden derlemek (geliştirici için)
+
+    py -3 -m pip install pyinstaller scapy pillow
+    py -3 -m PyInstaller --onefile --console --name AlbionDPSMeter --collect-submodules scapy.layers albion_dps.py
 
 ## Sorun çözme
 
