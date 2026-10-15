@@ -224,7 +224,7 @@ section{padding:16px;border-radius:14px}
 <label class="c"><input type="checkbox" id="dailyOn"> <span id="dailyLbl">Günlük bonus (+%10)</span></label>
 <label>Focus havuzu (elimdeki)<input type="number" id="pool" value="10000"></label>
 <div style="display:none">
-<input type="checkbox" id="cb" checked><input type="number" id="lpbBase" value="18"><input type="number" id="lpbCity" value="15"><input type="number" id="lpbFocus" value="59"><input type="number" id="daily" value="0">
+<input type="checkbox" id="cb" checked><input type="number" id="lpbBase" value="18"><input type="number" id="lpbCity" value="15"><input type="number" id="lpbFocus" value="59"><input type="number" id="daily" value="10">
 <input type="number" id="fee" value="400"><input type="checkbox" id="fmode" checked><input type="number" id="favg" value="6000"><button id="favgBtn" type="button"></button>
 </div>
 </div>
@@ -724,6 +724,13 @@ $("fetch").onclick=async()=>{
 };
 
 const normN=t=>String(t).toLowerCase().replace(/[^a-z]/g,"");
+const MODEN={potion:["potion","potions","alchemy"],food:["food","foods","cookedfood","meal","meals","cooking"]};
+function modeDaily(){
+  if(!$("dailyOn").checked)return 0;
+  if(!dbRows||!dbRows.some(r=>r.server===$("srv").value))return 10;
+  const k=FOOD?"food":"potion",m=dbRows.filter(r=>r.server===$("srv").value&&(r.kind===k||MODEN[k].includes(normN(r.name))));
+  return m.length?Math.max(...m.map(r=>r.pct)):0;
+}
 function craftDaily(d){
   if(!$("dailyOn").checked||!d)return 0;
   if(!dbRows||!dbRows.some(r=>r.server===$("srv").value))return 10;
@@ -739,7 +746,7 @@ function renderRR(tax){
     ["Satış kesintisi","%"+tax.toFixed(1),esc(sellT)],
     ["Şehir bonusu",cb?"+%"+num("lpbCity"):"yok",cb?esc(cc)+"'da "+esc(what)+" bonusu":bc?esc(what)+" bonusu "+esc(bc)+"'da":"bu kategoride yok",cb?"ok":"off"],
     ["Focus",$("foc").checked?"+%"+num("lpbFocus"):"kapalı",$("foc").checked?"açık":"açınca geri dönüş artar",$("foc").checked?"ok":"off"],
-    ["Günlük bonus",daily?"+%"+daily:"kapalı",daily?"aktif":CRAFT&&$("dailyOn").checked?"bu kategoriye bugün yok":"",daily?"ok":"off"]];
+    ["Günlük bonus",daily?"+%"+daily:$("dailyOn").checked?"yok":"kapalı",daily?(dbRows&&dbRows.some(r=>r.server===$("srv").value)?"bugünkü bonus":"veri yok, varsayılan +%10"):$("dailyOn").checked?(CRAFT?"bu kategoriye bugün yok":"bugün "+what+" bonusu yok"):"",daily?"ok":"off"]];
   $("rr").innerHTML=T.map(([a,b,c,k])=>`<div class="rrt ${k||""}"><span>${a}</span><b>${b}</b><small>${c}</small></div>`).join("");
   if(CRAFT){
     const ok=bc&&bc===cc;
@@ -749,7 +756,7 @@ function renderRR(tax){
   }
 }
 function rrParts(id,cat){
-  let cb=$("cb").checked,daily=num("daily");
+  let cb=$("cb").checked,daily=modeDaily();
   if(CRAFT){const d=id&&db[id]||(cat?{cat}:null);cb=!!d&&(CBON[$("craftCity").value]||[]).includes(d.cat);daily=d?craftDaily(d):0}
   return {cb,daily};
 }
@@ -968,7 +975,7 @@ $("pfDel").onclick=()=>{
   try{localStorage.setItem("aoprofiles"+KS,JSON.stringify(o))}catch(e){}
   setActive("");pfList("");$("pfSt").textContent=`"${n}" silindi.`;
 };
-const DEF={srv:"europe",buyCity:DCITY,craftCity:DCITY,sellCity:DCITY,strat:"order",setup:"2.5",lpbBase:"18",lpbCity:"15",lpbFocus:"59",daily:"0",fee:"400",pool:"10000",mast:FOOD?"0":"100",rf:FOOD?"":"107",rid:FOOD?"T6_MEAL_STEW":"T6_POTION_HEAL@1",rrf:FOOD?"":"281",rrid:FOOD?"":"T8_POTION_LAVA",favg:"6000"};
+const DEF={srv:"europe",buyCity:DCITY,craftCity:DCITY,sellCity:DCITY,strat:"order",setup:"2.5",lpbBase:"18",lpbCity:"15",lpbFocus:"59",daily:"10",fee:"400",pool:"10000",mast:FOOD?"0":"100",rf:FOOD?"":"107",rid:FOOD?"T6_MEAL_STEW":"T6_POTION_HEAL@1",rrf:FOOD?"":"281",rrid:FOOD?"":"T8_POTION_LAVA",favg:"6000"};
 $("pfReset").onclick=()=>{
   if(!confirm("Ayarlar, plan ve elle girilen fiyatlar sıfırlansın mı? Kayıtlı profillerin silinmez."))return;
   applyPf({v:DEF,c:{prem:true,cb:true,foc:false,fmode:!FOOD&&!CRAFT},spec:{},man:{mats:{},outs:{}},plan:[]});
@@ -1018,8 +1025,7 @@ $("citySel").addEventListener("change",()=>{
 const dayStr=()=>{const d=new Date();return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0")};
 const dbKind=FOOD?"food":"potion",dbPct=()=>{const m=(dbRows||[]).filter(r=>r.server===$("srv").value&&r.kind===dbKind);return m.length?Math.max(...m.map(r=>r.pct)):10};
 function renderDaily(){
-  $("dailyLbl").textContent=CRAFT?"Günlük bonus (kategoriye göre)":"Günlük bonus (+%"+dbPct()+")";
-  if($("dailyOn").checked&&+$("daily").value!==dbPct()){$("daily").value=dbPct()}
+  $("dailyLbl").textContent=CRAFT?"Günlük bonus (kategoriye göre)":FOOD?"Günlük bonus (yemek bonusuna göre)":"Günlük bonus (potion bonusuna göre)";
   $("dbSrv").textContent=$("srv").selectedOptions[0].text;
   const lv=$("dbLive");
   if(dbRows===null){const no=!window.aoSb||dbErr;lv.textContent=no?"VERİ YOK":"YÜKLENİYOR";lv.className="live";if(no)$("dbList").innerHTML=`<span class="st" style="margin:0">Günlük bonus verisi alınamadı${dbErr?" ("+esc(dbErr)+")":!window.aoSb?" (veritabanı bağlantısı yok)":""}. Bonusu kendin açıp kapatabilirsin.</span>`;return}
@@ -1060,7 +1066,7 @@ async function loadDaily(){
   if(dbRows)dbErr=null;else if(!dbErr)dbErr="bağlantı kurulamadı";
   renderDaily();calc();
 }
-$("dailyOn").addEventListener("change",()=>{$("daily").value=$("dailyOn").checked?String(dbPct()):"0";calc()});
+$("dailyOn").addEventListener("change",()=>{$("daily").value=$("dailyOn").checked?"10":"0";calc()});
 $("srv").addEventListener("change",()=>{renderDaily();calc()});
 window.__dr=true;renderDaily();loadDaily();
 
