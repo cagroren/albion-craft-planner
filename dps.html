@@ -87,6 +87,18 @@ tr.me .pn{color:var(--accT)}
 .hd{padding:4px 14px 14px;border-top:1px solid var(--line)}
 .hd .gn{margin-top:12px}
 @media(max-width:600px){.hide-s{display:none}.hr{gap:12px}.hc{min-width:0}.hc:first-child{min-width:90px}}
+tr.pl{cursor:pointer}
+tr.pl:focus-visible td{outline:1px solid var(--acc)}
+tr.pl.on td{background:rgba(240,136,62,.06)}
+.chev2{color:var(--mut);font-size:10px;margin-left:4px}
+tr.spr>td{background:var(--in);padding:4px 8px 10px}
+.spt{min-width:480px;width:100%}
+.spt th,.spt td{padding:5px 8px;font-size:13px;border-bottom-color:var(--line)}
+.spt .pn{font-weight:600}
+.spt .pn img{width:24px;height:24px}
+.ph.sm{width:24px;height:24px;border-radius:6px}
+.spt .bar{min-width:160px}
+.spt .bar i{height:16px}
 .empty{color:var(--mut);padding:30px 10px;text-align:center}
 @media(max-width:860px){@media(max-width:700px){body{padding:12px 16px}section{padding:16px;border-radius:14px}.tabs button{padding:8px 11px}h1{font-size:24px}}
 </style>
@@ -190,13 +202,29 @@ function detailHTML(f){
   <div class="k4"><div class="k">Toplam süre<b>${dur(f.duration)}</b></div><div class="k">Savaş süresi<b>${dur(cb)}</b></div><div class="k">Toplam hasar<b>${fmt(f.totalDamage)}</b></div><div class="k">Parti DPS<b>${fmt(f.totalDamage/Math.max(1,cb))}</b></div><div class="k">Toplam heal<b>${fmt(f.totalHeal)}</b></div></div>
   ${ps.length?`<div class="dh"><span class="sp"></span><div class="seg">${["damage","heal","taken"].map(s=>`<button data-s="${s}"${key===s?' class="on"':""}>${{damage:"Hasar",heal:"Heal",taken:"Alınan"}[s]}</button>`).join("")}</div></div>
   <div class="t"><table><thead><tr><th class="rk">#</th><th>Oyuncu</th><th>${lbl}</th><th class="n">DPS</th><th class="n">Hasar</th><th class="n">HPS</th><th class="n">Heal</th><th class="n">Overheal</th><th class="n">Alınan</th></tr></thead><tbody>
-  ${ps.map((p,i)=>`<tr class="${p.me?"me":""}"><td class="rk">${i+1}</td><td><span class="pn">${icon(p.weapon)}${esc(p.name)}</span></td>
+  ${ps.map((p,i)=>{const pk=f.id+"|"+p.name,on=openP.has(pk);return `<tr class="pl${p.me?" me":""}${on?" on":""}" data-pl="${esc(pk)}" tabindex="0" aria-expanded="${on}" title="Skill dökümü için tıkla"><td class="rk">${i+1}</td><td><span class="pn">${icon(p.weapon)}${esc(p.name)}<span class="chev2">${on?"▲":"▼"}</span></span></td>
   <td><div class="bar ${cls}"><i style="width:${(p[key]/max*100).toFixed(1)}%"></i><span>${fmt(p[key])}</span><small>${(p[key]/tot*100).toFixed(1).replace(".",",")}%</small></div></td>
-  <td class="n"><b>${fmt(p.dps)}</b></td><td class="n">${fmt(p.damage)}</td><td class="n">${fmt(p.hps)}</td><td class="n">${fmt(p.heal)}</td><td class="n" style="color:var(--mut)">${fmt(p.overheal)}</td><td class="n">${fmt(p.taken)}</td></tr>`).join("")}
+  <td class="n"><b>${fmt(p.dps)}</b></td><td class="n">${fmt(p.damage)}</td><td class="n">${fmt(p.hps)}</td><td class="n">${fmt(p.heal)}</td><td class="n" style="color:var(--mut)">${fmt(p.overheal)}</td><td class="n">${fmt(p.taken)}</td></tr>${on?`<tr class="spr"><td></td><td colspan="8">${spellsHTML(p)}</td></tr>`:""}`}).join("")}
   </tbody></table></div>`:`<div class="empty" style="padding:14px">Bu oturumda hasar ya da heal kaydı yok.</div>`}`;
 }
 
-function bindSort(root){root.querySelectorAll("[data-s]").forEach(b=>b.onclick=()=>{sortBy=LS.sort=b.dataset.s;saveLS();renderLive();renderHist()})}
+// Skill adları: oyunun dil dosyasından çıkarılmış küçük liste (data/spellnames.json)
+let SN={};fetch("data/spellnames.json").then(r=>r.json()).then(j=>{SN=j;renderLive();renderHist()}).catch(()=>{});
+const openP=new Set();
+const spName=k=>k==="AUTO"?"Normal saldırı":/^#\d+$/.test(k)?"Skill "+k:SN[k]||k.replace(/^(SKILLSHOT|PASSIVE|SPELL|AOE|TARGETED|CHANNEL)_/,"").toLowerCase().replace(/_/g," ").replace(/\b\w/g,c=>c.toUpperCase());
+const spIcon=k=>k==="AUTO"||/^#/.test(k)?`<span class="ph sm"></span>`:`<img src="https://render.albiononline.com/v1/spell/${encodeURIComponent(k)}.png?size=64" alt="" loading="lazy" onerror="this.replaceWith(Object.assign(document.createElement('span'),{className:'ph sm'}))">`;
+function spellsHTML(p){
+  const L=p.spells;
+  if(!L)return `<div class="st" style="padding:6px 0">Bu oturum skill dökümü eklenmeden önce kaydedildi.</div>`;
+  if(!L.length)return `<div class="st" style="padding:6px 0">Skill verisi yok.</div>`;
+  const heal=p.heal>p.damage,v=s=>heal?s.heal:s.damage,tot=L.reduce((a,s)=>a+v(s),0)||1,max=Math.max(1,...L.map(v));
+  return `<table class="spt"><thead><tr><th lang="en">Skill</th><th>${heal?"Heal":"Hasar"}</th><th class="n">Vuruş</th><th class="n">Ort.</th><th class="n">${heal?"Hasar":"Heal"}</th></tr></thead><tbody>${[...L].sort((a,b)=>v(b)-v(a)).map(s=>`<tr><td><span class="pn">${spIcon(s.key)}${esc(spName(s.key))}</span></td><td><div class="bar ${heal?"h":""}"><i style="width:${(v(s)/max*100).toFixed(1)}%"></i><span>${fmt(v(s))}</span><small>${(v(s)/tot*100).toFixed(1).replace(".",",")}%</small></div></td><td class="n">${fmt(s.hits)}</td><td class="n">${fmt(v(s)/Math.max(1,s.hits))}</td><td class="n" style="color:var(--mut)">${fmt(heal?s.damage:s.heal)}</td></tr>`).join("")}</tbody></table>`;
+}
+
+function bindSort(root){
+  root.querySelectorAll("[data-s]").forEach(b=>b.onclick=()=>{sortBy=LS.sort=b.dataset.s;saveLS();renderLive();renderHist()});
+  root.querySelectorAll("[data-pl]").forEach(r=>{const t=()=>{const k=r.dataset.pl;openP.has(k)?openP.delete(k):openP.add(k);renderLive();renderHist()};r.onclick=t;r.onkeydown=e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();t()}}});
+}
 
 function renderLive(){
   const f=status&&status.live;

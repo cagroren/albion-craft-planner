@@ -59,6 +59,8 @@ OP = {"Join": 2}
 
 CODES_URL = "https://raw.githubusercontent.com/Triky313/AlbionOnline-StatisticsAnalysis/main/src/StatisticsAnalysisTool/Network/{}.cs"
 ITEMS_URL = "https://raw.githubusercontent.com/ao-data/ao-bin-dumps/master/formatted/items.txt"
+SPELLS_URL = "https://raw.githubusercontent.com/ao-data/ao-bin-dumps/master/spells.xml"
+MAX_SPELLS_PER_PLAYER = 30
 
 
 def log(*a):
@@ -121,6 +123,61 @@ def update_codes():
 
 
 ITEM_NAMES = {}
+
+
+SPELLS = []  # oyunun gönderdiği skill numarası -> skill anahtarı (panel adını ve ikonunu bundan bulur)
+
+
+def load_spells():
+    """spells.xml'deki sıra = oyunun HealthUpdate'te gönderdiği skill numarası (colortag hariç,
+    kanal skilli olan activespell iki numara alır)."""
+    txt = fetch_text(SPELLS_URL, "spells.xml", max_age_h=72)
+    if not txt:
+        return
+    try:
+        import xml.etree.ElementTree as ET
+        root = ET.fromstring(txt)
+        loc = {}
+        for el in root:
+            u, t = el.get("uniquename"), el.get("namelocatag")
+            if u and t and t.startswith("@SPELLS_"):
+                loc[u] = t[8:]
+
+        tags = set(loc.values())
+
+        def key(u):
+            if not u:
+                return ""
+            if u in loc:
+                return loc[u]
+            parts = u.split("_")
+            for i in range(len(parts) - 1, 0, -1):  # SKILLSHOT_FIREBALL_FX -> SKILLSHOT_FIREBALL
+                k = "_".join(parts[:i])
+                if k in loc:
+                    return loc[k]
+                if k in tags:
+                    return k
+            return u
+
+        out = []
+        for el in root:
+            if el.tag == "colortag":
+                continue
+            k = key(el.get("uniquename"))
+            out.append(k)
+            if el.tag == "activespell" and el.find("channelingspell") is not None:
+                out.append(k)
+        SPELLS[:] = out
+        log(f"{len(SPELLS)} skill yüklendi (skill dökümü için).")
+    except Exception as e:
+        log("Skill listesi okunamadı:", e)
+
+
+def spell_key(idx):
+    i = to_int(idx)
+    if i is None or i < 0:
+        return "AUTO"
+    return SPELLS[i] if i < len(SPELLS) and SPELLS[i] else "#%d" % i
 
 
 def load_items():
@@ -531,6 +588,7 @@ class Tracker:
         self.fight = None
         self.fights = []
         self.last_combat = 0     # yerel oyuncunun son savaş anı (combat fame için)
+        self.fame_total = None   # oyunun bildirdiği toplam fame (fark = kazanılan)
         self.live_dirty = False
         self.packets = 0
         self.events = 0
@@ -622,13 +680,13 @@ class Tracker:
         self.events += 1
         with self.lock:
             if code == EV["HealthUpdate"]:
-                self.health(to_int(p.get(0)), p.get(2), p.get(3), to_int(p.get(6)), 3 in p)
+                self.health(to_int(p.get(0)), p.get(2), p.get(3), to_int(p.get(6)), 3 in p, p.get(7))
             elif code == EV["HealthUpdates"]:
                 aff = to_int(p.get(0))
-                ch, nh, cs = as_list(p.get(2)), as_list(p.get(3)), as_list(p.get(6))
+                ch, nh, cs, sp = as_list(p.get(2)), as_list(p.get(3)), as_list(p.get(6)), as_list(p.get(7))
                 for i in range(max(len(ch), len(cs))):
                     self.health(aff, ch[i] if i < len(ch) else 0, nh[i] if i < len(nh) else None,
-                                to_int(cs[i]) if i < len(cs) else None, i < len(nh))
+                                to_int(cs[i]) if i < len(cs) else None, i < len(nh), sp[i] if i < len(sp) else None)
             elif code == EV["NewCharacter"]:
                 oid = to_int(p.get(0))
                 name = p.get(1)
@@ -649,8 +707,15 @@ class Tracker:
                     self.weapons[self.name_of(oid)] = w
             elif code == EV["UpdateFame"]:
                 if self.is_local(p.get(0)):
-                    fz = (to_int(p.get(2)) or 0) / FP
-                    fame = fz * (1.5 if p.get(5) is True else 1) + (to_int(p.get(10)) or 0) / FP
+                    # Kazanılan fame = oyunun gönderdiği toplam fame'in (1) bir önceki mesaja göre farkı.
+                    # (2) zaten premium dahil kazançtır; toplam yoksa ona düşülür.
+                    total = to_int(p.get(1))
+                    if total is not None and self.fame_total is not None and 0 < total - self.fame_total < 10 ** 13:
+                        fame = (total - self.fame_total) / FP
+                    else:
+                        fame = ((to_int(p.get(2)) or 0) + (to_int(p.get(10)) or 0)) / FP
+                    if total is not None:
+                        self.fame_total = total
                     if fame > 0:
                         self.gain("fame", fame)
                         if time.time() - self.last_combat <= COMBAT_FAME_GRACE:
@@ -664,7 +729,10 @@ class Tracker:
                 self.gain("might", (to_int(p.get(1)) or 0) / FP)
                 self.gain("favor", (to_int(p.get(4)) or 0) / FP)
             elif code == EV["UpdateCurrency"]:
-                self.gain("faction", (to_int(p.get(3)) or 0) / FP)
+                # Bu mesaj başka para birimleri için de gelir (ör. dragon haritasındaki favor);
+                # sadece 6 şehir faction'ı (1-6) faction puanı sayılır.
+                if (to_int(p.get(2)) or 0) in (1, 2, 3, 4, 5, 6):
+                    self.gain("faction", (to_int(p.get(3)) or 0) / FP)
             elif code == EV["InCombatStateUpdate"]:
                 oid = to_int(p.get(0))
                 if oid is not None and oid == self.local_id and (p.get(1) is True or p.get(2) is True):
@@ -718,6 +786,8 @@ class Tracker:
                 self.objects = {k: o for k, o in self.objects.items() if now - o.get("t", 0) <= JOIN_KEEP_SECONDS}
                 self.last_health = {}
                 if oid is not None and isinstance(name, str):
+                    if name != self.local_name:
+                        self.fame_total = None  # başka karakter: toplam fame farkı geçersiz
                     self.local_id, self.local_name = oid, name
                     self.objects[oid] = {"name": name, "t": time.time()}
                 self.zone = str(p.get(8)) if p.get(8) is not None else None
@@ -743,7 +813,7 @@ class Tracker:
             return None
         return ITEM_NAMES.get(idx)
 
-    def health(self, aff, change, new_health, causer, has_new):
+    def health(self, aff, change, new_health, causer, has_new, spell=None):
         if aff is None:
             return
         try:
@@ -778,9 +848,12 @@ class Tracker:
             st["last"] = now
             if st["first"] is None:
                 st["first"] = now
+            sk = st.setdefault("spells", {}).setdefault(spell_key(spell), [0, 0, 0])  # hasar, heal, vuruş
+            sk[2] += 1
             if is_damage:
                 amt = round(-change)
                 st["damage"] += amt
+                sk[0] += amt
                 if aff not in self.objects:
                     st["mob"] += amt
             else:
@@ -790,6 +863,7 @@ class Tracker:
                     st["overheal"] += amt
                 else:
                     st["heal"] += amt
+                    sk[1] += amt
             f["last"] = now
         if is_damage and aff_in:
             st = self.player(f, self.name_of(aff))
@@ -826,6 +900,9 @@ class Tracker:
                 "damage": st["damage"], "heal": st["heal"], "overheal": st["overheal"],
                 "taken": st["taken"],
                 "dps": round(st["damage"] / act, 1), "hps": round(st["heal"] / act, 1),
+                "spells": [{"key": k, "damage": v[0], "heal": v[1], "hits": v[2]} for k, v in
+                           sorted(st.get("spells", {}).items(), key=lambda kv: -(kv[1][0] + kv[1][1]))
+                           if v[0] or v[1]][:MAX_SPELLS_PER_PLAYER],
                 "me": name == self.local_name,
             })
         players.sort(key=lambda x: (-x["damage"], -x["heal"]))
@@ -1061,6 +1138,7 @@ def main():
         return
     update_codes()
     load_items()
+    load_spells()
     tracker = Tracker()
     parser = PhotonParser(tracker.on_event, tracker.on_request, tracker.on_response)
 
