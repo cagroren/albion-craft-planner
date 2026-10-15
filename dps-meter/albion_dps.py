@@ -22,24 +22,29 @@ import urllib.request
 import zlib
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-PORT = 47700
-FIGHT_IDLE_SECONDS = 12      # bu kadar saniye parti hasarı/heal'i olmazsa savaş biter
-MIN_FIGHT_SECONDS = 2        # bundan kısa savaşlar kaydedilmez
+PORT = int(os.environ.get("ALBION_DPS_PORT") or 47700)
+COMBAT_GAP_SECONDS = 5       # vuruşlar arası bundan uzun boşluk "savaş süresi"ne sayılmaz
+COMBAT_FAME_GRACE = 6        # savaş anından sonra bu kadar saniye içinde gelen fame "combat fame" sayılır
+FP = 10000.0                 # oyunun sabit noktalı sayı çarpanı
+GAINS = ("fame", "combatFame", "silver", "might", "favor", "faction")
 MAX_FIGHTS_IN_MEMORY = 300
 PHOTON_PORTS = (5055, 5056, 5058)
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 SAVE_DIR = os.path.join(HERE, "kayitlar")
 CACHE_DIR = os.path.join(HERE, "onbellek")
+LIVE_FILE = os.path.join(CACHE_DIR, "aktif-oturum.json")
 
 # ---------------------------------------------------------------------------
 # Olay / işlem kodları. Oyun güncellemelerinde değişebilir; program açılışta
-# güncel listeyi indirmeyi dener, olmazsa bu değerleri kullanır (12 Ekim 2026).
+# güncel listeyi indirmeyi dener, olmazsa bu değerleri kullanır (15 Ekim 2026).
 # ---------------------------------------------------------------------------
 EV = {
     "Leave": 1, "HealthUpdate": 6, "HealthUpdates": 7, "NewCharacter": 29,
     "CharacterEquipmentChanged": 90, "PartyJoined": 230, "PartyDisbanded": 231,
     "PartyPlayerJoined": 232, "PartyPlayerLeft": 234,
+    "TakeSilver": 62, "UpdateFame": 82, "UpdateCurrency": 85,
+    "MightAndFavorReceivedEvent": 496, "InCombatStateUpdate": 277,
 }
 OP = {"Join": 2}
 
@@ -516,11 +521,14 @@ class Tracker:
         self.weapons = {}        # oyuncu adı -> silah unique name
         self.fight = None
         self.fights = []
+        self.last_combat = 0     # yerel oyuncunun son savaş anı (combat fame için)
+        self.live_dirty = False
         self.packets = 0
         self.events = 0
         self.last_packet = 0
         self.started = time.time()
         self.load_saved()
+        self.load_live()
 
     # ---- kayıt ----
     def load_saved(self):
@@ -541,6 +549,29 @@ class Tracker:
                 json.dump(fight, fh, ensure_ascii=False)
         except Exception as e:
             log("Kaydedilemedi:", e)
+
+    def load_live(self):
+        try:
+            with open(LIVE_FILE, encoding="utf-8") as fh:
+                f = json.load(fh)
+            f.setdefault("gains", {k: 0 for k in GAINS})
+            f.setdefault("active", 0.0)
+            f.setdefault("lastHit", None)
+            self.fight = f
+            log("Yarım kalan oturum geri yüklendi.")
+        except Exception:
+            pass
+
+    def save_live(self):
+        try:
+            os.makedirs(CACHE_DIR, exist_ok=True)
+            if self.fight:
+                with open(LIVE_FILE, "w", encoding="utf-8") as fh:
+                    json.dump(self.fight, fh, ensure_ascii=False)
+            elif os.path.exists(LIVE_FILE):
+                os.remove(LIVE_FILE)
+        except Exception as e:
+            log("Aktif oturum kaydedilemedi:", e)
 
     def delete(self, fid):
         with self.lock:
@@ -593,6 +624,28 @@ class Tracker:
                 w = self.weapon_from(p.get(2))
                 if o and w:
                     self.weapons[o["name"]] = w
+            elif code == EV["UpdateFame"]:
+                if self.is_local(p.get(0)):
+                    fz = (to_int(p.get(2)) or 0) / FP
+                    fame = fz * (1.5 if p.get(5) is True else 1) + (to_int(p.get(10)) or 0) / FP
+                    if fame > 0:
+                        self.gain("fame", fame)
+                        if time.time() - self.last_combat <= COMBAT_FAME_GRACE:
+                            self.gain("combatFame", fame)
+            elif code == EV["TakeSilver"]:
+                oid = to_int(p.get(0))
+                if oid is not None and oid == self.local_id:
+                    tax = sum((to_int(p.get(k)) or 0) for k in (4, 5, 6))
+                    self.gain("silver", max(0, (to_int(p.get(3)) or 0) - tax) / FP)
+            elif code == EV["MightAndFavorReceivedEvent"]:
+                self.gain("might", (to_int(p.get(1)) or 0) / FP)
+                self.gain("favor", (to_int(p.get(4)) or 0) / FP)
+            elif code == EV["UpdateCurrency"]:
+                self.gain("faction", (to_int(p.get(3)) or 0) / FP)
+            elif code == EV["InCombatStateUpdate"]:
+                oid = to_int(p.get(0))
+                if oid is not None and oid == self.local_id and (p.get(1) is True or p.get(2) is True):
+                    self.last_combat = time.time()
             elif code == EV["Leave"]:
                 oid = to_int(p.get(0))
                 if oid is not None and oid != self.local_id:
@@ -632,7 +685,6 @@ class Tracker:
         code = to_int(p.get(253))
         if code == OP["Join"]:
             with self.lock:
-                self.end_fight()
                 oid = to_int(p.get(0))
                 name = p.get(2)
                 self.objects = {}
@@ -642,6 +694,17 @@ class Tracker:
                     self.objects[oid] = {"name": name}
                 self.zone = str(p.get(8)) if p.get(8) is not None else None
                 log(f"Bölgeye girildi. Karakter: {self.local_name}")
+
+    def is_local(self, oid):
+        oid = to_int(oid)
+        return oid is None or self.local_id is None or oid == self.local_id
+
+    def gain(self, key, amount):
+        if amount <= 0:
+            return
+        f = self.ensure_fight(time.time())
+        f["gains"][key] = f["gains"].get(key, 0) + amount
+        self.live_dirty = True
 
     def weapon_from(self, eq):
         eq = as_list(eq)
@@ -676,6 +739,12 @@ class Tracker:
             return
         now = time.time()
         f = self.ensure_fight(now)
+        if causer == self.local_id or aff == self.local_id:
+            self.last_combat = now
+        if f["lastHit"] is not None:
+            f["active"] += min(now - f["lastHit"], COMBAT_GAP_SECONDS)
+        f["lastHit"] = now
+        self.live_dirty = True
         if causer_in:
             st = self.player(f, self.objects[causer]["name"])
             st["last"] = now
@@ -700,10 +769,9 @@ class Tracker:
             f["last"] = now
 
     def ensure_fight(self, now):
-        if self.fight and now - self.fight["last"] > FIGHT_IDLE_SECONDS:
-            self.end_fight()
         if not self.fight:
-            self.fight = {"start": now, "last": now, "players": {}, "zone": self.zone}
+            self.fight = {"start": now, "last": now, "players": {}, "zone": self.zone,
+                          "gains": {k: 0 for k in GAINS}, "active": 0.0, "lastHit": None}
         return self.fight
 
     def player(self, f, name):
@@ -717,7 +785,9 @@ class Tracker:
         return st
 
     def summarize(self, f, final):
-        dur = max(1.0, f["last"] - f["start"])
+        end = f["last"] if final else max(f["last"], time.time())
+        dur = max(1.0, end - f["start"])
+        act = max(1.0, f.get("active", 0) + (1 if f.get("lastHit") else 0))  # sadece vuruşma süresi
         players = []
         for name, st in f["players"].items():
             if st["damage"] == 0 and st["heal"] == 0 and st["taken"] == 0:
@@ -727,47 +797,52 @@ class Tracker:
                 "weapon": st.get("weapon") or self.weapons.get(name),
                 "damage": st["damage"], "heal": st["heal"], "overheal": st["overheal"],
                 "taken": st["taken"],
-                "dps": round(st["damage"] / dur, 1), "hps": round(st["heal"] / dur, 1),
+                "dps": round(st["damage"] / act, 1), "hps": round(st["heal"] / act, 1),
                 "me": name == self.local_name,
             })
         players.sort(key=lambda x: (-x["damage"], -x["heal"]))
         start = f["start"]
         return {
             "id": time.strftime("%Y%m%d-%H%M%S", time.localtime(start)) + "-%03d" % int((start % 1) * 1000),
-            "start": int(start * 1000), "end": int(f["last"] * 1000),
-            "duration": round(dur, 1), "zone": f.get("zone"),
+            "start": int(start * 1000), "end": int(end * 1000),
+            "duration": round(dur, 1), "combat": round(act, 1), "zone": f.get("zone"),
+            "gains": {k: round(f.get("gains", {}).get(k, 0)) for k in GAINS},
             "totalDamage": sum(p["damage"] for p in players),
             "totalHeal": sum(p["heal"] for p in players),
             "players": players, "final": final,
         }
 
     def end_fight(self):
+        """Oturumu bitirir, geçmişe kaydeder; sonraki vuruş/kazançta yenisi başlar (paneldeki 'Bitir')."""
         f, self.fight = self.fight, None
+        self.save_live()
         if not f:
-            return
+            return None
+        f["last"] = time.time()
         s = self.summarize(f, True)
-        if s["duration"] < MIN_FIGHT_SECONDS or (s["totalDamage"] == 0 and s["totalHeal"] == 0):
-            return
+        if s["totalDamage"] == 0 and s["totalHeal"] == 0 and not any(s["gains"].values()):
+            return None
         self.fights.append(s)
         self.fights = self.fights[-MAX_FIGHTS_IN_MEMORY:]
         self.save(s)
         top = s["players"][0]["name"] if s["players"] else "-"
-        log(f"Savaş bitti: {s['duration']:.0f} sn, toplam hasar {s['totalDamage']:,}, en yüksek: {top}")
+        log(f"Oturum bitti: {s['duration']:.0f} sn, toplam hasar {s['totalDamage']:,}, en yüksek: {top}")
+        return s
 
     def tick(self):
         with self.lock:
-            if self.fight and time.time() - self.fight["last"] > FIGHT_IDLE_SECONDS:
-                self.end_fight()
+            if self.live_dirty:
+                self.live_dirty = False
+                self.save_live()
 
     def status(self):
         with self.lock:
             return {
-                "ok": True, "version": 1,
+                "ok": True, "version": 2,
                 "capturing": time.time() - self.last_packet < 10 if self.last_packet else False,
                 "packets": self.packets, "events": self.events,
                 "character": self.local_name,
                 "party": sorted(self.party_names()), "partyKnown": self.party_known,
-                "idleSeconds": FIGHT_IDLE_SECONDS,
                 "live": self.summarize(self.fight, False) if self.fight else None,
                 "fightCount": len(self.fights),
             }
@@ -877,7 +952,7 @@ def make_handler(tracker):
 
         def cors(self):
             self.send_header("Access-Control-Allow-Origin", "*")
-            self.send_header("Access-Control-Allow-Methods", "GET, DELETE, OPTIONS")
+            self.send_header("Access-Control-Allow-Methods", "GET, POST, DELETE, OPTIONS")
             self.send_header("Access-Control-Allow-Headers", "*")
             self.send_header("Access-Control-Allow-Private-Network", "true")
 
@@ -903,6 +978,14 @@ def make_handler(tracker):
             elif path == "/fights":
                 with tracker.lock:
                     self.send_json(list(reversed(tracker.fights)))
+            else:
+                self.send_json({"error": "bulunamadı"}, 404)
+
+        def do_POST(self):
+            if self.path.split("?")[0].rstrip("/") == "/end":
+                with tracker.lock:
+                    s = tracker.end_fight()
+                self.send_json({"ok": True, "saved": s["id"] if s else None})
             else:
                 self.send_json({"error": "bulunamadı"}, 404)
 
@@ -945,7 +1028,7 @@ def main():
 
     def ticker():
         while True:
-            time.sleep(1)
+            time.sleep(3)
             tracker.tick()
     threading.Thread(target=ticker, daemon=True).start()
 

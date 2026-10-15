@@ -8,7 +8,10 @@ Sonuçları panelin **DPS Meter** sekmesinde görürsün.
 - `albion_dps.py` bilgisayarında çalışır, Albion'un ağ trafiğini **sadece okur**.
   Oyuna hiçbir şey göndermez, oyun dosyalarına dokunmaz.
 - Sadece kendi partini sayar (partide değilsen sadece seni).
-- Bir savaş, 12 saniye boyunca parti hasarı/heal'i olmayınca biter ve kaydedilir.
+- Oturum sen paneldeki **Bitir ve kaydet** düğmesine basana kadar sürer (bölge değişse,
+  program kapanıp açılsa bile). Bitirince geçmişe kaydedilir.
+- Hasar/heal'in yanında kendi kazandığın fame, combat fame, silver, might, favor ve
+  faction puanını da sayar.
 - Kayıtlar `kayitlar` klasöründe durur. Panel bunları `http://127.0.0.1:47700`
   adresinden okur; bu adres sadece senin bilgisayarından erişilebilir.
 
