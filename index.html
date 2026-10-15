@@ -728,7 +728,7 @@ function craftDaily(d){
   if(!$("dailyOn").checked||!d)return 0;
   if(!dbRows||!dbRows.some(r=>r.server===$("srv").value))return 10;
   const keys=[normN(d.cat),normN(CATN[d.cat]||"")];
-  const m=dbRows.filter(r=>r.server===$("srv").value&&keys.includes(normN(r.name)));
+  const m=dbRows.filter(r=>r.server===$("srv").value&&(keys.includes(normN(r.name))||(r.keys||[]).includes(d.cat)));
   return m.length?Math.max(...m.map(r=>r.pct)):0;
 }
 function renderRR(tax){
@@ -1025,12 +1025,39 @@ function renderDaily(){
   if(dbRows===null){const no=!window.aoSb||dbErr;lv.textContent=no?"VERİ YOK":"YÜKLENİYOR";lv.className="live";if(no)$("dbList").innerHTML=`<span class="st" style="margin:0">Günlük bonus verisi alınamadı${dbErr?" ("+esc(dbErr)+")":!window.aoSb?" (veritabanı bağlantısı yok)":""}. Bonusu kendin açıp kapatabilirsin.</span>`;return}
   const l=dbRows.filter(r=>r.server===$("srv").value);
   lv.textContent=l.length?"CANLI":"BUGÜN GİRİLMEDİ";lv.className="live"+(l.length?" on":"");
-  $("dbList").innerHTML=l.map(r=>`<span class="dbc${(CRAFT?plan.some(p=>db[p.id]&&[normN(db[p.id].cat),normN(CATN[db[p.id].cat]||"")].includes(normN(r.name))):r.kind===dbKind)?" on":""}">${esc(r.name)} <b>+${r.pct}%</b></span>`).join("")||'<span class="st" style="margin:0">Bugün için bonus girilmedi. Bonusu kendin açıp kapatabilirsin.</span>';
+  $("dbList").innerHTML=l.map(r=>`<span class="dbc${(CRAFT?plan.some(p=>db[p.id]&&([normN(db[p.id].cat),normN(CATN[db[p.id].cat]||"")].includes(normN(r.name))||(r.keys||[]).includes(db[p.id].cat))):r.kind===dbKind)?" on":""}"${r.auto?' title="Oyundan otomatik (Albion Data Project)"':""}>${esc(r.name)} <b>+${r.pct}%</b></span>`).join("")||'<span class="st" style="margin:0">Bugün için bonus girilmedi. Bonusu kendin açıp kapatabilirsin.</span>';
+}
+// Oyundaki günlük üretim bonusu: Albion Data Client'ların gönderdiği festivities verisi + oyun dosyasındaki kategori/yüzde tanımı
+const FEST_NAME={offhand:"Off-hand",bag:"Bag",cape:"Cape",gatherergear:"Gathering Gear",tools:"Tools",potion:"Potion",food:"Food",fiber:"Fiber (refine)",wood:"Wood (refine)",rock:"Stone (refine)",ore:"Ore (refine)",hide:"Hide (refine)"};
+const FEST_KEYS={offhand:["shieldtype","booktype","torchtype"],bag:["bags"],cape:["capes"]};
+async function loadAutoDaily(){
+  const ck="aofest1";
+  try{const c=JSON.parse(sessionStorage.getItem(ck)||"null");if(c&&Date.now()-c.t<6e5)return c.rows}catch(e){}
+  const xml=await fetch("https://raw.githubusercontent.com/ao-data/ao-bin-dumps/master/festivities.xml").then(r=>{if(!r.ok)throw 0;return r.text()});
+  const defs={};
+  new DOMParser().parseFromString(xml,"text/xml").querySelectorAll("craftbonusevent").forEach(e=>defs[e.getAttribute("uniquename")]={cat:e.getAttribute("category"),pct:Math.round(parseFloat(e.getAttribute("value"))*100)});
+  const now=Date.now(),ms=t=>(t-621355968000000000)/1e4,rows=[];
+  const res=await Promise.allSettled(["europe","west","east"].map(s=>fetch(`https://${s}.albion-online-data.com/api/v2/stats/festivities.json`).then(r=>r.ok?r.json():null).then(j=>({s,j}))));
+  res.forEach(x=>{
+    if(x.status!=="fulfilled"||!x.value.j)return;
+    (x.value.j.Events||[]).forEach(ev=>{
+      const d=defs[ev.UniqueName];
+      if(!d||!(ms(ev.StartTime)<=now&&now<ms(ev.EndTime)))return;
+      rows.push({server:x.value.s,name:CATN[d.cat]||FEST_NAME[d.cat]||d.cat,pct:d.pct,kind:d.cat==="potion"?"potion":d.cat==="food"?"food":"other",keys:FEST_KEYS[d.cat]||[d.cat],auto:true});
+    });
+  });
+  try{sessionStorage.setItem(ck,JSON.stringify({t:Date.now(),rows}))}catch(e){}
+  return rows;
 }
 async function loadDaily(){
-  if(!window.aoSb){renderDaily();return}
-  try{const {data,error}=await window.aoSb.from("daily_bonus").select("server,name,pct,kind").eq("day",dayStr()).order("pct",{ascending:false});if(error)throw error;dbRows=data||[]}
-  catch(e){dbRows=null;dbErr=/daily_bonus|relation|schema cache/i.test(e.message||"")?"veritabanında günlük bonus tablosu yok, schema.sql'deki günlük bonus bölümü çalıştırılmalı":(e.message||"bilinmeyen hata")}
+  let mrows=null,auto=[];
+  const [a,m]=await Promise.allSettled([loadAutoDaily(),window.aoSb?window.aoSb.from("daily_bonus").select("server,name,pct,kind").eq("day",dayStr()).order("pct",{ascending:false}):Promise.resolve(null)]);
+  if(a.status==="fulfilled")auto=a.value||[];
+  if(m.status==="fulfilled"&&m.value){if(m.value.error)dbErr=/daily_bonus|relation|schema cache/i.test(m.value.error.message||"")?"veritabanında günlük bonus tablosu yok, schema.sql'deki günlük bonus bölümü çalıştırılmalı":(m.value.error.message||"bilinmeyen hata");else mrows=m.value.data||[]}
+  // Elle girilen bonus aynı kategori için otomatik olanın yerine geçer
+  const all=(mrows||[]).concat(auto.filter(r=>!(mrows||[]).some(x=>x.server===r.server&&normN(x.name)===normN(r.name))));
+  dbRows=mrows===null&&!auto.length?null:all;
+  if(dbRows)dbErr=null;else if(!dbErr)dbErr="bağlantı kurulamadı";
   renderDaily();calc();
 }
 $("dailyOn").addEventListener("change",()=>{$("daily").value=$("dailyOn").checked?String(dbPct()):"0";calc()});
