@@ -198,6 +198,9 @@ section{padding:16px;border-radius:14px}
 .bmpn{display:flex;align-items:center;gap:8px}
 .bmpn img{width:32px;height:32px}
 .bmpn button{padding:2px 7px;font-size:13px}
+.cpb{display:inline-flex;align-items:center;justify-content:center;margin-left:6px;padding:0 5px;min-width:20px;height:20px;border:1px solid #5a3a24;border-radius:6px;color:var(--acc);font-size:12px;font-weight:700;line-height:1;cursor:pointer;vertical-align:middle;user-select:none}
+.cpb:hover{background:rgba(240,136,62,.12);border-color:var(--acc)}
+.cpb:focus-visible{outline:2px solid var(--acc);outline-offset:1px}
 </style>
 </head>
 <body>
@@ -520,7 +523,7 @@ function renderTop(){
     const m=x.m;
     const dens=m.avg===0?'<span class="bd bd-r">satış yok</span>':m.arz>7?`<span class="bd bd-r">${m.arz.toFixed(1)} gün arz</span>`:m.arz>3?`<span class="bd bd-y">${m.arz.toFixed(1)} gün arz</span>`:"";
     const oldN=rowStatus(x.p).old.length,ob=oldN?`<span class="bd bd-r">Eski fiyat (${oldN})</span>`:"";
-    return `<button class="tc" data-id="${esc(x.p.id)}"><span>${img(x.p.id)}${esc(label(x.p.id))}</span><b class="${val(x)>=0?"pos":"neg"}">${show(val(x))}</b><small>Kâr ${fmt(m.profit)}${m.pct===null?"":", %"+(m.pct*100).toFixed(1)}</small>${dens}${ob}</button>`;
+    return `<button class="tc" data-id="${esc(x.p.id)}"><span>${img(x.p.id)}${esc(label(x.p.id))}${cpb(x.p.id)}</span><b class="${val(x)>=0?"pos":"neg"}">${show(val(x))}</b><small>Kâr ${fmt(m.profit)}${m.pct===null?"":", %"+(m.pct*100).toFixed(1)}</small>${dens}${ob}</button>`;
   }).join("");
   document.querySelectorAll("#top5 .tc").forEach(b=>b.onclick=()=>focusRow(b.dataset.id));
   $("topNote").textContent=(skipped?skipped+" "+WN+" fiyatı eksik olduğu için sıralamaya girmedi. ":"")+(!list.length&&ok.length?"Bu ölçüt için veri yok. Günlük satış ve kâr/focus için önce Fiyatları çek'e bas.":"");
@@ -554,6 +557,16 @@ async function loadNames(){
 }
 const TIERS=[4,5,6,7,8,3,2,1];
 const img=id=>`<img src="https://render.albiononline.com/v1/item/${id}.png?size=64" data-id="${id}" data-t="0" onerror="imgFix(this)" width="32" height="32" alt="" loading="lazy" style="vertical-align:middle;margin-right:6px">`;
+// Eşya adının yanındaki ⧉: oyundaki adı kopyalar (pazarda aratmak için)
+const cpbN=n=>n?`<span class="cpb" role="button" tabindex="0" data-cn="${esc(n)}" title="Adı kopyala" aria-label="${esc(n)} adını kopyala">⧉</span>`:"";
+const cpb=id=>cpbN(nm0(id));
+async function cpText(t,el){
+  try{await navigator.clipboard.writeText(t)}catch(e){const a=document.createElement("textarea");a.value=t;document.body.appendChild(a);a.select();try{document.execCommand("copy")}catch(_){}a.remove()}
+  if(el&&!el.dataset.busy){const o=el.textContent;el.dataset.busy=1;el.textContent="✓";setTimeout(()=>{el.textContent=o;delete el.dataset.busy},1200)}
+}
+const cpbGo=e=>{const t=e.target.closest&&e.target.closest("[data-cn]");if(!t)return false;e.preventDefault();e.stopPropagation();cpText(t.dataset.cn,t);return true};
+document.addEventListener("click",cpbGo,true);
+document.addEventListener("keydown",e=>{if((e.key==="Enter"||e.key===" ")&&e.target.matches&&e.target.matches(".cpb"))cpbGo(e)},true);
 function imgFix(el){
   const nb=el.dataset.id.replace(/@\d$/,""),t=+el.dataset.t;
   const c=[nb,...TIERS.map(x=>nb.replace(/^T\d_/,"T"+x+"_"))];
@@ -660,7 +673,7 @@ picker($("pot"));
 function updImg(){renderMats();if($("pot").refreshPk)$("pot").refreshPk();const v=$("pot").value,im=$("pimg");im.style.visibility=db[v]?"visible":"hidden";if(db[v]){im.dataset.id=v;im.dataset.t="0";im.onerror=function(){imgFix(this)};im.src=`https://render.albiononline.com/v1/item/${v}.png?size=64`}}
 function renderMats(){
   const d=db[$("pot").value],n=num("cnt")||1;
-  $("pmats").innerHTML=d?d.mats.map(([m,q])=>`<span class="pmi" title="${esc(label(m))}">${img(m)}<b>${fmt(q*n)}</b> ${esc(label(m))}</span>`).join(""):"";
+  $("pmats").innerHTML=d?d.mats.map(([m,q])=>`<span class="pmi" title="${esc(label(m))}">${img(m)}<b>${fmt(q*n)}</b> ${esc(label(m))}${cpb(m)}</span>`).join(""):"";
 }
 $("pot").onchange=updImg;$("cnt").addEventListener("input",renderMats);
 $("tier").onchange=fillPots;$("cat").onchange=()=>{fillPots();calc()};
@@ -818,7 +831,7 @@ function calc(){
     if($("onlyIssues").checked&&!bad)return;
     const bdg=stt.miss.length?`<br><span class="bd bd-r">Fiyat eksik (${stt.miss.length})</span>`:stt.old.length?`<br><span class="bd bd-r">Eski fiyat (${stt.old.length})</span>`:"";
     const open=openRows.has(p.id),kf=fc>0?pr/(fc*p.n):null,cl=pr>=0?"pos":"neg";
-    rowsH.push(`<tr class="pr" id="r-${i}"><td>${img(p.id)}${esc(label(p.id))}${bdg}</td><td data-l="Craft"><input type="text" inputmode="decimal" data-k="n${i}" data-n="${i}" value="${p.n}" style="width:64px"></td><td data-l="Satış fiyatı"><input type="text" inputmode="decimal" data-k="o:${p.id}" data-o="${p.id}" value="${p.id in man.outs?man.outs[p.id]:""}" placeholder="${fmt(auto)}" style="width:96px"><br>${tag(pinfo(false,p.id))}</td><td data-l="Kâr / oran" class="${cl}">${fmt(pr)}<br><small>${net>0?(pr/net*100).toFixed(1)+"%":"-"}</small></td><td data-l="Focus">${fc?fmt(fc*p.n):"-"}<br><small>${fc?fc.toFixed(1)+"/craft":""}</small></td><td data-l="Kâr / focus">${kf===null?"-":fmt(kf)}</td>${cityCell(p.id)}<td data-l="Günlük satış">${histCell(p.id,p.n,d.out)}</td><td style="white-space:nowrap"><button class="l ic tg" data-t="${esc(p.id)}" aria-label="Ayrıntı" aria-expanded="${open}">${open?"▾":"▸"}</button><button class="l ic" data-i="${i}" aria-label="Sil">✕</button></td></tr>`);
+    rowsH.push(`<tr class="pr" id="r-${i}"><td>${img(p.id)}${esc(label(p.id))}${cpb(p.id)}${bdg}</td><td data-l="Craft"><input type="text" inputmode="decimal" data-k="n${i}" data-n="${i}" value="${p.n}" style="width:64px"></td><td data-l="Satış fiyatı"><input type="text" inputmode="decimal" data-k="o:${p.id}" data-o="${p.id}" value="${p.id in man.outs?man.outs[p.id]:""}" placeholder="${fmt(auto)}" style="width:96px"><br>${tag(pinfo(false,p.id))}</td><td data-l="Kâr / oran" class="${cl}">${fmt(pr)}<br><small>${net>0?(pr/net*100).toFixed(1)+"%":"-"}</small></td><td data-l="Focus">${fc?fmt(fc*p.n):"-"}<br><small>${fc?fc.toFixed(1)+"/craft":""}</small></td><td data-l="Kâr / focus">${kf===null?"-":fmt(kf)}</td>${cityCell(p.id)}<td data-l="Günlük satış">${histCell(p.id,p.n,d.out)}</td><td style="white-space:nowrap"><button class="l ic tg" data-t="${esc(p.id)}" aria-label="Ayrıntı" aria-expanded="${open}">${open?"▾":"▸"}</button><button class="l ic" data-i="${i}" aria-label="Sil">✕</button></td></tr>`);
     if(open)rowsH.push(`<tr class="dt"><td colspan="${FOOD?9:8}"><div class="dg"><div>Çıkan ${W}: <b>${fmt(d.out*p.n)}</b></div><div>Malzeme (brüt): <b>${fmt(mc)}</b></div><div>Geri dönen: <b>-${fmt(mr*r)}</b></div><div>İstasyon: <b>${fmt(fee)}</b> (${fmt(stFee(p.id))}/craft, ${fmt(nutr(p.id))} nutrition × ${num("fee")}/100)</div><div>Net maliyet: <b>${fmt(net)}</b></div><div>Satış (kesinti sonrası): <b>${fmt(rv)}</b></div><div>Focus: <b>${fmt(fc*p.n)}</b> (${fc.toFixed(1)}/craft, taban ${fmt(d.focus)})</div>${d.rare&&!CRAFT?'<div>Nadir malzemeli potion: ortak focus bonusu 11,25, malzeme return yok</div>':""}${stt.miss.length?`<div class="neg">Eksik fiyat: ${esc(stt.miss.map(label).join(", "))}</div>`:""}${stt.old.length?`<div class="neg">24 saatten eski: ${esc(stt.old.map(label).join(", "))}</div>`:""}</div></td></tr>`);
   });
   $("plan").innerHTML=rowsH.join("")||`<tr><td colspan="${FOOD?9:8}">${plan.length?"Sorunlu satır yok.":"Plan boş. Yukarıdan tarif ekle."}</td></tr>`;
@@ -829,7 +842,7 @@ function calc(){
   $("out").innerHTML=[["Brüt malzeme",fmt(gross)],["Geri dönen değer","-"+fmt(ret)],["İstasyon ücreti",fmt(st)],["Toplam maliyet",fmt(cost)],["Satış (kesinti sonrası)",fmt(rev)],["Focus kullanımı",fmt(focus)]]
    .map(([a,b])=>`<div class="k"><div>${a}</div><b>${b}</b></div>`).join("")
    +`<div class="k"><div>Kâr</div><b class="${profit>=0?"pos":"neg"}">${fmt(profit)}</b><div>Marj: ${cost?(profit/cost*100).toFixed(1)+"%":"-"}</div>${focus?`<div>Focus başına: ${fmt(profit/focus)}</div>`:""}</div>`+($("foc").checked?`<div class="k"><div>Kalan focus</div><b class="${left>=0?"pos":"neg"}">${fmt(left)}</b>${left<0?"<div>Havuz yetmiyor</div>":""}</div>`:"");
-  $("shop").innerHTML=Object.entries(shop).map(([m,q])=>`<tr><td>${img(m)}${esc(label(m))}</td><td><input readonly class="cp" value="${esc(nm0(m)||m)}" onclick="cpy(this)"></td><td><input readonly class="cp" style="width:100px" value="${Math.round(q)}" onclick="cpy(this)"></td><td><input readonly class="cp" style="width:100px" value="${nrs[m]?Math.round(q):Math.ceil(shopN[m]-1e-9)}" onclick="cpy(this)"></td><td><input type="text" inputmode="decimal" data-k="m:${m}" data-m="${m}" value="${m in man.mats?man.mats[m]:""}" placeholder="${fmt((px.mats[m]&&px.mats[m].sell)||0)}" style="width:100px"><br>${tag(pinfo(true,m))}</td></tr>`).join("")||'<tr><td colspan="5">Liste boş.</td></tr>';
+  $("shop").innerHTML=Object.entries(shop).map(([m,q])=>`<tr><td>${img(m)}${esc(label(m))}${cpb(m)}</td><td><input readonly class="cp" value="${esc(nm0(m)||m)}" onclick="cpy(this)"></td><td><input readonly class="cp" style="width:100px" value="${Math.round(q)}" onclick="cpy(this)"></td><td><input readonly class="cp" style="width:100px" value="${nrs[m]?Math.round(q):Math.ceil(shopN[m]-1e-9)}" onclick="cpy(this)"></td><td><input type="text" inputmode="decimal" data-k="m:${m}" data-m="${m}" value="${m in man.mats?man.mats[m]:""}" placeholder="${fmt((px.mats[m]&&px.mats[m].sell)||0)}" style="width:100px"><br>${tag(pinfo(true,m))}</td></tr>`).join("")||'<tr><td colspan="5">Liste boş.</td></tr>';
   document.querySelectorAll("#plan button[data-i]").forEach(b=>b.onclick=()=>{plan.splice(+b.dataset.i,1);calc()});
   document.querySelectorAll("#plan .tg").forEach(b=>b.onclick=()=>{const id=b.dataset.t;if(openRows.has(id))openRows.delete(id);else openRows.add(id);calc()});
   document.querySelectorAll("[data-n]").forEach(e=>e.oninput=()=>{plan[+e.dataset.n].n=pf(e.value)||0;calc()});
@@ -904,7 +917,7 @@ function renderCmp(){
     const rows=[base,base+"@1",base+"@2",base+"@3",base+"@4"].filter(i=>db[i]).map(id=>({id,e:evalRec(id)}));
     let best=-1,bv=-Infinity;
     rows.forEach((r,i)=>{const v=r.e.fc>0?r.e.profit/r.e.fc:r.e.profit;if(v>bv){bv=v;best=i}});
-    return `<tr><td colspan="10"><b>${img(base)}${esc(label(base))}</b></td></tr>`+rows.map((r,i)=>{
+    return `<tr><td colspan="10"><b>${img(base)}${esc(label(base))}</b>${cpb(base)}</td></tr>`+rows.map((r,i)=>{
       const n=cnt(r.id),e=r.e,k=e.fc>0?Math.floor(pool/e.fc):0,c=e.profit>=0?"pos":"neg";
       return `<tr><td>${esc(r.id.includes("@")?"."+r.id.split("@")[1]:".0")}${i===best?" ★":""}</td><td>${fmt(n)}<br><small>${fmt(n*db[r.id].out)} ${W}</small></td><td>${fmt(e.net*n)}</td><td>${fmt(e.rv*n)}<br>${tag(pinfo(false,r.id))}</td><td class="${c}">${fmt(e.profit*n)}</td><td>${fmt(e.fc*n)}</td><td>${e.fc>0?fmt(e.profit/e.fc):"-"}</td><td>${k}</td><td class="${c}">${fmt(e.profit*k)}</td><td>${histCell(r.id,n,db[r.id].out)}</td></tr>`;
     }).join("");
@@ -918,7 +931,7 @@ renderCmp=function(){
   $("cityCmp").innerHTML=list.length?`<table><thead><tr><th>Şehirlere göre kâr % (satış şehri)</th>${SELLC.map(c=>`<th>${esc(c)}</th>`).join("")}</tr></thead><tbody>`+list.map(base=>{
     const rows=[base,base+"@1",base+"@2",base+"@3",base+"@4"].filter(i=>db[i]).map(id=>({id,r:cityRes(id)}));
     let bv=-Infinity;rows.forEach(x=>x.r.forEach(y=>{if(y.pct!==null&&y.pct>bv)bv=y.pct}));
-    return `<tr><td colspan="${SELLC.length+1}"><b>${img(base)}${esc(label(base))}</b></td></tr>`+rows.map(x=>`<tr><td>${esc(x.id.includes("@")?"."+x.id.split("@")[1]:".0")}</td>${x.r.map(y=>y.pct===null?"<td>-</td>":`<td class="${y.pct<0?"neg":"pos"}">${y.pct===bv?"★ ":""}${pc(y.pct)}</td>`).join("")}</tr>`).join("");
+    return `<tr><td colspan="${SELLC.length+1}"><b>${img(base)}${esc(label(base))}</b>${cpb(base)}</td></tr>`+rows.map(x=>`<tr><td>${esc(x.id.includes("@")?"."+x.id.split("@")[1]:".0")}</td>${x.r.map(y=>y.pct===null?"<td>-</td>":`<td class="${y.pct<0?"neg":"pos"}">${y.pct===bv?"★ ":""}${pc(y.pct)}</td>`).join("")}</tr>`).join("");
   }).join("")+"</tbody></table>":"";
 };
 $("cmpSel").onchange=renderCmp;
@@ -1194,7 +1207,7 @@ function initBM(){
     const f=filtered().slice(0,300);
     $("bmRows").innerHTML=f.map((r,i)=>{
       const h=hist[r.k],hs=!h?"-":h.d?fmt(h.tot/7)+"/gün":"veri yok";
-      return `<tr class="pr"><td>${img(r.id)}${nameOf(r.id)}${qTag(r)}${r.pct>.8?' <span class="bd bd-y" title="Çok yüksek kâr genelde hatalı ya da eski fiyattır, oyunda doğrula">doğrula</span>':""}</td><td data-l="Al">${esc(r.city)}<br><b>${fmt(r.buy)}</b><br>${dot(r.bd)}</td><td data-l="Black Market"><b>${fmt(r.bm)}</b><br>${dot(r.md)}</td><td data-l="Kâr" class="pos">${fmt(r.profit)}</td><td data-l="Kâr %" class="pos">${(r.pct*100).toFixed(1)}%</td><td data-l="BM satış hızı">${hs}</td><td><button class="l ic" data-bmd="${i}" aria-label="Ayrıntı">▸</button></td></tr><tr class="dt" id="bmd${i}" style="display:none"><td colspan="7"><div class="dg"><div>BM fiyatı: <b>${fmt(r.bm)}</b></div><div>Satış vergisi: <b>-${fmt(r.tax)}</b></div><div>Alış: <b>-${fmt(r.buy)}</b></div><div>Net kâr: <b>${fmt(r.profit)}</b></div><div style="grid-column:1/-1">Şehirler: ${r.alts.map(a=>`${esc(a.c)} ${fmt(a.p)} (${ageTxt(a.d)})`).join(" · ")}</div></div></td></tr>`}).join("")||`<tr><td colspan="7">${rows.length?"Filtrelere uyan eşya yok. En az kâr %'yi düşürmeyi dene.":"Henüz tarama yapılmadı."}</td></tr>`;
+      return `<tr class="pr"><td>${img(r.id)}${nameOf(r.id)}${cpbN(pn(r.id))}${qTag(r)}${r.pct>.8?' <span class="bd bd-y" title="Çok yüksek kâr genelde hatalı ya da eski fiyattır, oyunda doğrula">doğrula</span>':""}</td><td data-l="Al">${esc(r.city)}<br><b>${fmt(r.buy)}</b><br>${dot(r.bd)}</td><td data-l="Black Market"><b>${fmt(r.bm)}</b><br>${dot(r.md)}</td><td data-l="Kâr" class="pos">${fmt(r.profit)}</td><td data-l="Kâr %" class="pos">${(r.pct*100).toFixed(1)}%</td><td data-l="BM satış hızı">${hs}</td><td><button class="l ic" data-bmd="${i}" aria-label="Ayrıntı">▸</button></td></tr><tr class="dt" id="bmd${i}" style="display:none"><td colspan="7"><div class="dg"><div>BM fiyatı: <b>${fmt(r.bm)}</b></div><div>Satış vergisi: <b>-${fmt(r.tax)}</b></div><div>Alış: <b>-${fmt(r.buy)}</b></div><div>Net kâr: <b>${fmt(r.profit)}</b></div><div style="grid-column:1/-1">Şehirler: ${r.alts.map(a=>`${esc(a.c)} ${fmt(a.p)} (${ageTxt(a.d)})`).join(" · ")}</div></div></td></tr>`}).join("")||`<tr><td colspan="7">${rows.length?"Filtrelere uyan eşya yok. En az kâr %'yi düşürmeyi dene.":"Henüz tarama yapılmadı."}</td></tr>`;
     $("bmRows").querySelectorAll("[data-bmd]").forEach(b=>b.onclick=()=>{const e=$("bmd"+b.dataset.bmd);e.style.display=e.style.display==="none"?"":"none";b.textContent=e.style.display==="none"?"▸":"▾"});
   }
   $("bmGo").onclick=scan;$("bmStop").onclick=()=>{stop=true};
@@ -1216,9 +1229,8 @@ function initBM(){
       const ct=`${c} → Black Market (${l.length} eşya, yatırım ${fmt(i)}, kâr ${fmt(p)})\n`+l.map(r=>`${pn(r.id)} | ${tierOf(r.id)} | ${QN[r.ql]} | al ${fmt(r.buy)} | BM ${fmt(r.bm)} | kâr ${fmt(r.profit)}`).join("\n");
       parts.push(ct);
       return `<div class="bmp"><div class="bmph"><b>${esc(c)}</b><span class="st" style="margin:0">${l.length} eşya · yatırım ${fmt(i)} · kâr <span class="pos">${fmt(p)}</span></span><button class="l ic" data-cc="${ci}" style="margin-left:auto">Şehri kopyala</button></div>
-      <div class="t"><table class="bmpt"><thead><tr><th>Eşya</th><th>Kademe</th><th>Kalite</th><th class="n">Alış</th><th class="n">BM</th><th class="n">Kâr</th></tr></thead><tbody>${l.map(r=>`<tr><td><span class="bmpn">${img(r.id)}<span>${esc(pn(r.id))}</span><button class="l ic" data-cn="${esc(pn(r.id))}" title="Adı kopyala" aria-label="${esc(pn(r.id))} adını kopyala">⧉</button></span></td><td>${tierOf(r.id)}</td><td>${QN[r.ql]}</td><td class="n">${fmt(r.buy)}</td><td class="n">${fmt(r.bm)}</td><td class="n pos">${fmt(r.profit)} <small>(${(r.pct*100).toFixed(0)}%)</small></td></tr>`).join("")}</tbody></table></div></div>`}).join("");
+      <div class="t"><table class="bmpt"><thead><tr><th>Eşya</th><th>Kademe</th><th>Kalite</th><th class="n">Alış</th><th class="n">BM</th><th class="n">Kâr</th></tr></thead><tbody>${l.map(r=>`<tr><td><span class="bmpn">${img(r.id)}<span>${esc(pn(r.id))}</span>${cpbN(pn(r.id))}</span></td><td>${tierOf(r.id)}</td><td>${QN[r.ql]}</td><td class="n">${fmt(r.buy)}</td><td class="n">${fmt(r.bm)}</td><td class="n pos">${fmt(r.profit)} <small>(${(r.pct*100).toFixed(0)}%)</small></td></tr>`).join("")}</tbody></table></div></div>`}).join("");
     planTxt=parts.join("\n\n");
-    $("bmPlanOut").querySelectorAll("[data-cn]").forEach(b=>b.onclick=()=>copyText(b.dataset.cn,b));
     $("bmPlanOut").querySelectorAll("[data-cc]").forEach(b=>b.onclick=()=>copyText(parts[+b.dataset.cc],b));
     $("bmPlanSt").textContent=`Toplam yatırım ${fmt(inv)}, beklenen kâr ${fmt(pr)} (kalan bütçe ${fmt(left)}). Her eşyadan 1 adet; Black Market'in alış miktarı API'de yok.`;
   };
@@ -1281,7 +1293,7 @@ function initDB(){
     $("idSubs").querySelectorAll("button").forEach(b=>b.classList.toggle("on",b===btn));
     $("idPath").textContent=IDC.find(x=>x[0]===c)[1]+" → "+subName(s);
     const L=byCat[c].filter(f=>f.sub===s).slice(0,400);
-    $("idFams").innerHTML=L.map(f=>{const ts=Object.keys(f.t).map(Number).filter(Boolean);return `<button class="idcard" data-k="${esc(f.key)}">${img(anyId(f)).replace('width="32" height="32"','width="56" height="56"')}<b>${esc(f.name)}</b><small>${ts.length?"T"+Math.min(...ts)+(ts.length>1?" - T"+Math.max(...ts):""):""}</small></button>`}).join("");
+    $("idFams").innerHTML=L.map(f=>{const ts=Object.keys(f.t).map(Number).filter(Boolean);return `<button class="idcard" data-k="${esc(f.key)}">${img(anyId(f)).replace('width="32" height="32"','width="56" height="56"')}<b>${esc(f.name)}${cpbN(f.name)}</b><small>${ts.length?"T"+Math.min(...ts)+(ts.length>1?" - T"+Math.max(...ts):""):""}</small></button>`}).join("");
     $("idFams").querySelectorAll("[data-k]").forEach(b=>b.onclick=()=>openFam(fams.find(f=>f.key===b.dataset.k)));
   }
   // arama + öneriler
@@ -1322,7 +1334,7 @@ function initDB(){
   function renderItem(){
     const id=curId(),ts=Object.keys(cur.t).map(Number).sort((a,b)=>a-b),es=Object.keys(cur.t[sel.t].ids).map(Number).sort((a,b)=>a-b);
     $("idImg").src=`https://render.albiononline.com/v1/item/${id}.png?size=128`;$("idImg").dataset.id=id;$("idImg").dataset.t="0";$("idImg").onerror=function(){imgFix(this)};
-    $("idName").textContent=label(id);
+    $("idName").innerHTML=esc(label(id))+cpb(id);
     $("idMeta").textContent=(IDC.find(c=>c[0]===cur.cat)||[0,cur.cat])[1]+" · "+subName(cur.sub)+" · "+id;
     $("idTiers").innerHTML=ts.map(t=>`<button class="chip2${t===sel.t?" on":""}" data-t="${t}">${t?"T"+t:"-"}</button>`).join("");
     $("idEnc").innerHTML=es.map(e=>`<button class="chip2${e===sel.e?" on":""}" data-e="${e}">.${e}</button>`).join("");
@@ -1332,7 +1344,7 @@ function initDB(){
     $("idQual").querySelectorAll("[data-q]").forEach(b=>b.onclick=()=>{const q=+b.dataset.q;st.q=st.q.includes(q)?st.q.filter(x=>x!==q):[...st.q,q];if(!st.q.length)st.q=[q];saveSt();renderItem();fetchItem()});
     const c=arr(cur.t[sel.t].crs[sel.e])[0];
     const mats=c?arr(c.craftresource).filter(r=>r["@uniquename"]).map(r=>{const e=+r["@enchantmentlevel"]||0;return [r["@uniquename"]+(e?"@"+e:""),+r["@count"]||0]}):[];
-    $("idRecipe").innerHTML=mats.length?`<h3 style="margin-bottom:10px">Craft malzemeleri</h3><div class="pm">${mats.map(([m,q])=>`<span class="pmi" title="${esc(label(m))}">${img(m)}<b>${fmt(q)}</b> ${esc(label(m))}</span>`).join("")}</div>`:"";
+    $("idRecipe").innerHTML=mats.length?`<h3 style="margin-bottom:10px">Craft malzemeleri</h3><div class="pm">${mats.map(([m,q])=>`<span class="pmi" title="${esc(label(m))}">${img(m)}<b>${fmt(q)}</b> ${esc(label(m))}${cpb(m)}</span>`).join("")}</div>`:"";
   }
   let reqN=0;
   async function api(path){
