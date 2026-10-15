@@ -81,6 +81,7 @@ tr.dt td{background:var(--card2);font-size:13px}
 button.ic{padding:4px 9px}
 button.sb{padding:4px 7px;margin-right:2px}
 #ttl{font-size:30px}
+.tgc{align-self:end;min-height:42px}
 .rrb{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-top:16px}
 .rrt{background:var(--card2);border:1px solid var(--line);border-radius:12px;padding:10px 12px;display:flex;flex-direction:column;gap:1px;min-width:0}
 .rrt span{font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--mut)}
@@ -216,16 +217,14 @@ section{padding:16px;border-radius:14px}
 <span id="cityBox" style="display:contents"><label>Malzeme alış şehri<select id="buyCity"></select></label>
 <label>Craft şehri<select id="craftCity"></select></label>
 <label>Satış şehri<select id="sellCity"></select></label></span>
-<label>Satış stratejisi<select id="strat"><option value="order">Sell order (vergi + kurulum ücreti)</option><option value="instant">Instant sell (sadece vergi)</option></select></label>
-<label class="c"><input type="checkbox" id="prem" checked> Premium (vergi %4, yoksa %8)</label>
-<label>Kurulum ücreti (%)<input type="number" id="setup" value="2.5" step="0.1"></label>
-<label>İstasyon ücreti (100 nutrition başına)<input type="number" id="fee" value="400" min="0" max="1000" step="10"></label>
-
-<label class="c"><input type="checkbox" id="foc"> Focus kullan</label>
-<label class="c"><input type="checkbox" id="dailyOn"> <span id="dailyLbl">Günlük bonus (+%10)</span></label>
+<label>Satış stratejisi<select id="strat"><option value="order">Sell order (vergi + %2,5 kurulum)</option><option value="instant">Instant sell (sadece vergi)</option></select></label>
 <label>Focus havuzu (elimdeki)<input type="number" id="pool" value="10000"></label>
+<label>İstasyon ücreti (100 nutrition başına)<input type="number" id="fee" value="400" min="0" max="1000" step="10"></label>
+<label class="c tgc"><input type="checkbox" id="prem" checked> Premium (vergi %4, yoksa %8)</label>
+<label class="c tgc"><input type="checkbox" id="foc"> Focus kullan</label>
+<label class="c tgc"><input type="checkbox" id="dailyOn"> <span id="dailyLbl">Günlük bonus (+%10)</span></label>
 <div style="display:none">
-<input type="checkbox" id="cb" checked><input type="number" id="lpbBase" value="18"><input type="number" id="lpbCity" value="15"><input type="number" id="lpbFocus" value="59"><input type="number" id="daily" value="10">
+<input type="number" id="setup" value="2.5" step="0.1"><input type="checkbox" id="cb" checked><input type="number" id="lpbBase" value="18"><input type="number" id="lpbCity" value="15"><input type="number" id="lpbFocus" value="59"><input type="number" id="daily" value="10">
 </div>
 </div>
 <div class="rrb" id="rr"></div>
@@ -920,7 +919,7 @@ $("cmp").onclick=async()=>{
   cmpShown=true;
   calc();
 };
-const SET=["srv","buyCity","craftCity","sellCity","strat","setup","lpbBase","lpbCity","lpbFocus","daily","fee","pool","mast","rf","rid","rrf","rrid"],CHK=["prem","cb","foc"];
+const SET=["srv","buyCity","craftCity","sellCity","strat","lpbBase","lpbCity","lpbFocus","daily","fee","pool","mast","rf","rid","rrf","rrid"],CHK=["prem","cb","foc"];
 let pending=[];
 const pfs=()=>{try{return JSON.parse(localStorage.getItem("aoprofiles"+KS)||"{}")}catch(e){return{}}};
 function pfList(sel){
