@@ -30,6 +30,7 @@ FP = 10000.0                 # oyunun sabit noktalı sayı çarpanı
 GAINS = ("fame", "combatFame", "silver", "might", "favor", "faction")
 MAX_FIGHTS_IN_MEMORY = 300
 MAX_OBJECTS = 5000           # hatırlanan karakter sayısı (en eskiler silinir)
+JOIN_KEEP_SECONDS = 15       # bölge değişince bundan daha yeni görülen karakterler tutulur
 PHOTON_PORTS = (5055, 5056, 5058)
 
 PANEL_URL = "https://albion-craft-planner-lovat.vercel.app/dps"
@@ -601,7 +602,17 @@ class Tracker:
             return False
         if oid == self.local_id:
             return True
+        # Önce kalıcı hesap kimliği (GUID): dragon haritası gibi yerlerde isimler gizlenir ("PA")
+        if o.get("guid") and o["guid"] in self.party:
+            return True
         return o["name"] in self.party_names()
+
+    def name_of(self, oid):
+        """Gösterilecek ad: partideyse partideki gerçek adı (isim gizli bölgelerde de doğru çıkar)."""
+        o = self.objects[oid]
+        if oid == self.local_id and self.local_name:
+            return self.local_name
+        return self.party.get(o.get("guid")) or o["name"]
 
     # ---- olaylar ----
     def on_event(self, _code, p):
@@ -623,19 +634,19 @@ class Tracker:
                 name = p.get(1)
                 if oid is not None and isinstance(name, str):
                     w = self.weapon_from(p.get(40))
-                    self.objects[oid] = {"name": name}
+                    self.objects[oid] = {"name": name, "guid": guid_key(p.get(7)), "t": time.time()}
                     if len(self.objects) > MAX_OBJECTS:
                         for k in list(self.objects)[:len(self.objects) - MAX_OBJECTS]:
                             if k != self.local_id:
                                 del self.objects[k]
                     if w:
-                        self.weapons[name] = w
+                        self.weapons[self.name_of(oid)] = w
             elif code == EV["CharacterEquipmentChanged"]:
                 oid = to_int(p.get(0))
                 o = self.objects.get(oid)
                 w = self.weapon_from(p.get(2))
                 if o and w:
-                    self.weapons[o["name"]] = w
+                    self.weapons[self.name_of(oid)] = w
             elif code == EV["UpdateFame"]:
                 if self.is_local(p.get(0)):
                     fz = (to_int(p.get(2)) or 0) / FP
@@ -699,13 +710,16 @@ class Tracker:
             with self.lock:
                 oid = to_int(p.get(0))
                 name = p.get(2)
-                # Karakter listesi silinmez: oyun bölge geçişinde Join'i iki kez gönderebiliyor ve
-                # aradaki "yeni karakter" mesajları kaybolursa parti arkadaşları tanınmaz.
-                # Nesne numaraları oturum boyunca tekrar kullanılmadığı için eski kayıtlar zararsız.
+                # Numaralar bölgeye özel (instance'larda baştan başlar), o yüzden eski bölgenin
+                # karakterleri silinir. Ama oyun geçişte Join'i birkaç saniye arayla iki kez
+                # gönderebiliyor; aradaki "yeni karakter" mesajları kaybolmasın diye son
+                # JOIN_KEEP_SECONDS içinde görülenler tutulur.
+                now = time.time()
+                self.objects = {k: o for k, o in self.objects.items() if now - o.get("t", 0) <= JOIN_KEEP_SECONDS}
                 self.last_health = {}
                 if oid is not None and isinstance(name, str):
                     self.local_id, self.local_name = oid, name
-                    self.objects[oid] = {"name": name}
+                    self.objects[oid] = {"name": name, "t": time.time()}
                 self.zone = str(p.get(8)) if p.get(8) is not None else None
                 log(f"Bölgeye girildi. Karakter: {self.local_name}")
 
@@ -760,7 +774,7 @@ class Tracker:
         f["lastHit"] = now
         self.live_dirty = True
         if causer_in:
-            st = self.player(f, self.objects[causer]["name"])
+            st = self.player(f, self.name_of(causer))
             st["last"] = now
             if st["first"] is None:
                 st["first"] = now
@@ -778,7 +792,7 @@ class Tracker:
                     st["heal"] += amt
             f["last"] = now
         if is_damage and aff_in:
-            st = self.player(f, self.objects[aff]["name"])
+            st = self.player(f, self.name_of(aff))
             st["taken"] += round(-change)
             f["last"] = now
 
