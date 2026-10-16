@@ -136,7 +136,7 @@ tr.spr>td{background:var(--in);padding:4px 8px 10px}
 </section>
 
 <section id="main" hidden>
-  <div class="dh"><h2>Aktif oturum</h2><span class="st" id="liveInfo"></span><span class="sp"></span><button id="endBtn">Bitir ve kaydet</button></div>
+  <div class="dh"><h2>Aktif oturum</h2><span class="st" id="liveInfo"></span><span class="sp"></span><button class="l" id="pauseBtn" hidden>Duraklat</button><button id="endBtn">Bitir ve kaydet</button></div>
   <div id="live"></div>
 </section>
 
@@ -189,7 +189,7 @@ function render(){
   if(!connected){cs.className="live";cs.textContent="Bağlı değil";$("cInfo").textContent="Toplayıcı çalışmıyor ya da tarayıcı bağlantıya izin vermedi.";$("party").hidden=true;return}
   const cap=status.capturing;
   cs.className="live "+(cap?"on":"wait");cs.textContent=cap?"Oyun verisi geliyor":"Bağlı, oyun bekleniyor";
-  $("cInfo").innerHTML=(status.version>=3?"":`<b style="color:var(--warn)">Toplayıcı eski sürüm: combat fame credit doğru sayılmaz. Yeni AlbionDPSMeter.exe'yi indirip onu aç.</b> `)+(status.character?`Karakter: <b style="color:var(--ink)">${esc(status.character)}</b>${status.partyKnown?"":" · parti bilgisi henüz gelmedi, şimdilik sadece sen sayılıyorsun"}`:"Karakter henüz görülmedi. Oyuna gir ya da bir bölge değiştir.");
+  $("cInfo").innerHTML=(status.version>=4?"":`<b style="color:var(--warn)">Toplayıcı eski sürüm: ${status.version>=3?"duraklatma yok":"combat fame credit doğru sayılmaz"}. Yeni AlbionDPSMeter.exe'yi indirip onu aç.</b> `)+(status.character?`Karakter: <b style="color:var(--ink)">${esc(status.character)}</b>${status.partyKnown?"":" · parti bilgisi henüz gelmedi, şimdilik sadece sen sayılıyorsun"}`:"Karakter henüz görülmedi. Oyuna gir ya da bir bölge değiştir.");
   if(status.creditsTotal!=null||status.respecBoost)$("cInfo").innerHTML+=` · Credit: <b style="color:var(--ink)">${fmt(status.creditsTotal)}</b>${status.respecBoost?` <span class="rb">RESPEC BOOST AÇIK</span>`:""}`;
   const pt=status.party||[];
   $("party").hidden=!pt.length;
@@ -247,8 +247,11 @@ function bindSort(root){
 
 function renderLive(){
   const f=status&&status.live;
+  const pz=!!(status&&status.paused);
   $("endBtn").hidden=!f;
-  $("liveInfo").textContent=f?tm(f.start)+" başladı · "+dur(f.duration):"";
+  $("pauseBtn").hidden=!(status&&status.version>=4&&(f||pz));
+  $("pauseBtn").textContent=pz?"Devam et":"Duraklat";
+  $("liveInfo").innerHTML=(f?esc(tm(f.start)+" başladı · "+dur(f.duration)):"")+(pz?` <span class="rb">DURAKLATILDI</span>`:"");
   $("live").innerHTML=f?detailHTML(f):`<div class="empty">Oturum yok. Partinle savaşmaya ya da fame/silver kazanmaya başladığında burada sayılmaya başlar ve sen <b>Bitir</b>'e basana kadar devam eder.</div>`;
   bindSort($("live"));
 }
@@ -293,6 +296,8 @@ function confirm2(b,label,fn){
   };
 }
 confirm2($("endBtn"),"Bitir ve kaydet",async()=>{const r=await api("/end",{method:"POST"});if(r.saved)open=r.saved;lastCount=-1;await poll()});
+// Duraklat: toplayıcı bu arada hasar, heal ve kazanç saymaz; geçen süre oturum süresine eklenmez
+$("pauseBtn").onclick=async()=>{try{await api(status&&status.paused?"/resume":"/pause",{method:"POST"});await poll()}catch(e){}};
 confirm2($("clearAll"),"Tümünü sil",async()=>{await api("/fights",{method:"DELETE"});fights=[];open=null;renderHist();render()});
 
 poll();setInterval(poll,2000);

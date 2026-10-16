@@ -592,6 +592,7 @@ class Tracker:
         self.fame_total = None   # oyunun bildirdiği toplam fame (fark = kazanılan)
         self.credits_total = None  # karakterdeki toplam combat fame credit
         self.respec_boost = None   # ReSpec boost açık mı (bilinmiyorsa None)
+        self.paused = False        # paneldeki 'Duraklat': hasar/heal/kazanç sayılmaz, süre işlemez
         self.live_dirty = False
         self.packets = 0
         self.events = 0
@@ -630,7 +631,9 @@ class Tracker:
             f["gains"].pop("combatFame", None)  # eski sürümün yanlış sayacı
             f.setdefault("active", 0.0)
             f.setdefault("lastHit", None)
+            f.setdefault("pausedSecs", 0.0)
             self.fight = f
+            self.paused = bool(f.get("pausedAt"))
             log("Yarım kalan oturum geri yüklendi.")
         except Exception:
             pass
@@ -815,7 +818,7 @@ class Tracker:
         return oid is None or self.local_id is None or oid == self.local_id
 
     def gain(self, key, amount):
-        if amount <= 0:
+        if amount <= 0 or self.paused:
             return
         f = self.ensure_fight(time.time())
         f["gains"][key] = f["gains"].get(key, 0) + amount
@@ -843,7 +846,7 @@ class Tracker:
                 self.last_health[aff] = float(new_health)
             except Exception:
                 pass
-        if change == 0 or causer is None:
+        if change == 0 or causer is None or self.paused:
             return
         is_damage = change < 0
         if is_damage and aff == causer:
@@ -888,8 +891,24 @@ class Tracker:
     def ensure_fight(self, now):
         if not self.fight:
             self.fight = {"start": now, "last": now, "players": {}, "zone": self.zone,
-                          "gains": {k: 0 for k in GAINS}, "active": 0.0, "lastHit": None}
+                          "gains": {k: 0 for k in GAINS}, "active": 0.0, "lastHit": None, "pausedSecs": 0.0}
         return self.fight
+
+    def set_paused(self, on):
+        """Duraklat/devam: duraklatılan süre oturum süresinden düşülür."""
+        now = time.time()
+        f = self.fight
+        if on and not self.paused:
+            if f:
+                f["pausedAt"] = now
+                f["lastHit"] = None  # devam edince aradaki boşluk savaş süresine eklenmesin
+            log("Oturum duraklatıldı.")
+        elif not on and self.paused:
+            if f and f.get("pausedAt"):
+                f["pausedSecs"] = f.get("pausedSecs", 0.0) + now - f.pop("pausedAt")
+            log("Oturum devam ediyor.")
+        self.paused = bool(on)
+        self.live_dirty = True
 
     def player(self, f, name):
         st = f["players"].get(name)
@@ -903,7 +922,8 @@ class Tracker:
 
     def summarize(self, f, final):
         end = f["last"] if final else max(f["last"], time.time())
-        dur = max(1.0, end - f["start"])
+        paused = f.get("pausedSecs", 0.0) + (max(0.0, end - f["pausedAt"]) if f.get("pausedAt") else 0.0)
+        dur = max(1.0, end - f["start"] - paused)
         act = max(1.0, f.get("active", 0) + (1 if f.get("lastHit") else 0))  # sadece vuruşma süresi
         players = []
         for name, st in f["players"].items():
@@ -939,6 +959,7 @@ class Tracker:
     def end_fight(self):
         """Oturumu bitirir, geçmişe kaydeder; sonraki vuruş/kazançta yenisi başlar (paneldeki 'Bitir')."""
         f, self.fight = self.fight, None
+        self.paused = False
         self.save_live()
         if not f:
             return None
@@ -962,7 +983,7 @@ class Tracker:
     def status(self):
         with self.lock:
             return {
-                "ok": True, "version": 3,
+                "ok": True, "version": 4, "paused": self.paused,
                 "capturing": time.time() - self.last_packet < 10 if self.last_packet else False,
                 "packets": self.packets, "events": self.events,
                 "character": self.local_name,
@@ -1123,6 +1144,10 @@ def make_handler(tracker):
                 with tracker.lock:
                     s = tracker.end_fight()
                 self.send_json({"ok": True, "saved": s["id"] if s else None})
+            elif self.path.split("?")[0].rstrip("/") in ("/pause", "/resume"):
+                with tracker.lock:
+                    tracker.set_paused(self.path.startswith("/pause"))
+                self.send_json({"ok": True, "paused": tracker.paused})
             else:
                 self.send_json({"error": "bulunamadı"}, 404)
 
