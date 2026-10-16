@@ -405,7 +405,7 @@ const SH=22.5,SHR=11.25,sp=t=>t in spec?spec[t]:(FOOD||CRAFT?0:100);
 const save=()=>{try{localStorage.setItem("aoplan3"+KS,JSON.stringify({spec,fo,mast:num("mast"),rf:num("rf"),rid:$("rid").value,rrf:$("rrf").value,rrid:$("rrid").value}))}catch(e){}};
 function effFocus(id){
   if(CRAFT){
-    const d=db[id],b=base(id),others=planBases().filter(x=>x!==b&&baseCat[x]===d.cat).reduce((a,x)=>a+sp(x),0);
+    const d=db[id],b=base(id),others=catBases(d.cat).filter(x=>x!==b).reduce((a,x)=>a+sp(x),0);
     return d.focus*Math.pow(0.5,(30*sp("M:"+d.cat)+250*sp(b)+30*others)/10000);
   }
   if(FOOD){
@@ -439,13 +439,14 @@ const FALL=[...FTYPES,...Object.keys(FXTRA)];
 let baseCat={},specKey="";
 const planBases=()=>[...new Set(plan.map(p=>base(p.id)))];
 const tierStrip=n=>n.replace(/^(Beginner'?s?|Novice'?s?|Journeyman'?s?|Adept'?s?|Expert'?s?|Master'?s?|Grandmaster'?s?|Elder'?s?|Minor|Major|Greater|Lesser|Superior|Fine|Excellent|Mighty)\s+/i,"");
+// Bir kategorideki bütün eşya türleri (ör. Sword: Broadsword, Claymore, Dual Swords...): hepsinin spec'i birbirine focus verimi verir
+const catBases=c=>Object.keys(baseCat).filter(b=>baseCat[b]===c);
 function renderCraftSpecs(force){
-  const bs=planBases(),key=bs.join("|");
+  const bs=planBases(),cats=[...new Set(bs.map(b=>baseCat[b]))],key=cats.join("|")+"#"+bs.join("|");
   if(!force&&key===specKey)return;specKey=key;
   if(!bs.length){$("specs").innerHTML='<span class="st">Plana eşya ekleyince burada mastery ve spec seviyeleri çıkar.</span>';return}
-  const cats=[...new Set(bs.map(b=>baseCat[b]))];
-  const rep=b=>(plan.find(p=>base(p.id)===b)||{}).id.replace(/@\d$/,"");
-  $("specs").innerHTML=cats.map(c=>`<div class="spg"><b>${esc(CATN[c]||c)}</b><label>Mastery<input type="number" min="0" max="100" data-sp="M:${c}" value="${sp("M:"+c)}"></label>${bs.filter(b=>baseCat[b]===c).map(b=>{const id=rep(b);return `<label><span class="spl">${img(id)}${esc(tierStrip(nm0(id)||b))} spec</span><input type="number" min="0" max="100" data-sp="${b}" value="${sp(b)}"></label>`}).join("")}</div>`).join("");
+  const rep=b=>{const c=Object.keys(db).filter(i=>!i.includes("@")&&base(i)===b);return c.find(i=>/^T4_/.test(i)&&nm0(i))||c.find(nm0)||c[0]||b};
+  $("specs").innerHTML=cats.map(c=>`<div class="spg"><b>${esc(CATN[c]||c)}</b><label>Mastery<input type="number" min="0" max="100" data-sp="M:${c}" value="${sp("M:"+c)}"></label>${catBases(c).map(b=>{const id=rep(b),inP=bs.includes(b);return `<label${inP?' title="Planda"':""}><span class="spl">${img(id)}${inP?"<b>":""}${esc(tierStrip(nm0(id)||b))} spec${inP?"</b>":""}</span><input type="number" min="0" max="100" data-sp="${b}" value="${sp(b)}"></label>`}).join("")}</div>`).join("");
   document.querySelectorAll("[data-sp]").forEach(e=>e.oninput=()=>{spec[e.dataset.sp]=Math.min(100,Math.max(0,pf(e.value)||0));save();calc()});
 }
 function renderSpecs(){
