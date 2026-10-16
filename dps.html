@@ -73,7 +73,7 @@ tr.me .pn{color:var(--accT)}
 .g{background:var(--card2);border:1px solid var(--line);border-left:3px solid var(--acc);border-radius:12px;padding:10px 14px;font-size:12px;font-weight:700;letter-spacing:.06em;color:var(--mut)}
 .g b{display:block;font-size:22px;font-weight:800;color:var(--ink);letter-spacing:0;text-transform:none;font-variant-numeric:tabular-nums}
 .g small{display:block;font-size:12px;font-weight:600;letter-spacing:0;text-transform:none}
-.g-combatFame{border-left-color:var(--bad)}.g-silver{border-left-color:#c9d1d9}.g-might{border-left-color:#a371f7}.g-favor{border-left-color:var(--warn)}.g-faction{border-left-color:var(--good)}
+.g-credits{border-left-color:var(--bad)}.g-respecSilver{border-left-color:#8b95a3}.g-silver{border-left-color:#c9d1d9}.g-might{border-left-color:#a371f7}.g-favor{border-left-color:var(--warn)}.g-faction{border-left-color:var(--good)}
 #hist{display:flex;flex-direction:column;gap:6px}
 .hi{background:var(--card2);border:1px solid var(--line);border-radius:12px}
 .hi.on{border-color:var(--acc)}
@@ -97,6 +97,16 @@ tr.spr>td{background:var(--in);padding:4px 8px 10px}
 .spt .pn{font-weight:600}
 .spt .pn img{width:24px;height:24px}
 .ph.sm{width:24px;height:24px;border-radius:6px}
+.aa{position:relative;display:inline-flex;flex:none}
+.aa img{width:24px;height:24px}
+.aa svg{width:24px;height:24px;flex:none}
+.aa i{position:absolute;right:-3px;bottom:-3px;font:800 8px/1 "Inter",sans-serif;font-style:normal;letter-spacing:.02em;background:var(--acc2);color:var(--accT);border:1px solid #b8602a;border-radius:4px;padding:1px 2px}
+.pg,.pgn{white-space:normal}
+.pg{margin:6px 0 8px}
+.pg .gn{margin:0}
+.pg .g b{font-size:18px}
+.pgn{color:var(--mut);font-size:13px;padding:6px 0 8px}
+.rb{font-size:11px;font-weight:800;letter-spacing:.06em;border-radius:20px;padding:3px 10px;border:1px solid rgba(248,81,73,.5);color:#ffb3ad;background:rgba(248,81,73,.1)}
 .spt .bar{min-width:160px}
 .spt .bar i{height:16px}
 .empty{color:var(--mut);padding:30px 10px;text-align:center}
@@ -141,7 +151,7 @@ tr.spr>td{background:var(--in);padding:4px 8px 10px}
   </div>
   <div class="t"><table><thead><tr><th>Oyuncu</th><th class="n">Oturum</th><th class="n">Ort. DPS</th><th class="n">En iyi DPS</th><th class="n">Toplam hasar</th><th class="n">Ort. HPS</th><th class="n">Toplam heal</th></tr></thead><tbody id="avg"></tbody></table></div>
 </section>
-<p class="st">Veriler sadece senin bilgisayarında tutulur (dps-meter/kayitlar klasörü). Toplayıcı oyuna hiçbir şey göndermez, sadece okur. Fame, silver, might, favor ve faction puanı sadece senin karakterin için sayılır.</p>
+<p class="st">Veriler sadece senin bilgisayarında tutulur (dps-meter/kayitlar klasörü). Toplayıcı oyuna hiçbir şey göndermez, sadece okur. Fame, combat fame credit, silver, might, favor ve faction puanı sadece senin karakterin için sayılır; geçmişte kendi adına tıklayınca görürsün.</p>
 </main>
 <script>
 const API="http://127.0.0.1:47700";
@@ -154,7 +164,7 @@ const dur=s=>{s=Math.round(s);const h=Math.floor(s/3600),m=Math.floor(s%3600/60)
 const tm=ms=>new Date(ms).toLocaleTimeString("tr-TR",{hour:"2-digit",minute:"2-digit"});
 const dayOf=ms=>new Date(ms).toLocaleDateString("tr-TR",{weekday:"long",day:"numeric",month:"long"});
 const icon=w=>w?`<img src="https://render.albiononline.com/v1/item/${encodeURIComponent(w)}.png?size=64" alt="" loading="lazy">`:`<span class="ph"></span>`;
-const GN=[["fame","FAME"],["combatFame","COMBAT FAME"],["silver","SILVER"],["might","MIGHT"],["favor","FAVOR"],["faction","FACTION PUANI"]];
+const GN=[["fame","FAME"],["credits","COMBAT FAME CREDIT"],["silver","SILVER"],["might","MIGHT"],["favor","FAVOR"],["faction","FACTION PUANI"],["respecSilver","RESPEC SİLVER"]];
 let LS={};try{LS=JSON.parse(localStorage.getItem("aodps1")||"{}")}catch(e){}
 const saveLS=()=>{try{localStorage.setItem("aodps1",JSON.stringify(LS))}catch(e){}};
 
@@ -179,17 +189,25 @@ function render(){
   if(!connected){cs.className="live";cs.textContent="Bağlı değil";$("cInfo").textContent="Toplayıcı çalışmıyor ya da tarayıcı bağlantıya izin vermedi.";$("party").hidden=true;return}
   const cap=status.capturing;
   cs.className="live "+(cap?"on":"wait");cs.textContent=cap?"Oyun verisi geliyor":"Bağlı, oyun bekleniyor";
-  $("cInfo").innerHTML=(status.version>=2?"":`<b style="color:var(--warn)">Toplayıcı eski sürüm: siyah pencereyi kapatıp "DPS Meter Baslat.bat" ile yeniden aç.</b> `)+(status.character?`Karakter: <b style="color:var(--ink)">${esc(status.character)}</b>${status.partyKnown?"":" · parti bilgisi henüz gelmedi, şimdilik sadece sen sayılıyorsun"}`:"Karakter henüz görülmedi. Oyuna gir ya da bir bölge değiştir.");
+  $("cInfo").innerHTML=(status.version>=3?"":`<b style="color:var(--warn)">Toplayıcı eski sürüm: combat fame credit doğru sayılmaz. Yeni AlbionDPSMeter.exe'yi indirip onu aç.</b> `)+(status.character?`Karakter: <b style="color:var(--ink)">${esc(status.character)}</b>${status.partyKnown?"":" · parti bilgisi henüz gelmedi, şimdilik sadece sen sayılıyorsun"}`:"Karakter henüz görülmedi. Oyuna gir ya da bir bölge değiştir.");
+  if(status.creditsTotal!=null||status.respecBoost)$("cInfo").innerHTML+=` · Credit: <b style="color:var(--ink)">${fmt(status.creditsTotal)}</b>${status.respecBoost?` <span class="rb">RESPEC BOOST AÇIK</span>`:""}`;
   const pt=status.party||[];
   $("party").hidden=!pt.length;
   $("party").innerHTML=pt.length?`<span class="st" style="align-self:center">Takip edilen:</span>`+pt.map(n=>`<span class="chip${n===status.character?" me":""}">${esc(n)}</span>`).join(""):"";
   renderLive();renderAvg();
 }
 
-function gainsHTML(f){
-  const g=f.gains;if(!g)return"";
+function gainsHTML(f,g){
+  g=g||f.gains;if(!g)return"";
   const h=Math.max(f.duration,60)/3600;
-  return `<div class="gn">${GN.map(([k,l])=>`<div class="g g-${k}">${l}<b>${fmt(g[k])}</b><small>${g[k]?fmt(g[k]/h)+" / saat":"&nbsp;"}</small></div>`).join("")}</div>`;
+  const sub=k=>k==="credits"&&g.credits&&g.fame?`fame'in %${(g.credits/g.fame*100).toFixed(1).replace(".",",")}'i`:k==="respecSilver"?(g[k]?"credit için ödenen":"&nbsp;"):g[k]?fmt(g[k]/h)+" / saat":"&nbsp;";
+  return `<div class="gn">${GN.filter(([k])=>k!=="respecSilver"||g[k]).map(([k,l])=>`<div class="g g-${k}">${l}<b>${k in g?fmt(g[k]):"–"}</b><small>${k in g?sub(k):"bu kayıtta yok"}</small></div>`).join("")}</div>`;
+}
+// Tıklanan oyuncunun kazançları: oyun fame/silver/might bilgisini sadece senin karakterin için gönderir
+function playerGainsHTML(f,p){
+  const g=p.gains||(p.me?f.gains:null);
+  if(g)return `<div class="pg">${gainsHTML(f,g)}</div>`;
+  return `<div class="pgn">${esc(p.name)} için fame, credit ve might bilgisi oyun tarafından sana gönderilmiyor. Bunları kendi toplayıcısında görür.</div>`;
 }
 
 function detailHTML(f){
@@ -202,9 +220,9 @@ function detailHTML(f){
   <div class="k4"><div class="k">Toplam süre<b>${dur(f.duration)}</b></div><div class="k">Savaş süresi<b>${dur(cb)}</b></div><div class="k">Toplam hasar<b>${fmt(f.totalDamage)}</b></div><div class="k">Parti DPS<b>${fmt(f.totalDamage/Math.max(1,cb))}</b></div><div class="k">Toplam heal<b>${fmt(f.totalHeal)}</b></div></div>
   ${ps.length?`<div class="dh"><span class="sp"></span><div class="seg">${["damage","heal","taken"].map(s=>`<button data-s="${s}"${key===s?' class="on"':""}>${{damage:"Hasar",heal:"Heal",taken:"Alınan"}[s]}</button>`).join("")}</div></div>
   <div class="t"><table><thead><tr><th class="rk">#</th><th>Oyuncu</th><th>${lbl}</th><th class="n">DPS</th><th class="n">Hasar</th><th class="n">HPS</th><th class="n">Heal</th><th class="n">Overheal</th><th class="n">Alınan</th></tr></thead><tbody>
-  ${ps.map((p,i)=>{const pk=f.id+"|"+p.name,on=openP.has(pk);return `<tr class="pl${p.me?" me":""}${on?" on":""}" data-pl="${esc(pk)}" tabindex="0" aria-expanded="${on}" title="Skill dökümü için tıkla"><td class="rk">${i+1}</td><td><span class="pn">${icon(p.weapon)}${esc(p.name)}<span class="chev2">${on?"▲":"▼"}</span></span></td>
+  ${ps.map((p,i)=>{const pk=f.id+"|"+p.name,on=openP.has(pk);return `<tr class="pl${p.me?" me":""}${on?" on":""}" data-pl="${esc(pk)}" tabindex="0" aria-expanded="${on}" title="Kazanç ve skill dökümü için tıkla"><td class="rk">${i+1}</td><td><span class="pn">${icon(p.weapon)}${esc(p.name)}<span class="chev2">${on?"▲":"▼"}</span></span></td>
   <td><div class="bar ${cls}"><i style="width:${(p[key]/max*100).toFixed(1)}%"></i><span>${fmt(p[key])}</span><small>${(p[key]/tot*100).toFixed(1).replace(".",",")}%</small></div></td>
-  <td class="n"><b>${fmt(p.dps)}</b></td><td class="n">${fmt(p.damage)}</td><td class="n">${fmt(p.hps)}</td><td class="n">${fmt(p.heal)}</td><td class="n" style="color:var(--mut)">${fmt(p.overheal)}</td><td class="n">${fmt(p.taken)}</td></tr>${on?`<tr class="spr"><td></td><td colspan="8">${spellsHTML(p)}</td></tr>`:""}`}).join("")}
+  <td class="n"><b>${fmt(p.dps)}</b></td><td class="n">${fmt(p.damage)}</td><td class="n">${fmt(p.hps)}</td><td class="n">${fmt(p.heal)}</td><td class="n" style="color:var(--mut)">${fmt(p.overheal)}</td><td class="n">${fmt(p.taken)}</td></tr>${on?`<tr class="spr"><td></td><td colspan="8">${playerGainsHTML(f,p)}${spellsHTML(p)}</td></tr>`:""}`}).join("")}
   </tbody></table></div>`:`<div class="empty" style="padding:14px">Bu oturumda hasar ya da heal kaydı yok.</div>`}`;
 }
 
@@ -212,13 +230,14 @@ function detailHTML(f){
 let SN={};fetch("data/spellnames.json").then(r=>r.json()).then(j=>{SN=j;renderLive();renderHist()}).catch(()=>{});
 const openP=new Set();
 const spName=k=>k==="AUTO"?"Normal saldırı":/^#\d+$/.test(k)?"Skill "+k:SN[k]||k.replace(/^(SKILLSHOT|PASSIVE|SPELL|AOE|TARGETED|CHANNEL)_/,"").toLowerCase().replace(/_/g," ").replace(/\b\w/g,c=>c.toUpperCase());
-const spIcon=k=>k==="AUTO"||/^#/.test(k)?`<span class="ph sm"></span>`:`<img src="https://render.albiononline.com/v1/spell/${encodeURIComponent(k)}.png?size=64" alt="" loading="lazy" onerror="this.replaceWith(Object.assign(document.createElement('span'),{className:'ph sm'}))">`;
+const SWORD=`<svg viewBox="0 0 24 24" fill="none" stroke="#f0883e" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14.5 17.5 3 6V3h3l11.5 11.5"/><path d="m13 19 6-6"/><path d="m16 16 4 4"/><path d="m19 21 2-2"/></svg>`;
+const spIcon=(k,w)=>k==="AUTO"?`<span class="aa" title="Normal saldırı">${w?`<img src="https://render.albiononline.com/v1/item/${encodeURIComponent(w)}.png?size=64" alt="" loading="lazy" onerror="this.outerHTML=SWORD">`:SWORD}<i>AA</i></span>`:/^#/.test(k)?`<span class="ph sm"></span>`:`<img src="https://render.albiononline.com/v1/spell/${encodeURIComponent(k)}.png?size=64" alt="" loading="lazy" onerror="this.replaceWith(Object.assign(document.createElement('span'),{className:'ph sm'}))">`;
 function spellsHTML(p){
   const L=p.spells;
   if(!L)return `<div class="st" style="padding:6px 0">Bu oturum skill dökümü eklenmeden önce kaydedildi.</div>`;
   if(!L.length)return `<div class="st" style="padding:6px 0">Skill verisi yok.</div>`;
   const heal=p.heal>p.damage,v=s=>heal?s.heal:s.damage,tot=L.reduce((a,s)=>a+v(s),0)||1,max=Math.max(1,...L.map(v));
-  return `<table class="spt"><thead><tr><th lang="en">Skill</th><th>${heal?"Heal":"Hasar"}</th><th class="n">Vuruş</th><th class="n">Ort.</th><th class="n">${heal?"Hasar":"Heal"}</th></tr></thead><tbody>${[...L].sort((a,b)=>v(b)-v(a)).map(s=>`<tr><td><span class="pn">${spIcon(s.key)}${esc(spName(s.key))}</span></td><td><div class="bar ${heal?"h":""}"><i style="width:${(v(s)/max*100).toFixed(1)}%"></i><span>${fmt(v(s))}</span><small>${(v(s)/tot*100).toFixed(1).replace(".",",")}%</small></div></td><td class="n">${fmt(s.hits)}</td><td class="n">${fmt(v(s)/Math.max(1,s.hits))}</td><td class="n" style="color:var(--mut)">${fmt(heal?s.damage:s.heal)}</td></tr>`).join("")}</tbody></table>`;
+  return `<table class="spt"><thead><tr><th lang="en">Skill</th><th>${heal?"Heal":"Hasar"}</th><th class="n">Vuruş</th><th class="n">Ort.</th><th class="n">${heal?"Hasar":"Heal"}</th></tr></thead><tbody>${[...L].sort((a,b)=>v(b)-v(a)).map(s=>`<tr><td><span class="pn">${spIcon(s.key,p.weapon)}${esc(spName(s.key))}</span></td><td><div class="bar ${heal?"h":""}"><i style="width:${(v(s)/max*100).toFixed(1)}%"></i><span>${fmt(v(s))}</span><small>${(v(s)/tot*100).toFixed(1).replace(".",",")}%</small></div></td><td class="n">${fmt(s.hits)}</td><td class="n">${fmt(v(s)/Math.max(1,s.hits))}</td><td class="n" style="color:var(--mut)">${fmt(heal?s.damage:s.heal)}</td></tr>`).join("")}</tbody></table>`;
 }
 
 function bindSort(root){
@@ -243,6 +262,7 @@ function renderHist(){
       <span class="hc"><b>${tm(f.start)}–${tm(f.end)}</b><small>${dur(f.duration)}</small></span>
       <span class="hc"><small>Hasar</small><b>${fmtK(f.totalDamage)}</b></span>
       <span class="hc"><small>Fame</small><b>${f.gains?fmtK(g.fame):"–"}</b></span>
+      <span class="hc hide-s"><small>Credit</small><b>${f.gains&&"credits" in g?fmtK(g.credits):"–"}</b></span>
       <span class="hc"><small>Silver</small><b>${f.gains?fmtK(g.silver):"–"}</b></span>
       <span class="hc hide-s"><small>Oyuncu</small><b>${f.players.length}</b></span>
       <span class="chev">${on?"▲":"▼"}</span></button>

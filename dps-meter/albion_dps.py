@@ -25,9 +25,10 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 PORT = int(os.environ.get("ALBION_DPS_PORT") or 47700)
 COMBAT_GAP_SECONDS = 5       # vuruşlar arası bundan uzun boşluk "savaş süresi"ne sayılmaz
-COMBAT_FAME_GRACE = 6        # savaş anından sonra bu kadar saniye içinde gelen fame "combat fame" sayılır
 FP = 10000.0                 # oyunun sabit noktalı sayı çarpanı
-GAINS = ("fame", "combatFame", "silver", "might", "favor", "faction")
+# credits = Combat Fame Credit (Destiny Board'da 100 olmuş düğümlerden gelen kredi; oyun bunu "ReSpec puanı"
+# olarak ayrı bir mesajla bildirir). respecSilver = ReSpec boost açıkken bu krediler için ödenen silver.
+GAINS = ("fame", "credits", "silver", "might", "favor", "faction", "respecSilver")
 MAX_FIGHTS_IN_MEMORY = 300
 MAX_OBJECTS = 5000           # hatırlanan karakter sayısı (en eskiler silinir)
 JOIN_KEEP_SECONDS = 15       # bölge değişince bundan daha yeni görülen karakterler tutulur
@@ -54,8 +55,9 @@ EV = {
     "PartyPlayerJoined": 232, "PartyPlayerLeft": 234,
     "TakeSilver": 62, "UpdateFame": 82, "UpdateCurrency": 85,
     "MightAndFavorReceivedEvent": 496, "InCombatStateUpdate": 277,
+    "UpdateReSpecPoints": 84,
 }
-OP = {"Join": 2}
+OP = {"Join": 2, "ClaimPaymentTransaction": 297}
 
 CODES_URL = "https://raw.githubusercontent.com/Triky313/AlbionOnline-StatisticsAnalysis/main/src/StatisticsAnalysisTool/Network/{}.cs"
 ITEMS_URL = "https://raw.githubusercontent.com/ao-data/ao-bin-dumps/master/formatted/items.txt"
@@ -587,8 +589,9 @@ class Tracker:
         self.weapons = {}        # oyuncu adı -> silah unique name
         self.fight = None
         self.fights = []
-        self.last_combat = 0     # yerel oyuncunun son savaş anı (combat fame için)
         self.fame_total = None   # oyunun bildirdiği toplam fame (fark = kazanılan)
+        self.credits_total = None  # karakterdeki toplam combat fame credit
+        self.respec_boost = None   # ReSpec boost açık mı (bilinmiyorsa None)
         self.live_dirty = False
         self.packets = 0
         self.events = 0
@@ -621,7 +624,10 @@ class Tracker:
         try:
             with open(LIVE_FILE, encoding="utf-8") as fh:
                 f = json.load(fh)
-            f.setdefault("gains", {k: 0 for k in GAINS})
+            f.setdefault("gains", {})
+            for k in GAINS:
+                f["gains"].setdefault(k, 0)
+            f["gains"].pop("combatFame", None)  # eski sürümün yanlış sayacı
             f.setdefault("active", 0.0)
             f.setdefault("lastHit", None)
             self.fight = f
@@ -718,8 +724,16 @@ class Tracker:
                         self.fame_total = total
                     if fame > 0:
                         self.gain("fame", fame)
-                        if time.time() - self.last_combat <= COMBAT_FAME_GRACE:
-                            self.gain("combatFame", fame)
+            elif code == EV["UpdateReSpecPoints"]:
+                # 0: [.., toplam kredi, ..], 2: kazanılan kredi, 3: ReSpec boost için ödenen silver
+                arr = p.get(0)
+                if isinstance(arr, (list, tuple)) and len(arr) > 1:
+                    self.credits_total = (to_int(arr[1]) or 0) / FP
+                    self.gain("credits", (to_int(p.get(2)) or 0) / FP)
+                    paid = (to_int(p.get(3)) or 0) / FP
+                    if paid > 0:
+                        self.gain("respecSilver", paid)
+                        self.respec_boost = True
             elif code == EV["TakeSilver"]:
                 oid = to_int(p.get(0))
                 if oid is not None and oid == self.local_id:
@@ -733,10 +747,6 @@ class Tracker:
                 # sadece 6 şehir faction'ı (1-6) faction puanı sayılır.
                 if (to_int(p.get(2)) or 0) in (1, 2, 3, 4, 5, 6):
                     self.gain("faction", (to_int(p.get(3)) or 0) / FP)
-            elif code == EV["InCombatStateUpdate"]:
-                oid = to_int(p.get(0))
-                if oid is not None and oid == self.local_id and (p.get(1) is True or p.get(2) is True):
-                    self.last_combat = time.time()
             elif code == EV["Leave"]:
                 oid = to_int(p.get(0))
                 if oid is not None and oid != self.local_id:
@@ -770,7 +780,9 @@ class Tracker:
                 log("Parti dağıldı.")
 
     def on_request(self, _code, p):
-        pass
+        if to_int(p.get(253)) == OP["ClaimPaymentTransaction"] and 1 in p:
+            with self.lock:
+                self.respec_boost = bool(p.get(1))
 
     def on_response(self, _code, p):
         code = to_int(p.get(253))
@@ -791,6 +803,11 @@ class Tracker:
                     self.local_id, self.local_name = oid, name
                     self.objects[oid] = {"name": name, "t": time.time()}
                 self.zone = str(p.get(8)) if p.get(8) is not None else None
+                rs = p.get(43)
+                if isinstance(rs, (list, tuple)) and len(rs) > 1:
+                    self.credits_total = (to_int(rs[1]) or 0) / FP
+                if 98 in p:
+                    self.respec_boost = bool(p.get(98))
                 log(f"Bölgeye girildi. Karakter: {self.local_name}")
 
     def is_local(self, oid):
@@ -837,8 +854,6 @@ class Tracker:
             return
         now = time.time()
         f = self.ensure_fight(now)
-        if causer == self.local_id or aff == self.local_id:
-            self.last_combat = now
         if f["lastHit"] is not None:
             f["active"] += min(now - f["lastHit"], COMBAT_GAP_SECONDS)
         f["lastHit"] = now
@@ -905,13 +920,17 @@ class Tracker:
                            if v[0] or v[1]][:MAX_SPELLS_PER_PLAYER],
                 "me": name == self.local_name,
             })
+        gains = {k: round(f.get("gains", {}).get(k, 0)) for k in GAINS}
+        for p in players:
+            if p["me"]:
+                p["gains"] = gains  # kazançlar sadece toplayıcıyı çalıştıran karakter için bilinir
         players.sort(key=lambda x: (-x["damage"], -x["heal"]))
         start = f["start"]
         return {
             "id": time.strftime("%Y%m%d-%H%M%S", time.localtime(start)) + "-%03d" % int((start % 1) * 1000),
             "start": int(start * 1000), "end": int(end * 1000),
             "duration": round(dur, 1), "combat": round(act, 1), "zone": f.get("zone"),
-            "gains": {k: round(f.get("gains", {}).get(k, 0)) for k in GAINS},
+            "gains": gains,
             "totalDamage": sum(p["damage"] for p in players),
             "totalHeal": sum(p["heal"] for p in players),
             "players": players, "final": final,
@@ -943,13 +962,15 @@ class Tracker:
     def status(self):
         with self.lock:
             return {
-                "ok": True, "version": 2,
+                "ok": True, "version": 3,
                 "capturing": time.time() - self.last_packet < 10 if self.last_packet else False,
                 "packets": self.packets, "events": self.events,
                 "character": self.local_name,
                 "party": sorted(self.party_names()), "partyKnown": self.party_known,
                 "live": self.summarize(self.fight, False) if self.fight else None,
                 "fightCount": len(self.fights),
+                "respecBoost": self.respec_boost,
+                "creditsTotal": round(self.credits_total) if self.credits_total is not None else None,
             }
 
 

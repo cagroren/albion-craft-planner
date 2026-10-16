@@ -10,8 +10,10 @@ Sonuçları panelin **DPS Meter** sekmesinde görürsün.
 - Sadece kendi partini sayar (partide değilsen sadece seni).
 - Oturum sen paneldeki **Bitir ve kaydet** düğmesine basana kadar sürer (bölge değişse,
   program kapanıp açılsa bile). Bitirince geçmişe kaydedilir.
-- Hasar/heal'in yanında kendi kazandığın fame, combat fame, silver, might, favor ve
-  faction puanını da sayar.
+- Hasar/heal'in yanında kendi kazandığın fame, combat fame credit, silver, might, favor ve
+  faction puanını da sayar. Combat fame credit, oyunun Destiny Board'da 100 olmuş
+  düğümler için verdiği kredidir; değeri doğrudan oyundan okunur (ReSpec boost
+  açıksa onun etkisi ve ödenen silver da dahil).
 - Kayıtlar `kayitlar` klasöründe durur. Panel bunları `http://127.0.0.1:47700`
   adresinden okur; bu adres sadece senin bilgisayarından erişilebilir.
 
