@@ -107,6 +107,8 @@ tr.spr>td{background:var(--in);padding:4px 8px 10px}
 .pg .g b{font-size:18px}
 .pgn{color:var(--mut);font-size:13px;padding:6px 0 8px}
 .rb{font-size:11px;font-weight:800;letter-spacing:.06em;border-radius:20px;padding:3px 10px;border:1px solid rgba(248,81,73,.5);color:#ffb3ad;background:rgba(248,81,73,.1)}
+.rb.off{border-color:var(--line2);color:var(--mut);background:var(--card2)}
+.rb.unk{border-color:var(--line2);color:var(--mut);background:transparent;font-weight:600;letter-spacing:0}
 .spt .bar{min-width:160px}
 .spt .bar i{height:16px}
 .empty{color:var(--mut);padding:30px 10px;text-align:center}
@@ -183,6 +185,12 @@ async function poll(){
   render();
 }
 
+// Auto-respec durumu: credit kazanıldığında oyun silver kestiyse açık, kesmediyse kapalı (en son credit kazanılan kayda bakılır)
+function respecState(){
+  const L=[status&&status.live,...[...fights].sort((a,b)=>(b.end||b.start||0)-(a.end||a.start||0))].filter(Boolean);
+  for(const f of L){const g=f.gains||{};if(g.credits>0)return g.respecSilver>0}
+  return null;
+}
 function render(){
   const cs=$("cState");
   $("setup").hidden=connected;$("main").hidden=!connected;$("histSec").hidden=!connected||!fights.length;$("avgSec").hidden=!connected||!fights.length;
@@ -190,7 +198,7 @@ function render(){
   const cap=status.capturing;
   cs.className="live "+(cap?"on":"wait");cs.textContent=cap?"Oyun verisi geliyor":"Bağlı, oyun bekleniyor";
   $("cInfo").innerHTML=(status.version>=4?"":`<b style="color:var(--warn)">Toplayıcı eski sürüm: ${status.version>=3?"duraklatma yok":"combat fame credit doğru sayılmaz"}. Yeni AlbionDPSMeter.exe'yi indirip onu aç.</b> `)+(status.character?`Karakter: <b style="color:var(--ink)">${esc(status.character)}</b>${status.partyKnown?"":" · parti bilgisi henüz gelmedi, şimdilik sadece sen sayılıyorsun"}`:"Karakter henüz görülmedi. Oyuna gir ya da bir bölge değiştir.");
-  if(status.creditsTotal!=null||status.respecBoost)$("cInfo").innerHTML+=` · Credit: <b style="color:var(--ink)">${fmt(status.creditsTotal)}</b>${status.respecBoost?` <span class="rb">RESPEC BOOST AÇIK</span>`:""}`;
+  {const rs=respecState();$("cInfo").innerHTML+=`${status.creditsTotal!=null?` · Credit: <b style="color:var(--ink)">${fmt(status.creditsTotal)}</b>`:""} · Auto-respec: ${rs===true?'<span class="rb">AÇIK</span>':rs===false?'<span class="rb off">KAPALI</span>':'<span class="rb unk" title="İlk combat fame credit kazanıldığında silver ödenip ödenmediğine bakılarak anlaşılır">ilk credit kazanınca anlaşılır</span>'}`;}
   const pt=status.party||[];
   $("party").hidden=!pt.length;
   $("party").innerHTML=pt.length?`<span class="st" style="align-self:center">Takip edilen:</span>`+pt.map(n=>`<span class="chip${n===status.character?" me":""}">${esc(n)}</span>`).join(""):"";

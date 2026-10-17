@@ -95,6 +95,13 @@ button.tbig{padding:11px 20px;font-size:15px}
 #toolsApp .rrt small{overflow-wrap:anywhere}
 #toolsApp .pmi{flex-wrap:wrap}
 .tdet{margin-top:14px}
+.tl{display:flex;justify-content:space-between;gap:10px;font-size:13px;padding:3px 0;color:var(--mut)}
+.tl b{font-size:14px!important;color:var(--ink)!important;font-weight:700;display:inline!important;margin:0!important;white-space:nowrap}
+.tl small{font-size:11px}
+.tl.sum{border-top:1px solid var(--line2);margin-top:4px;padding-top:6px}
+.tl.res{border-top:1px solid var(--line2);margin-top:4px;padding-top:6px;font-size:15px;color:var(--ink)}
+.tl.res b{font-size:20px!important}
+.tl.res b.pos{color:var(--good)!important}.tl.res b.neg{color:var(--bad)!important}
 .tdet>summary{cursor:pointer;color:var(--acc);font-weight:700;font-size:13px}
 .tps{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:8px;margin-top:10px}
 .tps label{flex-direction:row;align-items:center;gap:8px;background:var(--card2);border:1px solid var(--line);border-radius:10px;padding:6px 8px}
@@ -1509,15 +1516,22 @@ let eQl=ST.encQ||1;
 const qk=id=>id+"|Q"+eQl;
 function uiEnch(){
   $("tBody").innerHTML=`<section><h2>Eşya seç</h2>
-  <div class="tsteps"><b>1</b>Eşyayı ve kaliteyi seç <b>2</b>Fiyatları çek <b>3</b>En ucuz yolu gör</div>
+  <div class="tsteps"><b>1</b>Eşyayı, kaliteyi ve elindeki enchantı seç <b>2</b>Ödediğin fiyatı yaz <b>3</b>Fiyatları çek, kârı gör</div>
   <label>Eşya (adını yaz, listeden seç)</label>
   <div class="ids" style="margin-top:6px"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg><input id="eQ" type="search" autocomplete="off" placeholder="örn. Claymore, Bow T6, Hellion Jacket" aria-label="Eşya ara"><div class="idsug" id="eSug" hidden role="listbox"></div></div>
   <h3 style="margin:16px 0 8px">Kalite</h3><div class="chips" id="eQual"></div>
+  <h3 style="margin:18px 0 8px">Elimdeki eşya</h3>
+  <div class="g"><label>Şu anki enchant<select id="eHave"><option value="0">.0</option><option value="1">.1</option><option value="2">.2</option></select></label>
+  <label>Ödediğim fiyat (boş bırakırsan pazar fiyatı kullanılır)<input id="ePaid" type="number" min="0" placeholder="örn. 150000"></label></div>
   <div id="eItem"></div></section>
-  <section><h2>Sonuç</h2>${fetchBar()}<div class="tans" id="eAns"></div>
+  <section><h2>Yükseltirsem ne kazanırım?</h2>${fetchBar()}<div id="eSum"></div><div class="tans" id="eUp"></div>
+  <details class="tdet"><summary>Sıfırdan alacaksam: her enchant için en ucuz yol</summary><div class="tans" id="eAns" style="margin-top:10px"></div></details>
   <details class="tdet"><summary>Bütün yolları ayrıntılı göster</summary><div class="t" style="margin-top:10px"><table><thead><tr><th>Yol</th><th>Toplam maliyet</th><th>Gerekenler</th><th>Yükseltip satarsan kâr</th></tr></thead><tbody id="eRows"></tbody></table></div></details>
   <details class="tdet" id="ePsD"><summary>Fiyatları elle düzelt</summary><div class="tps" id="ePs"></div></details></section>`;
   eSel=D.up.find(u=>u.id===ST.ench)||D.up.find(u=>u.id==="T6_2H_CLAYMORE")||D.up[0];
+  $("eHave").value=String(ST.eHave||0);
+  $("eHave").addEventListener("change",()=>{ST.eHave=+$("eHave").value;LS.set("aotools1",ST);render()});
+  $("ePaid").addEventListener("input",()=>{clearTimeout(window._ept);window._ept=setTimeout(render,300)});
   const pick=u=>{eSel=u;ST.ench=u.id;LS.set("aotools1",ST);$("eQ").value="";$("eSug").hidden=true;render()};
   let L=[],hl=-1;
   const sug=()=>{
@@ -1550,6 +1564,27 @@ function renderEnch(){
     rows+=`<tr><td colspan="4" style="padding-top:14px"><b>.${e} hedefi</b></td></tr>`+paths.map(p=>`<tr${best&&p===best?' style="background:rgba(63,185,80,.07)"':""}><td>${p.n}${best&&p===best?' <span class="bd bd-g">en ucuz</span>':""}</td><td>${p.ok?fmt(p.c):'<span class="st">fiyat eksik</span>'}</td><td class="st">${need(p)}</td><td>${p.ok&&direct>0&&p.from!==e?`<span class="${direct*(1-tax()/100)-p.c>0?"pos":"neg"}">${fmt(direct*(1-tax()/100)-p.c)}</span>`:""}</td></tr>`).join("");
   }
   $("eAns").innerHTML=ans;$("eRows").innerHTML=rows;
+  // --- elimdeki eşyayı yükseltme dökümü
+  const have=+$("eHave").value||0,paidIn=+$("ePaid").value||0,T=tax(),tn=e=>"T"+u.t+"."+e;
+  const base=paidIn||price(it(have)),src=paidIn?"senin ödediğin":"pazar fiyatı";
+  const R=[];
+  for(let e=have+1;e<=3;e++){
+    const steps=[];for(let k=have;k<e;k++)steps.push({k,n:u.c[k],p:price(mat(k))});
+    const mc=steps.reduce((a,x)=>a+x.n*x.p,0),cost=base+mc,sell=price(it(e)),net=sell*(1-T/100),pr=net-cost;
+    R.push({e,steps,mc,cost,sell,net,pr,ok:base>0&&sell>0&&steps.every(x=>x.p>0)});
+  }
+  const okR=R.filter(r=>r.ok),bestR=okR.length?okR.reduce((a,b)=>b.pr>a.pr?b:a):null;
+  const line=(a,b,c)=>`<div class="tl${c?" "+c:""}"><span>${a}</span><b>${b}</b></div>`;
+  $("eUp").innerHTML=R.map(r=>`<div class="k${bestR&&r===bestR&&r.pr>0?" tbigk":""}"><div class="tw" style="margin:0 0 8px">${tn(have)} → ${tn(r.e)} <span class="bd bd-n">${QN[eQl]}</span>${bestR&&r===bestR&&r.pr>0?' <span class="bd bd-g">en kârlı</span>':""}</div>
+    ${line(`${tn(have)} alış <small>(${src})</small>`,base?fmt(base):"?")}
+    ${r.steps.map(x=>line(`+ ${x.n} ${MATN[MATS[x.k]]} × ${x.p?fmt(x.p):"?"} <small>(.${x.k}→.${x.k+1})</small>`,x.p?fmt(x.n*x.p):"?")).join("")}
+    ${line("Toplam maliyet",r.ok||base?fmt(r.cost):"?","sum")}
+    ${line(`Pazarda ${tn(r.e)}`,r.sell?fmt(r.sell):"?")}
+    ${line(`Satınca eline geçen <small>(-%${T.toFixed(1)})</small>`,r.sell?fmt(r.net):"?")}
+    ${r.ok?`<div class="tl res"><span>${r.pr>=0?"Kâr":"Zarar"}</span><b class="${r.pr>=0?"pos":"neg"}">${fmt(r.pr)}</b></div><div class="st" style="margin:4px 0 0">${pct(r.pr/r.cost)} · hazır ${tn(r.e)} almak ${fmt(r.sell)}: yükseltmek ${r.sell>r.cost?fmt(r.sell-r.cost)+" ucuz":fmt(r.cost-r.sell)+" pahalı"}</div>`:'<div class="st" style="margin:6px 0 0">Eksik fiyat var: Fiyatları çek ya da elle gir.</div>'}
+  </div>`).join("");
+  const asIs=paidIn&&price(it(have))?price(it(have))*(1-T/100)-paidIn:null;
+  $("eSum").innerHTML=!okR.length?"":`<div class="warn ok" style="margin:0 0 14px;font-size:15px">${bestR.pr>0?`<b>En kârlısı:</b> ${tn(have)} eşyanı ${tn(bestR.e)}'e yükseltip satmak, <b class="pos">${fmt(bestR.pr)} silver kâr</b>.`:`<b>Yükseltip satmak zarar ettiriyor</b> (en iyi ihtimalle ${fmt(bestR.pr)}).`}${asIs!=null?` Hiç yükseltmeden olduğu gibi satarsan: <b class="${asIs>=0?"pos":"neg"}">${fmt(asIs)}</b>.`:""}</div>`;
   $("ePs").innerHTML=encIds(u).map(id=>`<label>${timg(id)}<span title="${esc(lbl(id))}">${esc(lbl(id))}</span>${manInput(id)}</label>`).join("");
   bindMan($("ePs"));
 }

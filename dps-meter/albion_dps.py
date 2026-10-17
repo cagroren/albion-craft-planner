@@ -733,10 +733,13 @@ class Tracker:
                 if isinstance(arr, (list, tuple)) and len(arr) > 1:
                     self.credits_total = (to_int(arr[1]) or 0) / FP
                     self.gain("credits", (to_int(p.get(2)) or 0) / FP)
+                    earned = (to_int(p.get(2)) or 0) / FP
                     paid = (to_int(p.get(3)) or 0) / FP
                     if paid > 0:
                         self.gain("respecSilver", paid)
-                        self.respec_boost = True
+                    if earned > 0:
+                        # Auto-respec durumu sadece buradan anlaşılır: kredi kazanılırken silver kesildiyse açık
+                        self.respec_boost = paid > 0
             elif code == EV["TakeSilver"]:
                 oid = to_int(p.get(0))
                 if oid is not None and oid == self.local_id:
@@ -783,9 +786,9 @@ class Tracker:
                 log("Parti dağıldı.")
 
     def on_request(self, _code, p):
-        if to_int(p.get(253)) == OP["ClaimPaymentTransaction"] and 1 in p:
-            with self.lock:
-                self.respec_boost = bool(p.get(1))
+        # Auto-respec durumu eskiden buradan tahmin ediliyordu ama yanlış "açık" gösteriyordu;
+        # artık sadece UpdateReSpecPoints olayından (silver kesildi mi) belirleniyor.
+        return
 
     def on_response(self, _code, p):
         code = to_int(p.get(253))
@@ -809,8 +812,6 @@ class Tracker:
                 rs = p.get(43)
                 if isinstance(rs, (list, tuple)) and len(rs) > 1:
                     self.credits_total = (to_int(rs[1]) or 0) / FP
-                if 98 in p:
-                    self.respec_boost = bool(p.get(98))
                 log(f"Bölgeye girildi. Karakter: {self.local_name}")
 
     def is_local(self, oid):
