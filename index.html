@@ -436,7 +436,7 @@ const SH=22.5,SHR=11.25,sp=t=>t in spec?spec[t]:(FOOD||CRAFT?0:100);
 const save=()=>{try{localStorage.setItem("aoplan3"+KS,JSON.stringify({spec,fo,mast:num("mast"),rf:num("rf"),rid:$("rid").value,rrf:$("rrf").value,rrid:$("rrid").value}))}catch(e){}};
 function effFocus(id){
   if(CRAFT){
-    const d=db[id],b=base(id),others=catBases(d.cat).filter(x=>x!==b).reduce((a,x)=>a+sp(x),0);
+    const d=db[id],b=sbase(base(id)),others=catBases(d.cat).filter(x=>x!==b).reduce((a,x)=>a+sp(x),0);
     return d.focus*Math.pow(0.5,(30*sp("M:"+d.cat)+250*sp(b)+30*others)/10000);
   }
   if(FOOD){
@@ -468,10 +468,12 @@ const ftype=id=>{const m=base(id).match(/^MEAL_(SOUP|SALAD|PIE|OMELETTE|STEW|SAN
 const FXTRA={MEAT:["Butcher","T4_MEAT","Et hazırlama (Raw Chicken ... Raw Beef)"],PRODUCTS:["Ingredient","T4_BREAD","Malzeme hazırlama (Flour, Bread, Butter)"],BAIT:["Bait","T1_FISHINGBAIT","Balık yemi"]};
 const FALL=[...FTYPES,...Object.keys(FXTRA)];
 let baseCat={},specKey="";
-const planBases=()=>[...new Set(plan.map(p=>base(p.id)))];
+// Oyunda bütün pelerinler (faction, artefact) tek "Cape" spec'ini kullanır
+const sbase=b=>/^CAPEITEM_/.test(b)?"CAPE":b;
+const planBases=()=>[...new Set(plan.map(p=>sbase(base(p.id))))];
 const tierStrip=n=>n.replace(/^(Beginner'?s?|Novice'?s?|Journeyman'?s?|Adept'?s?|Expert'?s?|Master'?s?|Grandmaster'?s?|Elder'?s?|Minor|Major|Greater|Lesser|Superior|Fine|Excellent|Mighty)\s+/i,"");
 // Bir kategorideki bütün eşya türleri (ör. Sword: Broadsword, Claymore, Dual Swords...): hepsinin spec'i birbirine focus verimi verir
-const catBases=c=>Object.keys(baseCat).filter(b=>baseCat[b]===c);
+const catBases=c=>[...new Set(Object.keys(baseCat).filter(b=>baseCat[b]===c).map(sbase))];
 function renderCraftSpecs(force){
   const bs=planBases(),cats=[...new Set(bs.map(b=>baseCat[b]))],key=cats.join("|")+"#"+bs.join("|");
   if(!force&&key===specKey)return;specKey=key;
@@ -663,7 +665,8 @@ function parseGear(j){
   });
   ["weapon","equipmentitem","transformationweapon"].forEach(k=>arr(j.items[k]).forEach(it=>{
     const id=it["@uniquename"],sc=it["@shopcategory"];let s1=it["@shopsubcategory1"]||"";
-    if(!SC.has(sc)||!/^T\d_/.test(id))return;
+    // Destiny Board'da düğümü olmayanlar: Royal setler (başka yolla üretilir), adsız prototype'lar, Black Hands
+    if(!SC.has(sc)||!/^T\d_/.test(id)||/_ROYAL$|_PROTOTYPE$|_IRONGAUNTLETS_HELL$/.test(id))return;
     if(sc==="capes"){if(!/^accessoires_capes/.test(s1))return;s1="capes"}
     if(sc==="bags")s1="bags";
     if(!CATN[s1])return;
