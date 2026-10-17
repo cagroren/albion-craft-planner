@@ -81,6 +81,26 @@ tr.dt td{background:var(--card2);font-size:13px}
 button.ic{padding:4px 9px}
 button.sb{padding:4px 7px;margin-right:2px}
 #ttl{font-size:30px}
+.tfb{display:flex;gap:12px;align-items:center;flex-wrap:wrap;padding:12px 14px;border:1px solid var(--line);border-radius:12px;background:var(--card2);margin-bottom:16px}
+button.tbig{padding:11px 20px;font-size:15px}
+.tsteps{display:flex;gap:8px;align-items:center;flex-wrap:wrap;font-size:12px;color:var(--mut);margin:-4px 0 14px}
+.tsteps b{display:inline-flex;width:20px;height:20px;border-radius:50%;align-items:center;justify-content:center;background:var(--acc2);color:var(--accT);font-size:11px}
+.tans{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px}
+.tans .k b{font-size:20px}
+.k.tbigk{border-color:#b8602a;background:linear-gradient(135deg,rgba(240,136,62,.14),rgba(240,136,62,.02) 70%),var(--card2)}
+.k.tbigk>b{color:var(--acc)}
+.tw{font-size:14px;font-weight:700;color:var(--ink);margin-top:6px;overflow-wrap:anywhere}
+.tans .k{min-width:0}
+.tans .k b{overflow-wrap:anywhere}
+#toolsApp .rrt small{overflow-wrap:anywhere}
+#toolsApp .pmi{flex-wrap:wrap}
+.tdet{margin-top:14px}
+.tdet>summary{cursor:pointer;color:var(--acc);font-weight:700;font-size:13px}
+.tps{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:8px;margin-top:10px}
+.tps label{flex-direction:row;align-items:center;gap:8px;background:var(--card2);border:1px solid var(--line);border-radius:10px;padding:6px 8px}
+.tps label span{flex:1;min-width:0;font-size:12px;line-height:1.3;overflow-wrap:anywhere}
+.tps img{margin:0!important}
+#toolsApp td img{width:32px;height:32px}
 .tgc{align-self:end;min-height:42px}
 .rrb{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-top:16px}
 .rrt{background:var(--card2);border:1px solid var(--line);border-radius:12px;padding:10px 12px;display:flex;flex-direction:column;gap:1px;min-width:0}
@@ -205,7 +225,7 @@ section{padding:16px;border-radius:14px}
 </head>
 <body>
 <main>
-<div class="row topbar"><div class="tabs"><button id="modeP">Alchemy</button><button id="modeF">Cooking</button><button id="modeC">Craft</button><button id="modeB">Black Market Flips</button><button id="modeD">Item Database</button><button id="modeDps">DPS Meter</button></div></div>
+<div class="row topbar"><div class="tabs"><button id="modeP">Alchemy</button><button id="modeF">Cooking</button><button id="modeC">Craft</button><button id="modeFa">Farming</button><button id="modeR">Refining</button><button id="modeB">Black Market Flips</button><button id="modeE">Enchant Yükseltme</button><button id="modeD">Item Database</button><button id="modeDps">DPS Meter</button></div></div>
 <div style="display:flex;align-items:center;gap:12px;margin:14px 0 4px"><img src="logo.png" alt="KVF" width="48" height="48"><h1 id="ttl" style="margin:0">Alchemy</h1></div>
 <section class="pfc" id="pfCard">
 <div class="pfh"><h2 style="margin:0">Profil</h2><span class="pfa" id="pfAct"></span><label class="c" style="margin-left:auto"><input type="checkbox" id="pfPlan" checked> Plan da kaydedilsin</label></div>
@@ -351,8 +371,11 @@ $("modeF").onclick=()=>{location.hash="#food";location.reload()};
 $("modeB").onclick=()=>{location.hash="#bm";location.reload()};
 $("modeC").onclick=()=>{location.hash="#craft";location.reload()};
 $("modeD").onclick=()=>{location.hash="#db";location.reload()};
+$("modeFa").onclick=()=>{location.hash="#farm";location.reload()};
+$("modeR").onclick=()=>{location.hash="#refine";location.reload()};
+$("modeE").onclick=()=>{location.hash="#enchant";location.reload()};
 $("modeDps").onclick=()=>{location.href="dps.html"};
-$(DB?"modeD":BM?"modeB":CRAFT?"modeC":FOOD?"modeF":"modeP").classList.add("on");
+$({"#farm":"modeFa","#refine":"modeR","#enchant":"modeE"}[location.hash]||(DB?"modeD":BM?"modeB":CRAFT?"modeC":FOOD?"modeF":"modeP")).classList.add("on");
 ["rid","rf","rrid","rrf"].forEach(i=>$(i).parentElement.style.display="none");
 if(FOOD){
   document.title="Albion Cooking";$("ttl").textContent="Cooking";
@@ -1387,6 +1410,261 @@ function initDB(){
 }
 if(DB)initDB();
 
+</script>
+<script>
+// Farming, Refining ve Enchant Yükseltme sekmeleri. index.html'deki ortak yardımcıları (img, esc, fmt, label, nm0, loadNames, DUMP, arr, tierStrip) kullanır.
+(function(){
+const H=location.hash,MODE=H==="#farm"?"farm":H==="#refine"?"ref":H==="#enchant"?"ench":null;
+if(!MODE)return;
+const $=id=>document.getElementById(id);
+const TT={farm:"Farming",ref:"Refining",ench:"Enchant Yükseltme"};
+document.title="Albion "+TT[MODE];$("ttl").textContent=TT[MODE];
+[...document.querySelector("main").children].forEach(el=>{if(!el.classList.contains("row")&&el!==$("ttl").parentElement)el.style.display="none"});
+const CITIES=["Caerleon","Bridgewatch","Lymhurst","Martlock","Fort Sterling","Thetford","Brecilien"];
+const RBON={ORE:"Thetford",WOOD:"Fort Sterling",FIBER:"Lymhurst",HIDE:"Martlock",ROCK:"Bridgewatch"};
+const RNAME={ORE:"ore",WOOD:"wood",FIBER:"fiber",HIDE:"hide",ROCK:"stone"};
+const pct=v=>isFinite(v)?(v*100).toFixed(1)+"%":"-";
+const fm=n=>isFinite(n)?fmt(n):"-";
+const LS={get(k,d){try{return JSON.parse(localStorage.getItem(k))||d}catch(e){return d}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}};
+const ST=LS.get("aotools1",{});
+
+// ---------- ortak piyasa bölümü
+const app=document.createElement("div");app.id="toolsApp";document.querySelector("main").appendChild(app);
+app.innerHTML=`<section>
+<h2>Piyasa, şehirler ve bonuslar</h2>
+<div class="g">
+<label>Sunucu<select id="tSrv"><option value="europe">Europe</option><option value="west">West (Americas)</option><option value="east">East (Asia)</option></select></label>
+<label>Şehir (alış, üretim ve satış)<select id="tCity">${CITIES.map(c=>`<option>${c}</option>`).join("")}</select></label>
+<label>İstasyon ücreti (100 nutrition başına)<input type="number" id="tFee" value="400" min="0" max="1000" step="10"></label>
+<label class="c tgc"><input type="checkbox" id="tPrem" checked> Premium (vergi %4, yoksa %8)</label>
+<label class="c tgc"><input type="checkbox" id="tFoc"> Focus kullan</label>
+</div>
+<div class="rrb" id="tRR"></div>
+</section><div id="tBody"><section><div class="st" id="tLoad">Oyun verisi yükleniyor (dosya büyük, ilk açılışta biraz sürebilir)...</div></section></div>`;
+if(MODE==="ench")["tFee","tFoc"].forEach(i=>$(i).closest("label").style.display="none");
+$("tSrv").value=ST.srv||"europe";$("tCity").value=ST.city||(MODE==="ref"?"Thetford":"Martlock");$("tFee").value=ST.fee||400;$("tPrem").checked=ST.prem!==false;$("tFoc").checked=!!ST.foc;
+const saveSt=()=>{ST.srv=$("tSrv").value;ST.city=$("tCity").value;ST.fee=$("tFee").value;ST.prem=$("tPrem").checked;ST.foc=$("tFoc").checked;LS.set("aotools1",ST)};
+
+const PX={},MAN={};
+const price=id=>id in MAN?MAN[id]:(PX[id]||0);
+const tax=()=>($("tPrem").checked?4:8)+2.5;
+const nmx=id=>{const n=nm0(id);return n?tierStrip(n):id};
+const QN=["","Normal","Good","Outstanding","Excellent","Masterpiece"];
+const bId=id=>String(id).split("|Q")[0];
+const lbl=k=>{const id=bId(k),q=String(k).split("|Q")[1],m=id.match(/^T(\d)_/),e=id.match(/@(\d)$/);return nmx(id)+(m?" T"+m[1]:"")+(e?"."+e[1]:"")+(q?" · "+QN[q]:"")};
+const timg=k=>img(bId(k));
+const manInput=id=>`<input type="number" min="0" data-m="${esc(id)}" value="${id in MAN?MAN[id]:""}" placeholder="${PX[id]?fmt(PX[id]):"fiyat yaz"}" aria-label="${esc(lbl(id))} fiyatı" style="width:110px">`;
+function bindMan(root){root.querySelectorAll("[data-m]").forEach(e=>e.oninput=()=>{const k=e.dataset.m;if(e.value==="")delete MAN[k];else MAN[k]=+e.value;clearTimeout(window._tmt);window._tmt=setTimeout(()=>{render();const n=document.querySelector(`#toolsApp [data-m="${CSS.escape(k)}"]`);if(n){n.focus();const v=n.value;n.value="";n.value=v}},450)})}
+const fetchBar=()=>`<div class="tfb"><button class="tbig" data-fetch>Fiyatları çek</button><span class="st" data-fst style="margin:0">Fiyatlar henüz çekilmedi.</span></div>`;
+
+// ---------- oyun verisi (items.json)
+let D=null;
+async function build(){
+  const [res]=await Promise.all([fetch(DUMP),Object.keys(nm).length?null:loadNames()]);
+  if(!res.ok)throw new Error("HTTP "+res.status);
+  const j=await res.json(),A={};
+  Object.values(j.items).forEach(v=>arr(v).forEach(it=>{if(it&&it["@uniquename"])A[it["@uniquename"]]=it}));
+  const iv=n=>+(A[n.split("@")[0]]||{})["@itemvalue"]||0;
+  const ref={};
+  Object.entries({ORE:"METALBAR",WOOD:"PLANKS",FIBER:"CLOTH",HIDE:"LEATHER",ROCK:"STONEBLOCK"}).forEach(([raw,out])=>{
+    for(let t=2;t<=8;t++)for(let e=0;e<=4;e++){
+      const oid=`T${t}_${out}`+(e?"_LEVEL"+e:""),it=A[oid];if(!it)continue;
+      const c=arr(it.craftingrequirements)[0];if(!c)continue;
+      const mats=arr(c.craftresource).map(r=>[r["@uniquename"]+(r["@enchantmentlevel"]&&r["@enchantmentlevel"]!=="0"?"@"+r["@enchantmentlevel"]:""),+r["@count"]||0]);
+      ref[`${raw}|${t}|${e}`]={out:oid+(e?"@"+e:""),mats,focus:+c["@craftingfocus"]||0,biv:mats.reduce((a,[m,q])=>a+q*iv(m),0)};
+    }
+  });
+  const up=[];
+  ["weapon","equipmentitem","transformationweapon"].forEach(k=>arr(j.items[k]).forEach(it=>{
+    const id=it["@uniquename"];if(!/^T[4-8]_/.test(id)||["vanity","gathering","other"].includes(it["@shopcategory"])||!nm0(id))return;
+    const cs=arr(it.enchantments&&it.enchantments.enchantment).filter(e=>e.upgraderequirements).map(e=>[+e["@enchantmentlevel"],+arr(e.upgraderequirements.upgraderesource)[0]["@count"]]).sort((a,b)=>a[0]-b[0]).map(x=>x[1]);
+    if(cs.length>=3)up.push({id,t:+id[1],c:cs.slice(0,3),label:tierStrip(nm0(id))+" (T"+id[1]+")",full:nm0(id)});
+  }));
+  const crops=[],animals=[];
+  arr(j.items.farmableitem).forEach(it=>{
+    const id=it["@uniquename"];
+    if(it["@kind"]==="plant"&&it.harvest){const h=it.harvest;crops.push({seed:id,crop:String(h["@lootlist"]).replace(/_LOOT$/,""),avg:4.5,sc:+(h.seed&&h.seed["@chance"])||0,fb:+it["@activefarmbonus"]||0,t:+it["@tier"]})}
+    if(it["@kind"]==="animal"&&it.grownitem&&/_BABY$/.test(id)&&!/EASTER|HELL/.test(id)){const g=it.grownitem,f=(it.consumption&&it.consumption.food)||{},af=f.acceptedfood||{};animals.push({baby:id,grown:g["@uniquename"],grow:+g["@growtime"],oc:+(g.offspring&&g.offspring["@chance"])||0,fb:+it["@activefarmbonus"]||0,t:+it["@tier"],nmax:+f["@nutritionmax"]||0,fav:af["@favorite"]||""})}
+  });
+  crops.sort((a,b)=>a.t-b.t||a.seed.localeCompare(b.seed));animals.sort((a,b)=>a.t-b.t||a.baby.localeCompare(b.baby));
+  up.sort((a,b)=>a.label.localeCompare(b.label));
+  D={ref,up,crops,animals};
+}
+
+// ---------- geri dönüş kutuları
+function rrParts(){const bon=MODE==="ref"&&$("tCity").value===RBON[$("rRes").value],daily=MODE==="ref"&&$("rDaily")&&$("rDaily").checked?10:0;return {bon,daily}}
+function rrr(){const {bon,daily}=rrParts();return 1-1/(1+(18+(bon?40:0)+($("tFoc").checked?59:0)+daily)/100)}
+function renderRR(){
+  const T=tax();
+  if(MODE!=="ref"){$("tRR").innerHTML=`<div class="rrt"><span>Satış kesintisi</span><b>%${T.toFixed(1)}</b><small>vergi + %2,5 kurulum</small></div><div class="rrt ${$("tPrem").checked?"ok":"off"}"><span>Premium</span><b>${$("tPrem").checked?"açık":"kapalı"}</b><small>${MODE==="farm"?"hasat ×2, büyüme ×½":"vergi %4"}</small></div>`+(MODE==="farm"?`<div class="rrt ${$("tFoc").checked?"ok":"off"}"><span>Focus</span><b>${$("tFoc").checked?"açık":"kapalı"}</b><small>tohum/yavru geri dönüşü artar</small></div>`:"");return}
+  const {bon,daily}=rrParts(),res=$("rRes").value;
+  $("tRR").innerHTML=`<div class="rrt big"><span>Kaynak geri dönüşü</span><b>%${(rrr()*100).toFixed(1)}</b><small>${esc($("tCity").value)}</small></div><div class="rrt"><span>Satış kesintisi</span><b>%${T.toFixed(1)}</b><small>sell order</small></div><div class="rrt ${bon?"ok":"off"}"><span>Şehir bonusu</span><b>${bon?"+%40":"yok"}</b><small>${RNAME[res]} refine bonusu ${RBON[res]}'da</small></div><div class="rrt ${$("tFoc").checked?"ok":"off"}"><span>Focus</span><b>${$("tFoc").checked?"+%59":"kapalı"}</b><small>${$("tFoc").checked?"açık":"açınca geri dönüş artar"}</small></div><div class="rrt ${daily?"ok":"off"}"><span>Günlük bonus</span><b>${daily?"+%10":"kapalı"}</b><small></small></div>`;
+}
+
+// ---------- ENCHANT YÜKSELTME
+const MATS=["RUNE","SOUL","RELIC"],MATN={RUNE:"Rune",SOUL:"Soul",RELIC:"Relic"};
+let eSel=null,UPN={};
+const encIds=u=>[qk(u.id),qk(u.id+"@1"),qk(u.id+"@2"),qk(u.id+"@3"),...MATS.map(m=>`T${u.t}_${m}`)];
+let eQl=ST.encQ||1;
+const qk=id=>id+"|Q"+eQl;
+function uiEnch(){
+  $("tBody").innerHTML=`<section><h2>Eşya seç</h2>
+  <div class="tsteps"><b>1</b>Eşyayı ve kaliteyi seç <b>2</b>Fiyatları çek <b>3</b>En ucuz yolu gör</div>
+  <label>Eşya (adını yaz, listeden seç)</label>
+  <div class="ids" style="margin-top:6px"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg><input id="eQ" type="search" autocomplete="off" placeholder="örn. Claymore, Bow T6, Hellion Jacket" aria-label="Eşya ara"><div class="idsug" id="eSug" hidden role="listbox"></div></div>
+  <h3 style="margin:16px 0 8px">Kalite</h3><div class="chips" id="eQual"></div>
+  <div id="eItem"></div></section>
+  <section><h2>Sonuç</h2>${fetchBar()}<div class="tans" id="eAns"></div>
+  <details class="tdet"><summary>Bütün yolları ayrıntılı göster</summary><div class="t" style="margin-top:10px"><table><thead><tr><th>Yol</th><th>Toplam maliyet</th><th>Gerekenler</th><th>Yükseltip satarsan kâr</th></tr></thead><tbody id="eRows"></tbody></table></div></details>
+  <details class="tdet" id="ePsD"><summary>Fiyatları elle düzelt</summary><div class="tps" id="ePs"></div></details></section>`;
+  eSel=D.up.find(u=>u.id===ST.ench)||D.up.find(u=>u.id==="T6_2H_CLAYMORE")||D.up[0];
+  const pick=u=>{eSel=u;ST.ench=u.id;LS.set("aotools1",ST);$("eQ").value="";$("eSug").hidden=true;render()};
+  let L=[],hl=-1;
+  const sug=()=>{
+    let q=$("eQ").value.trim().toLowerCase(),tp=0;const mt=q.match(/(^|\s)t([4-8])(\s|$)/);if(mt){tp=+mt[2];q=q.replace(mt[0]," ").trim()}
+    if(q.length<2){$("eSug").hidden=true;return}
+    const ws=q.split(/\s+/);
+    L=D.up.filter(u=>(!tp||u.t===tp)&&ws.every(w=>u.full.toLowerCase().includes(w)||u.label.toLowerCase().includes(w))).sort((a,b)=>a.t-b.t||a.label.localeCompare(b.label)).slice(0,14);hl=-1;
+    $("eSug").innerHTML=L.map((u,i)=>`<div class="idsg" role="option" data-i="${i}">${img(u.id)}<span><b>${esc(u.full)}</b><small>T${u.t}</small></span></div>`).join("")||'<div class="idsg" style="cursor:default"><small>Eşleşen eşya yok</small></div>';
+    $("eSug").hidden=false;
+    $("eSug").querySelectorAll("[data-i]").forEach(el=>el.onmousedown=e=>{e.preventDefault();pick(L[+el.dataset.i])});
+  };
+  $("eQ").addEventListener("input",sug);$("eQ").addEventListener("focus",sug);
+  $("eQ").addEventListener("blur",()=>setTimeout(()=>$("eSug").hidden=true,120));
+  $("eQ").addEventListener("keydown",e=>{const it=$("eSug").querySelectorAll("[data-i]");
+    if((e.key==="ArrowDown"||e.key==="ArrowUp")&&it.length){e.preventDefault();hl=(hl+(e.key==="ArrowDown"?1:-1)+it.length)%it.length;it.forEach((x,i)=>x.classList.toggle("hl",i===hl))}
+    else if(e.key==="Enter"&&L.length){e.preventDefault();pick(L[Math.max(0,hl)])}else if(e.key==="Escape")$("eSug").hidden=true});
+}
+function renderEnch(){
+  const u=eSel,it=e=>qk(e?u.id+"@"+e:u.id),mat=k=>`T${u.t}_${MATS[k]}`;
+  $("eQual").innerHTML=[1,2,3,4,5].map(q=>`<button class="chip2${q===eQl?" on":""}" data-q="${q}">${QN[q]}</button>`).join("");
+  $("eQual").querySelectorAll("[data-q]").forEach(b=>b.onclick=()=>{eQl=+b.dataset.q;ST.encQ=eQl;LS.set("aotools1",ST);render()});
+  $("eItem").innerHTML=`<div class="row" style="margin-top:14px"><span style="display:inline-flex;align-items:center">${img(u.id)}<b style="font-size:18px">${esc(u.full)}</b><span class="bd bd-n" style="margin-left:8px">${QN[eQl]}</span>${typeof cpbN==="function"?cpbN(u.full):""}</span></div><div class="pm" style="margin-top:12px">${u.c.map((c,k)=>`<span class="pmi">${img(mat(k))}<b>${c}</b> ${MATN[MATS[k]]} <span class="st" style="margin:0">(.${k} → .${k+1})</span></span>`).join("")}</div>`;
+  let ans="",rows="";
+  for(let e=1;e<=3;e++){
+    const direct=price(it(e)),paths=[{n:"Hazır al",c:direct,ok:direct>0,from:e}];
+    for(let s=0;s<e;s++){let c=price(it(s)),ok=c>0;for(let k=s;k<e;k++){c+=u.c[k]*price(mat(k));ok=ok&&price(mat(k))>0}paths.push({n:`.${s} al, .${e}'e yükselt`,c,ok,from:s})}
+    const v=paths.filter(p=>p.ok),best=v.length?v.reduce((a,b)=>b.c<a.c?b:a):null;
+    const need=p=>p.from===e?"":[...Array(e-p.from).keys()].map(i=>u.c[p.from+i]+" "+MATN[MATS[p.from+i]]).join(" + ");
+    ans+=`<div class="k ${best?"tbigk":""}">.${e} için en ucuz yol<b>${best?fmt(best.c)+" silver":"fiyat eksik"}</b><div class="tw">${best?(best.from===e?"Hazır almak":`.${best.from} al + ${need(best)}`):"Fiyatları çek ya da elle gir"}</div>${best&&direct>0&&best.from!==e?`<div class="pos" style="margin-top:4px">Hazır almaktan ${fmt(direct-best.c)} silver ucuz</div>`:best&&best.from===e?'<div style="margin-top:4px">Yükseltmek daha pahalı</div>':""}</div>`;
+    rows+=`<tr><td colspan="4" style="padding-top:14px"><b>.${e} hedefi</b></td></tr>`+paths.map(p=>`<tr${best&&p===best?' style="background:rgba(63,185,80,.07)"':""}><td>${p.n}${best&&p===best?' <span class="bd bd-g">en ucuz</span>':""}</td><td>${p.ok?fmt(p.c):'<span class="st">fiyat eksik</span>'}</td><td class="st">${need(p)}</td><td>${p.ok&&direct>0&&p.from!==e?`<span class="${direct*(1-tax()/100)-p.c>0?"pos":"neg"}">${fmt(direct*(1-tax()/100)-p.c)}</span>`:""}</td></tr>`).join("");
+  }
+  $("eAns").innerHTML=ans;$("eRows").innerHTML=rows;
+  $("ePs").innerHTML=encIds(u).map(id=>`<label>${timg(id)}<span title="${esc(lbl(id))}">${esc(lbl(id))}</span>${manInput(id)}</label>`).join("");
+  bindMan($("ePs"));
+}
+
+// ---------- REFINING
+const refAll=()=>Object.entries(D.ref).map(([k,v])=>({k,res:k.split("|")[0],t:+k.split("|")[1],e:+k.split("|")[2],...v}));
+function uiRef(){
+  $("tBody").innerHTML=`<section><h2>Tarif seç</h2><div class="g">
+  <label>Kaynak<select id="rRes"><option value="ORE">Ore → Metal Bar</option><option value="WOOD">Wood → Planks</option><option value="FIBER">Fiber → Cloth</option><option value="HIDE">Hide → Leather</option><option value="ROCK">Stone → Stone Block</option></select></label>
+  <label>Tier<select id="rT"></select></label><label>Enchant<select id="rE"></select></label>
+  <label>Refine adedi<input type="number" id="rN" value="100" min="1"></label>
+  <label class="c tgc"><input type="checkbox" id="rDaily"> Günlük bonus (+%10)</label></div>
+  <div class="row" id="rBon"></div><div class="pm" id="rMats" style="margin-top:14px"></div></section>
+  <section><h2>Plan</h2>${fetchBar()}<div class="t"><table><thead><tr><th>Kalem</th><th>Adet</th><th>Birim fiyat</th><th>Tutar</th></tr></thead><tbody id="rPlan"></tbody></table></div>
+  <h2 style="margin-top:20px">Toplam</h2><div class="r" id="rTot"></div>
+  <h2 style="margin-top:22px">Hangi şehirde satmak daha kârlı?</h2><p class="s" style="margin-bottom:8px" id="rCityNote"></p><div class="t"><table><thead><tr><th>Satış şehri</th><th>Satış fiyatı</th><th>Kesinti sonrası</th><th>Kâr / adet</th><th>Toplam kâr</th><th>Fiyat yaşı</th></tr></thead><tbody id="rCity"></tbody></table></div></section>
+  <section><h2>Bütün tier ve enchantlar (en kârlıdan)</h2><p class="s" style="margin-bottom:8px">Aynı kaynağın bütün tarifleri, çekilen fiyatlarla 1 adet için. Satıra tıklayınca yukarıda o tarif açılır.</p>
+  <div class="t"><table><thead><tr><th>Ürün</th><th>Malzeme (net)</th><th>İstasyon</th><th>Satış</th><th>Kâr / adet</th><th>Kâr %</th></tr></thead><tbody id="rRows"></tbody></table></div></section>`;
+  if(ST.rRes)$("rRes").value=ST.rRes;
+  fillRef();
+  $("rRes").addEventListener("change",()=>{ST.rRes=$("rRes").value;LS.set("aotools1",ST);fillRef();render()});
+  $("rT").addEventListener("change",()=>{fillE();render()});
+  ["rE","rN","rDaily"].forEach(i=>$(i).addEventListener("input",render));
+}
+function fillRef(){const res=$("rRes").value,ts=[...new Set(refAll().filter(r=>r.res===res).map(r=>r.t))],ct=$("rT").value;$("rT").innerHTML=ts.map(t=>`<option value="${t}">T${t}</option>`).join("");$("rT").value=ct!==""&&ts.includes(+ct)?ct:"6";fillE()}
+function fillE(){const res=$("rRes").value,t=+$("rT").value,es=refAll().filter(r=>r.res===res&&r.t===t).map(r=>r.e),ce=$("rE").value;$("rE").innerHTML=es.map(e=>`<option value="${e}">.${e}</option>`).join("");$("rE").value=ce!==""&&es.includes(+ce)?ce:"0"}
+function calcRef(r){const rr=rrr(),mc=r.mats.reduce((a,[m,c])=>a+c*price(m),0),net=mc*(1-rr),fee=r.biv*0.1125*(+$("tFee").value||0)/100,sell=price(r.out)*(1-tax()/100);return {mc,ret:mc*rr,net,fee,sell,pr:sell-net-fee,miss:r.mats.some(([m])=>!price(m))||!price(r.out)}}
+function renderRef(){
+  const res=$("rRes").value,r=D.ref[`${res}|${$("rT").value}|${$("rE").value}`],n=+$("rN").value||1,bc=RBON[res];
+  $("rBon").innerHTML=$("tCity").value===bc?`<span class="bd bd-g">${esc(bc)}'da %40 refine bonusu aktif</span>`:`<span class="st" style="margin:0">${RNAME[res]} için bonus şehri <b class="pos">${bc}</b> (+%40).</span><button class="l" id="rGo">Şehri ${bc} yap</button>`;
+  const g=$("rGo");if(g)g.onclick=()=>{$("tCity").value=bc;$("tCity").dispatchEvent(new Event("change"))};
+  if(!r)return;
+  $("rMats").innerHTML=`<span class="st" style="margin:0 4px 0 0">1 adet için:</span>`+r.mats.map(([m,c])=>`<span class="pmi">${img(m)}<b>${c}</b> ${esc(lbl(m))}</span>`).join("")+`<span class="st" style="margin:0">→</span><span class="pmi">${img(r.out)}<b>1</b> ${esc(lbl(r.out))}</span>`;
+  const c=calcRef(r);
+  $("rPlan").innerHTML=r.mats.map(([m,q])=>`<tr><td>${img(m)}${esc(lbl(m))}</td><td>${fmt(q*n)}</td><td>${manInput(m)}</td><td>${price(m)?fmt(q*n*price(m)):"-"}</td></tr>`).join("")+`<tr><td>${img(r.out)}${esc(lbl(r.out))} <small style="color:var(--mut)">(satılacak ürün)</small></td><td>${fmt(n)}</td><td>${manInput(r.out)}</td><td>${price(r.out)?fmt(n*price(r.out)):"-"}</td></tr>`;
+  $("rTot").innerHTML=c.miss?'<div class="k">Hesap için fiyat gerekli<b>-</b>Fiyatları çek ya da yukarıdaki kutulara yaz.</div>':
+    [["Malzeme (brüt)",fmt(c.mc*n)],["Geri dönen","-"+fmt(c.ret*n)],["İstasyon ücreti",fmt(c.fee*n)],["Toplam maliyet",fmt((c.net+c.fee)*n)],["Satış (kesinti sonrası)",fmt(c.sell*n)]].map(([a,b])=>`<div class="k"><div>${a}</div><b>${b}</b></div>`).join("")
+    +`<div class="k"><div>Kâr</div><b class="${c.pr>=0?"pos":"neg"}">${fmt(c.pr*n)}</b><div>Marj: ${pct(c.pr/(c.net+c.fee))} · ${fmt(c.pr)}/adet</div></div>`+($("tFoc").checked?`<div class="k"><div>Focus</div><b>${fmt(r.focus*n)}</b>${c.pr>0?`<div>${fmt(c.pr/r.focus)} silver/focus</div>`:""}</div>`:"");
+  {const cc=PXC[r.out]||{},cost=c.net+c.fee,T=tax(),rows=CITIES.map(ct=>({ct,o:cc[ct]})).filter(x=>x.o).map(x=>({...x,pr:x.o.p*(1-T/100)-cost})).sort((a,b)=>b.pr-a.pr);
+   const ag=iso=>{const m=ageMin(iso);return m===null?"-":m<60?Math.max(1,Math.round(m))+" dk":m<1440?Math.round(m/60)+" sa":Math.round(m/1440)+" gün"};
+   $("rCityNote").textContent=`Malzemeler ${$("tCity").value} fiyatıyla alınıp ${$("tCity").value}'de refine edildi varsayımıyla; satış fiyatı her şehrin kendi pazarından.`+(c.miss?" Maliyet için önce malzeme fiyatları gerekli.":"");
+   $("rCity").innerHTML=rows.length&&!c.miss?rows.map((x,i)=>`<tr${i===0?' style="background:rgba(63,185,80,.07)"':""}><td><b>${esc(x.ct)}</b>${i===0?' <span class="bd bd-g">en kârlı</span>':""}${x.ct===$("tCity").value?' <span class="bd bd-n">burada</span>':""}</td><td>${fmt(x.o.p)}</td><td>${fmt(x.o.p*(1-T/100))}</td><td class="${x.pr>0?"pos":"neg"}"><b>${fmt(x.pr)}</b></td><td class="${x.pr>0?"pos":"neg"}">${fmt(x.pr*n)}</td><td class="st">${ag(x.o.d)}</td></tr>`).join(""):`<tr><td colspan="6"><span class="st">${c.miss?"Malzeme fiyatları eksik.":"Fiyatları çek'e basınca bütün şehirlerdeki satış fiyatları burada çıkar."}</span></td></tr>`;}
+  const L=refAll().filter(x=>x.res===res).map(x=>({...x,c:calcRef(x)})).sort((a,b)=>(a.c.miss-b.c.miss)||b.c.pr-a.c.pr);
+  $("rRows").innerHTML=L.map((x,i)=>`<tr data-k="${x.k}" style="cursor:pointer${!x.c.miss&&i===0?";background:rgba(63,185,80,.07)":""}"><td>${img(x.out)}${esc(lbl(x.out))}${!x.c.miss&&i===0?' <span class="bd bd-g">en kârlı</span>':""}</td>${x.c.miss?'<td colspan="5"><span class="st">fiyat eksik</span></td>':`<td>${fmt(x.c.net)}</td><td>${fmt(x.c.fee)}</td><td>${fmt(x.c.sell)}</td><td class="${x.c.pr>0?"pos":"neg"}"><b>${fmt(x.c.pr)}</b></td><td class="${x.c.pr>0?"pos":"neg"}">${pct(x.c.pr/(x.c.net+x.c.fee))}</td>`}</tr>`).join("");
+  $("rRows").querySelectorAll("[data-k]").forEach(tr=>tr.onclick=()=>{const p=tr.dataset.k.split("|");$("rT").value=p[1];fillE();$("rE").value=p[2];render();$("rT").scrollIntoView({behavior:"smooth",block:"center"})});
+  bindMan($("rPlan"));
+}
+
+// ---------- FARMING
+let ftool=ST.ftool||"crop";
+function uiFarm(){
+  $("tBody").innerHTML=`<section><div class="tabs" style="margin-bottom:14px"><button data-ft="crop">Tarla (tohum)</button><button data-ft="anim">Hayvan büyütme</button></div>${fetchBar()}
+  <div data-fp="crop"><div class="g"><label>Tohum sayısı (1 tarla = 9)<input type="number" id="fN" value="9" min="1"></label></div>
+  <p class="s" style="margin:10px 0">Premium hasadı ikiye katlar (tohum başına ortalama 4,5 yerine 9 ürün). Focus ile sulamak tohum geri dönüş şansını artırır; geri dönen tohum maliyetten düşülür.</p>
+  <div class="t"><table><thead><tr><th>Tohum</th><th>Tohum fiyatı</th><th>Ürün fiyatı</th><th>Hasat</th><th>Tohum geri dönüşü</th><th>Kâr</th><th>Kâr / tohum</th></tr></thead><tbody id="cRows"></tbody></table></div></div>
+  <div data-fp="anim"><p class="s" style="margin:0 0 10px">Yavru al, besle, büyüyünce sat. Yem miktarı oyundaki besin değerinden; sevdiği yemle yarıya iner. Premium büyüme süresini yarıya indirir. Yavru geri dönüşü: büyüyünce bir yavru daha verme şansı.</p>
+  <div class="t"><table><thead><tr><th>Hayvan</th><th>Yavru fiyatı</th><th>Büyük fiyatı</th><th>Yem</th><th>Süre</th><th>Yavru geri dönüşü</th><th>Kâr</th><th>Kâr / gün</th></tr></thead><tbody id="aRows"></tbody></table></div></div></section>`;
+  const setF=()=>{document.querySelectorAll("[data-ft]").forEach(x=>x.classList.toggle("on",x.dataset.ft===ftool));document.querySelectorAll("[data-fp]").forEach(p=>p.hidden=p.dataset.fp!==ftool)};
+  document.querySelectorAll("[data-ft]").forEach(b=>b.onclick=()=>{ftool=b.dataset.ft;ST.ftool=ftool;LS.set("aotools1",ST);setF()});setF();
+  $("fN").addEventListener("input",render);
+}
+function renderFarm(){
+  const prem=$("tPrem").checked,foc=$("tFoc").checked,n=+$("fN").value||1,T=tax();
+  $("cRows").innerHTML=D.crops.map(c=>{
+    const y=c.avg*(prem?2:1),back=Math.min(1,c.sc+(foc?c.fb:0)),sp=price(c.seed),cp=price(c.crop),ok=sp>0&&cp>0,pr=y*cp*(1-T/100)-sp*(1-back);
+    return `<tr><td>${img(c.seed)}${esc(nmx(c.seed))}<br><small style="color:var(--mut)">T${c.t} → ${esc(nmx(c.crop))}</small></td><td>${manInput(c.seed)}</td><td>${manInput(c.crop)}</td><td>${(y*n).toFixed(0)} adet</td><td>%${(back*100).toFixed(0)}</td><td class="${ok?(pr>0?"pos":"neg"):""}">${ok?"<b>"+fmt(pr*n)+"</b>":'<span class="st">fiyat gir</span>'}</td><td>${ok?fmt(pr):"-"}</td></tr>`;
+  }).join("");
+  $("aRows").innerHTML=D.animals.map(a=>{
+    const food=a.fav||D.crops.filter(c=>c.t<=a.t).map(c=>c.crop).sort((x,y)=>(price(x)||1e12)-(price(y)||1e12))[0]||"";
+    const units=a.nmax/48*(a.fav?0.5:1),days=a.grow/86400/(prem?2:1),back=Math.min(1,a.oc+(foc?a.fb:0));
+    const bp=price(a.baby),gp=price(a.grown),fp=price(food),ok=bp>0&&gp>0,pr=gp*(1-T/100)-bp+back*bp-units*fp;
+    return `<tr><td>${img(a.grown)}${esc(nmx(a.grown))}<br><small style="color:var(--mut)">T${a.t}</small></td><td>${manInput(a.baby)}</td><td>${manInput(a.grown)}</td><td><small>${units.toFixed(0)}× ${esc(lbl(food))}${a.fav?" (sevdiği)":""}${fp?"<br>"+fmt(units*fp)+" silver":""}</small></td><td>${days.toFixed(1)} gün</td><td>%${(back*100).toFixed(0)}</td><td class="${ok?(pr>0?"pos":"neg"):""}">${ok?"<b>"+fmt(pr)+"</b>":'<span class="st">fiyat gir</span>'}</td><td>${ok?fmt(pr/days):"-"}</td></tr>`;
+  }).join("");
+  bindMan($("cRows"));bindMan($("aRows"));
+}
+
+function render(){if(!D)return;renderRR();if(MODE==="ench")renderEnch();else if(MODE==="ref")renderRef();else renderFarm()}
+
+// ---------- fiyat çekme
+function setFst(t,cls){document.querySelectorAll("#toolsApp [data-fst]").forEach(e=>{e.textContent=t;e.className="st "+(cls||"");e.style.margin="0"})}
+function idsFor(){
+  if(MODE==="ench")return encIds(eSel);
+  if(MODE==="ref")return refAll().filter(r=>r.res===$("rRes").value).flatMap(r=>[r.out,...r.mats.map(m=>m[0])]);
+  return [...D.crops.flatMap(c=>[c.seed,c.crop]),...D.animals.flatMap(a=>[a.baby,a.grown])];
+}
+const PXC={};
+async function getJ(url){let r=await fetch(url);if(r.status===429){await new Promise(z=>setTimeout(z,3000));r=await fetch(url)}if(!r.ok)throw new Error("API "+r.status);return r.json()}
+async function fetchPrices(){
+  const ids=[...new Set(idsFor().map(bId))],loc=$("tCity").value.replace(" ",""),base=`https://${$("tSrv").value}.albion-online-data.com/api/v2/stats/prices/`;let ok=0;
+  setFst("Fiyatlar çekiliyor...");document.querySelectorAll("#toolsApp [data-fetch]").forEach(b=>b.disabled=true);
+  try{
+    for(let i=0;i<ids.length;i+=60){
+      (await getJ(`${base}${ids.slice(i,i+60).join(",")}.json?locations=${loc}`)).forEach(d=>{
+        if(!(d.sell_price_min>0))return;
+        const k=d.item_id+"|Q"+d.quality;if(!PX[k]||d.sell_price_min<PX[k])PX[k]=d.sell_price_min;
+        if(!PX[d.item_id]||d.sell_price_min<PX[d.item_id]){if(!PX[d.item_id])ok++;PX[d.item_id]=d.sell_price_min}});
+    }
+    if(MODE==="ref"){
+      const outs=[...new Set(refAll().filter(r=>r.res===$("rRes").value).map(r=>r.out))];
+      for(let i=0;i<outs.length;i+=60)(await getJ(`${base}${outs.slice(i,i+60).join(",")}.json?locations=${CITIES.map(c=>c.replace(" ","")).join(",")}`)).forEach(d=>{
+        const c=CITIES.find(x=>x.replace(" ","")===(d.city||"").replace(" ",""));if(!c||!(d.sell_price_min>0))return;
+        const o=PXC[d.item_id]||(PXC[d.item_id]={});if(!o[c]||d.sell_price_min<o[c].p)o[c]={p:d.sell_price_min,d:d.sell_price_min_date}});
+    }
+    setFst(`${ok} fiyat bulundu · ${$("tCity").value} · ${clock()}`,"pos");
+  }catch(e){setFst("Fiyatlar çekilemedi ("+e.message+"). Birkaç saniye bekleyip tekrar dene ya da fiyatları elle yaz.","neg");const d=$("ePsD");if(d)d.open=true}
+  document.querySelectorAll("#toolsApp [data-fetch]").forEach(b=>b.disabled=false);render();
+}
+app.addEventListener("click",e=>{if(e.target.closest("[data-fetch]"))fetchPrices()});
+["tPrem","tFoc","tFee"].forEach(i=>$(i).addEventListener("input",()=>{saveSt();render()}));
+$("tSrv").addEventListener("change",()=>{saveSt();for(const k in PX)delete PX[k];setFst("Sunucu değişti, fiyatları yeniden çek.");render()});
+$("tCity").addEventListener("change",()=>{saveSt();for(const k in PX)delete PX[k];setFst("Şehir değişti, fiyatları yeniden çek.");render()});
+
+build().then(()=>{if(MODE==="ench")uiEnch();else if(MODE==="ref")uiRef();else uiFarm();render()})
+  .catch(e=>{$("tLoad").textContent="Oyun verisi yüklenemedi ("+e.message+"). Sayfayı yenileyip tekrar dene."});
+})();
 </script>
 </body>
 </html>
