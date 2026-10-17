@@ -259,6 +259,7 @@ section{padding:16px;border-radius:14px}
 <label>İstasyon ücreti (100 nutrition başına)<input type="number" id="fee" value="400" min="0" max="1000" step="10"></label>
 <label class="c tgc"><input type="checkbox" id="prem" checked> Premium (vergi %4, yoksa %8)</label>
 <label class="c tgc"><input type="checkbox" id="foc"> Focus kullan</label>
+<label class="c tgc" id="jrBox" hidden><input type="checkbox" id="jr"> Journal kullan (craft fame'i boş journal'lara doldur)</label>
 <label class="c tgc"><input type="checkbox" id="dailyOn"> <span id="dailyLbl">Günlük bonus (+%10)</span></label>
 <div style="display:none">
 <input type="number" id="setup" value="2.5" step="0.1"><input type="checkbox" id="cb" checked><input type="number" id="lpbBase" value="18"><input type="number" id="lpbCity" value="15"><input type="number" id="lpbFocus" value="59"><input type="number" id="daily" value="10">
@@ -630,6 +631,17 @@ function parseReq(id,cr,iv){
   db[id]={mats,out:rare?10:+(c["@amountcrafted"]||5),focus:+(c["@craftingfocus"]||0),iv:+iv||0,biv:batchIV(c),rare};
 }
 
+// Craft journal'ı: JR = eşya -> journal türü, JMAX = journal -> dolması için gereken fame; JFAME = tier başına malzeme fame'i (.0)
+let JR={},JMAX={};
+const JFAME={2:1.5,3:7.5,4:22.5,5:90,6:270,7:645,8:1395};
+const jrOn=()=>CRAFT&&$("jr").checked;
+const jIds=ids=>[...new Set(ids.map(i=>db[i]&&db[i].jn&&db[i].jn.j).filter(Boolean))];
+// Craft başına journal kazancı (beklenen değer): doldurulan kısım × (dolu journal satışı - boş journal alışı)
+function jVal(id,tax){
+  const d=db[id],jn=d&&d.jn;if(!jrOn()||!jn||!JMAX[jn.j])return {v:0,fr:0,miss:[]};
+  const fe=pM(jn.j+"_EMPTY"),fu=pO(jn.j+"_FULL",!isInst()),fr=jn.fame/JMAX[jn.j];
+  return {v:fr*(fu*(1-tax/100)-fe),fr,miss:[jn.j+"_EMPTY"].filter(()=>!(fe>0)).concat(fu>0?[]:[jn.j+"_FULL"])};
+}
 function parseGear(j){
   const SC=new Set(["weapons","offhands","armors","head","shoes","bags","capes"]);
   const one=(id,cr,cat)=>{
@@ -638,8 +650,17 @@ function parseGear(j){
     if(!mats.length)return;
     const v=batchIV(c);
     db[id]={mats,out:+(c["@amountcrafted"]||1),focus:+(c["@craftingfocus"]||0),iv:v,biv:v,rare:false,cat};
+    // Journal: türü oyunun journal listesinden, craft fame'i = malzeme adedi (artefact vb. hariç) × tier/enchant çarpanı
+    const jt=JR[id.replace(/@\d$/,"")],t=+id[1],e=+((id.match(/@(\d)$/)||[])[1]||0);
+    if(jt&&JFAME[t]){const nmat=arr(c.craftresource).filter(r=>r["@uniquename"]&&!/_ARTEFACT_|_FAVOR_|_ALCHEMY_|JOURNAL/.test(r["@uniquename"])).reduce((a,r)=>a+(+r["@count"]||0),0);db[id].jn={j:`T${t}_JOURNAL_${jt}`,fame:nmat*JFAME[t]*Math.pow(2,e)}}
     baseCat[base(id)]=cat;
   };
+  JR={};JMAX={};
+  arr(j.items.journalitem).forEach(it=>{
+    const m=(it["@uniquename"]||"").match(/^T\d_JOURNAL_(WARRIOR|HUNTER|MAGE|TOOLMAKER)$/);if(!m)return;
+    JMAX[it["@uniquename"]]=+it["@maxfame"]||0;
+    arr(it.famefillingmissions&&it.famefillingmissions.craftitemfame).forEach(f=>arr(f.validitem).forEach(v=>{if(v["@id"])JR[v["@id"]]=m[1]}));
+  });
   ["weapon","equipmentitem","transformationweapon"].forEach(k=>arr(j.items[k]).forEach(it=>{
     const id=it["@uniquename"],sc=it["@shopcategory"];let s1=it["@shopsubcategory1"]||"";
     if(!SC.has(sc)||!/^T\d_/.test(id))return;
@@ -748,6 +769,7 @@ async function getPricesAll(ids){
 const mergeCity=(a,b)=>{const o=Object.assign({},a);Object.keys(b).forEach(c=>o[c]=Object.assign({},o[c],b[c]));return o};
 function cityRes(id){
   const d=db[id],e=evalRec(id);
+  if(d.mats.some(([m])=>!(pM(m)>0)))return SELLC.map(c=>({c,pct:null,miss:1}));
   return SELLC.map(c=>{
     const order=c!==BMK&&$("strat").value!=="instant",tax=($("prem").checked?4:8)+(order?num("setup"):0);
     const o=px.city[c]&&px.city[c][id];
@@ -759,8 +781,8 @@ function cityRes(id){
 const pc=v=>(v*100).toFixed(1)+"%";
 function cityCell(id){
   if(!FOOD)return "";
-  const l=cityRes(id).filter(x=>x.pct!==null).sort((a,b)=>b.pct-a.pct);
-  if(!l.length)return '<td data-l="Şehirlere göre kâr %"><small>Fiyatları çek</small></td>';
+  const cr=cityRes(id),l=cr.filter(x=>x.pct!==null).sort((a,b)=>b.pct-a.pct);
+  if(!l.length)return `<td data-l="Şehirlere göre kâr %"><small>${cr[0]&&cr[0].miss?"Malzeme fiyatı eksik":"Fiyatları çek"}</small></td>`;
   return `<td data-l="Şehirlere göre kâr %" style="min-width:150px">${l.map((x,i)=>`<div style="white-space:nowrap;font-size:12px"${i===0?' class="pos"':x.pct<0?' class="neg"':""}>${i===0?"★ ":""}${esc(x.c)} <b>${pc(x.pct)}</b></div>`).join("")}</td>`;
 }
 async function getPrices(ids,city){
@@ -783,12 +805,14 @@ $("fetch").onclick=async()=>{
   const outs=[...new Set(plan.map(p=>p.id))];
   const mats=[...new Set(plan.flatMap(p=>db[p.id].mats.map(m=>m[0])))];
   if(!outs.length){$("fs").textContent="Önce plana "+W+" ekle.";return}
+  // Karşılaştırma açıksa onun versiyonları da tazelenir; fiyatlar birleştirilir, yoksa karşılaştırmadaki fiyatlar silinip 0 sayılıyordu
+  const cIds=cmpShown?cmpIds().filter(i=>!outs.includes(i)):[],cMats=[...new Set(cIds.flatMap(i=>db[i].mats.map(m=>m[0])))].filter(m=>!mats.includes(m));
+  if(jrOn()){const J=jIds(outs.concat(cIds));cMats.push(...J.map(x=>x+"_EMPTY"));cIds.push(...J.map(x=>x+"_FULL"))}
   $("fs").textContent="Fiyatlar çekiliyor...";
   try{
-    px.mats=await getPrices(mats,$("buyCity").value);
-    px.outs=await getPrices(outs,$("sellCity").value);
-    if(FOOD)px.city=mergeCity(px.city,await getPricesAll(outs));
-    const miss=mats.filter(m=>!(px.mats[m]&&px.mats[m].sell)).concat(outs.filter(o=>!(px.outs[o]&&px.outs[o][!isInst()?"sell":"buy"])));
+    px.mats=Object.assign({},px.mats,await getPrices(mats.concat(cMats),$("buyCity").value));
+    px.outs=Object.assign({},px.outs,await getPrices(outs.concat(cIds),$("sellCity").value));
+    if(FOOD)px.city=mergeCity(px.city,await getPricesAll(outs.concat(cIds)));    const miss=mats.filter(m=>!(px.mats[m]&&px.mats[m].sell)).concat(outs.filter(o=>!(px.outs[o]&&px.outs[o][!isInst()?"sell":"buy"])));
     const old=mats.filter(m=>px.mats[m]&&px.mats[m].date&&Date.now()-Date.parse(px.mats[m].date+"Z")>864e5);
     lastFetch=clock();$("fs").textContent="Fiyatlar "+clock()+" itibarıyla güncellendi ("+(mats.length-miss.filter(x=>mats.includes(x)).length)+"/"+mats.length+" malzeme bulundu)."+(miss.length?" Fiyatı bulunamayan: "+miss.join(", ")+" (elle girebilirsin)."  :"")+(old.length?" 24 saatten eski fiyat: "+old.length+" malzeme.":"");
     await loadHist(outs,"fs");
@@ -848,7 +872,8 @@ function calc(){
   const tax=($("prem").checked?4:8)+(order?num("setup"):0);
   renderRR(tax);
   updSum(r);
-  let gross=0,ret=0,rev=0,st=0,focus=0;
+  let gross=0,ret=0,rev=0,st=0,focus=0,jrv=0;const jsum={};
+  $("jrBox").hidden=!CRAFT;
   const shop={},nrs={},shopN={};
   const rowsH=[],wMiss=new Set(),wOld=new Set();
   plan.forEach((p,i)=>{
@@ -859,25 +884,28 @@ function calc(){
     const sp=pO(p.id,order);
     const rv=sp*d.out*p.n*(1-tax/100);
     const fee=stFee(p.id)*p.n;
-    const net=mc-mr*r+fee;
-    gross+=mc;ret+=mr*r;rev+=rv;st+=fee;
+    const net=mc-mr*r+fee,jv=jVal(p.id,tax);
+    gross+=mc;ret+=mr*r;rev+=rv;st+=fee;jrv+=jv.v*p.n;
+    if(jv.fr){const k=db[p.id].jn.j;jsum[k]=(jsum[k]||0)+jv.fr*p.n}
     if($("foc").checked)focus+=fc*p.n;
-    const pr=rv-net,stt=rowStatus(p);
-    stt.miss.forEach(x=>wMiss.add(x));stt.old.forEach(x=>wOld.add(x));
+    const pr=rv-net+jv.v*p.n,stt=rowStatus(p);
+    stt.miss.forEach(x=>wMiss.add(x));stt.old.forEach(x=>wOld.add(x));jv.miss.forEach(x=>wMiss.add(x));
     const bad=stt.miss.length||stt.old.length;
     if($("onlyIssues").checked&&!bad)return;
     const bdg=stt.miss.length?`<br><span class="bd bd-r">Fiyat eksik (${stt.miss.length})</span>`:stt.old.length?`<br><span class="bd bd-r">Eski fiyat (${stt.old.length})</span>`:"";
     const open=openRows.has(p.id),kf=fc>0?pr/(fc*p.n):null,cl=pr>=0?"pos":"neg";
     rowsH.push(`<tr class="pr" id="r-${i}"><td>${img(p.id)}${esc(label(p.id))}${cpb(p.id)}${bdg}</td><td data-l="Craft"><input type="text" inputmode="decimal" data-k="n${i}" data-n="${i}" value="${p.n}" style="width:64px"></td><td data-l="Satış fiyatı"><input type="text" inputmode="decimal" data-k="o:${p.id}" data-o="${p.id}" value="${p.id in man.outs?man.outs[p.id]:""}" placeholder="${fmt(auto)}" style="width:96px"><br>${tag(pinfo(false,p.id))}</td><td data-l="Kâr / oran" class="${cl}">${fmt(pr)}<br><small>${net>0?(pr/net*100).toFixed(1)+"%":"-"}</small></td><td data-l="Focus">${fc?fmt(fc*p.n):"-"}<br><small>${fc?fc.toFixed(1)+"/craft":""}</small></td><td data-l="Kâr / focus">${kf===null?"-":fmt(kf)}</td>${cityCell(p.id)}<td data-l="Günlük satış">${histCell(p.id,p.n,d.out)}</td><td style="white-space:nowrap"><button class="l ic tg" data-t="${esc(p.id)}" aria-label="Ayrıntı" aria-expanded="${open}">${open?"▾":"▸"}</button><button class="l ic" data-i="${i}" aria-label="Sil">✕</button></td></tr>`);
-    if(open)rowsH.push(`<tr class="dt"><td colspan="${FOOD?9:8}"><div class="dg"><div>Çıkan ${W}: <b>${fmt(d.out*p.n)}</b></div><div>Malzeme (brüt): <b>${fmt(mc)}</b></div><div>Geri dönen: <b>-${fmt(mr*r)}</b></div><div>İstasyon: <b>${fmt(fee)}</b> (${fmt(stFee(p.id))}/craft, ${fmt(nutr(p.id))} nutrition × ${num("fee")}/100)</div><div>Net maliyet: <b>${fmt(net)}</b></div><div>Satış (kesinti sonrası): <b>${fmt(rv)}</b></div><div>Focus: <b>${fmt(fc*p.n)}</b> (${fc.toFixed(1)}/craft, taban ${fmt(d.focus)})</div>${d.rare&&!CRAFT?'<div>Nadir malzemeli potion: ortak focus bonusu 11,25, malzeme return yok</div>':""}${stt.miss.length?`<div class="neg">Eksik fiyat: ${esc(stt.miss.map(label).join(", "))}</div>`:""}${stt.old.length?`<div class="neg">24 saatten eski: ${esc(stt.old.map(label).join(", "))}</div>`:""}</div></td></tr>`);
+    if(open)rowsH.push(`<tr class="dt"><td colspan="${FOOD?9:8}"><div class="dg"><div>Çıkan ${W}: <b>${fmt(d.out*p.n)}</b></div><div>Malzeme (brüt): <b>${fmt(mc)}</b></div><div>Geri dönen: <b>-${fmt(mr*r)}</b></div><div>İstasyon: <b>${fmt(fee)}</b> (${fmt(stFee(p.id))}/craft, ${fmt(nutr(p.id))} nutrition × ${num("fee")}/100)</div><div>Net maliyet: <b>${fmt(net)}</b></div><div>Satış (kesinti sonrası): <b>${fmt(rv)}</b></div><div>Focus: <b>${fmt(fc*p.n)}</b> (${fc.toFixed(1)}/craft, taban ${fmt(d.focus)})</div>${jv.fr?`<div>Journal: <b>${fmt(d.jn.fame*p.n)} fame</b> = ${(jv.fr*p.n).toFixed(2).replace(".",",")} × ${esc(label(d.jn.j+"_FULL"))} · kazanç <b>${fmt(jv.v*p.n)}</b></div>`:""}${d.rare&&!CRAFT?'<div>Nadir malzemeli potion: ortak focus bonusu 11,25, malzeme return yok</div>':""}${stt.miss.length?`<div class="neg">Eksik fiyat: ${esc(stt.miss.map(label).join(", "))}</div>`:""}${stt.old.length?`<div class="neg">24 saatten eski: ${esc(stt.old.map(label).join(", "))}</div>`:""}</div></td></tr>`);
   });
   $("plan").innerHTML=rowsH.join("")||`<tr><td colspan="${FOOD?9:8}">${plan.length?"Sorunlu satır yok.":"Plan boş. Yukarıdan tarif ekle."}</td></tr>`;
   const fetched=Object.keys(px.mats).length||Object.keys(px.outs).length;
   $("warn").innerHTML=!plan.length?"":!fetched&&!wMiss.size?"":!fetched?'<div class="warn">Fiyatlar henüz çekilmedi. Fiyatları çek düğmesine bas.</div>':(wMiss.size||wOld.size)?`<div class="warn"><b>Dikkat:</b> ${wMiss.size?`${wMiss.size} kalemin fiyatı eksik (${listNames(wMiss)}). `:""}${wOld.size?`${wOld.size} kalemin fiyatı 24 saatten eski (${listNames(wOld)}). `:""}Bu fiyatlar kâr hesabını yanıltabilir. Oyunda pazara bakıp tekrar çek ya da elle gir.</div>`:`<div class="warn ok">Eksik ya da 24 saatten eski fiyat yok${lastFetch?" (son çekme "+lastFetch+")":""}.</div>`;
   ["P","M","H","F"].forEach(k=>$("sort"+k).classList.toggle("on",lastSort===k));
-  const cost=gross-ret+st,profit=rev-cost,left=num("pool")-focus;
+  const cost=gross-ret+st,profit=rev-cost+jrv,left=num("pool")-focus;
+  const jl=Object.entries(jsum).map(([k,n])=>`${Math.ceil(n-1e-9)} boş → ${Math.floor(n+1e-9)} dolu ${label(k+"_FULL").replace(/ \(Full\)/,"")}`).join(", ");
   $("out").innerHTML=[["Brüt malzeme",fmt(gross)],["Geri dönen değer","-"+fmt(ret)],["İstasyon ücreti",fmt(st)],["Toplam maliyet",fmt(cost)],["Satış (kesinti sonrası)",fmt(rev)],["Focus kullanımı",fmt(focus)]]
    .map(([a,b])=>`<div class="k"><div>${a}</div><b>${b}</b></div>`).join("")
+   +(jrOn()?`<div class="k" title="Doldurulan journal'ların değeri (dolu satış - boş alış). Yarım kalan journal da değeri oranında sayılır."><div>Journal kazancı</div><b class="${jrv>=0?"pos":"neg"}">${fmt(jrv)}</b>${jl?`<div>${esc(jl)}</div>`:""}</div>`:"")
    +`<div class="k"><div>Kâr</div><b class="${profit>=0?"pos":"neg"}">${fmt(profit)}</b><div>Marj: ${cost?(profit/cost*100).toFixed(1)+"%":"-"}</div>${focus?`<div>Focus başına: ${fmt(profit/focus)}</div>`:""}</div>`+($("foc").checked?`<div class="k"><div>Kalan focus</div><b class="${left>=0?"pos":"neg"}">${fmt(left)}</b>${left<0?"<div>Havuz yetmiyor</div>":""}</div>`:"");
   $("shop").innerHTML=Object.entries(shop).map(([m,q])=>`<tr><td>${img(m)}${esc(label(m))}${cpb(m)}</td><td><input readonly class="cp" value="${esc(nm0(m)||m)}" onclick="cpy(this)"></td><td><input readonly class="cp" style="width:100px" value="${Math.round(q)}" onclick="cpy(this)"></td><td><input readonly class="cp" style="width:100px" value="${nrs[m]?Math.round(q):Math.ceil(shopN[m]-1e-9)}" onclick="cpy(this)"></td><td><input type="text" inputmode="decimal" data-k="m:${m}" data-m="${m}" value="${m in man.mats?man.mats[m]:""}" placeholder="${fmt((px.mats[m]&&px.mats[m].sell)||0)}" style="width:100px"><br>${tag(pinfo(true,m))}</td></tr>`).join("")||'<tr><td colspan="5">Liste boş.</td></tr>';
   document.querySelectorAll("#plan button[data-i]").forEach(b=>b.onclick=()=>{plan.splice(+b.dataset.i,1);calc()});
@@ -897,8 +925,8 @@ function evalRec(id){
   const tax=($("prem").checked?4:8)+(order?num("setup"):0);
   const mc=d.mats.reduce((s,[m,q])=>s+q*pM(m),0),mr=d.mats.reduce((s,[m,q,nr])=>s+(nr?0:q*pM(m)),0);
   const rv=pO(id,order)*d.out*(1-tax/100);
-  const net=mc-mr*r+stFee(id);
-  return {net,rv,profit:rv-net,fc:id in fo?fo[id]:effFocus(id)};
+  const net=mc-mr*r+stFee(id),jv=jVal(id,tax).v;
+  return {net,rv,profit:rv-net+jv,fc:id in fo?fo[id]:effFocus(id)};
 }
 let hist={};
 async function getHist(ids,city){
@@ -945,18 +973,22 @@ function syncCmpSel(){
   $("cmpSel").innerHTML=(b.length>1?`<option value="all">Hepsi (${b.length})</option>`:"")+b.map(i=>`<option value="${i}">${esc(label(i))}</option>`).join("");
   if([...$("cmpSel").options].some(o=>o.value===cur))$("cmpSel").value=cur;
 }
+const cmpIds=()=>cmpBases().flatMap(x=>[x,x+"@1",x+"@2",x+"@3",x+"@4"]).filter(i=>db[i]);
+// Fiyatı olmayan malzeme/satış: 0 sayılırsa kâr saçmalar, o yüzden karşılaştırmada ayrıca gösterilir
+const cmpMiss=id=>db[id].mats.filter(([m])=>!(pM(m)>0)).map(([m])=>m).concat(pO(id,!isInst())>0?[]:[id],jVal(id,0).miss);
 const nutr=id=>{const d=db[id];return d&&d.biv>0?d.biv*0.1125:0};
 const stFee=id=>nutr(id)*num("fee")/100;
 const cnt=id=>{const x=plan.find(p=>p.id===id)||plan.find(p=>p.id.replace(/@\d$/,"")===id.replace(/@\d$/,""));return x?x.n:1};
 function renderCmp(){
   const sel=$("cmpSel").value||"all",b=cmpBases(),list=sel==="all"?b:b.filter(x=>x===sel),pool=num("pool");
   $("cmpb").innerHTML=list.map(base=>{
-    const rows=[base,base+"@1",base+"@2",base+"@3",base+"@4"].filter(i=>db[i]).map(id=>({id,e:evalRec(id)}));
+    const rows=[base,base+"@1",base+"@2",base+"@3",base+"@4"].filter(i=>db[i]).map(id=>({id,e:evalRec(id),miss:cmpMiss(id)}));
     let best=-1,bv=-Infinity;
-    rows.forEach((r,i)=>{const v=r.e.fc>0?r.e.profit/r.e.fc:r.e.profit;if(v>bv){bv=v;best=i}});
+    rows.forEach((r,i)=>{if(r.miss.length)return;const v=r.e.fc>0?r.e.profit/r.e.fc:r.e.profit;if(v>bv){bv=v;best=i}});
     return `<tr><td colspan="10"><b>${img(base)}${esc(label(base))}</b>${cpbN(nm0(base))}</td></tr>`+rows.map((r,i)=>{
-      const n=cnt(r.id),e=r.e,k=e.fc>0?Math.floor(pool/e.fc):0,c=e.profit>=0?"pos":"neg";
-      return `<tr><td>${esc(r.id.includes("@")?"."+r.id.split("@")[1]:".0")}${i===best?" ★":""}</td><td>${fmt(n)}<br><small>${fmt(n*db[r.id].out)} ${W}</small></td><td>${fmt(e.net*n)}</td><td>${fmt(e.rv*n)}<br>${tag(pinfo(false,r.id))}</td><td class="${c}">${fmt(e.profit*n)}</td><td>${fmt(e.fc*n)}</td><td>${e.fc>0?fmt(e.profit/e.fc):"-"}</td><td>${k}</td><td class="${c}">${fmt(e.profit*k)}</td><td>${histCell(r.id,n,db[r.id].out)}</td></tr>`;
+      const n=cnt(r.id),e=r.e,k=e.fc>0?Math.floor(pool/e.fc):0,c=e.profit>=0?"pos":"neg",ms=r.miss.length;
+      const pf=v=>ms?`<span class="st" title="Fiyatı eksik kalem 0 sayılır, bu yüzden kâr gösterilmiyor">-</span>`:`<span class="${c}">${fmt(v)}</span>`;
+      return `<tr><td>${esc(r.id.includes("@")?"."+r.id.split("@")[1]:".0")}${i===best?" ★":""}</td><td>${fmt(n)}<br><small>${fmt(n*db[r.id].out)} ${W}</small></td><td>${fmt(e.net*n)}${ms?`<br><span class="bd bd-r" title="${esc(r.miss.map(label).join(", "))}">Fiyat eksik (${ms})</span>`:""}</td><td>${fmt(e.rv*n)}<br>${tag(pinfo(false,r.id))}</td><td>${pf(e.profit*n)}</td><td>${fmt(e.fc*n)}</td><td>${e.fc>0&&!ms?fmt(e.profit/e.fc):"-"}</td><td>${k}</td><td>${pf(e.profit*k)}</td><td>${histCell(r.id,n,db[r.id].out)}</td></tr>`;
     }).join("");
   }).join("")||`<tr><td colspan="10">Karşılaştırılacak ${W} yok. Plana ${W} ekle.</td></tr>`;
 }
@@ -976,8 +1008,9 @@ $("cmp").onclick=async()=>{
   syncCmpSel();
   const b=cmpBases();
   if(!b.length){$("cs").textContent="Önce plana "+W+" ekle.";return}
-  const ids=b.flatMap(x=>[x,x+"@1",x+"@2",x+"@3",x+"@4"]).filter(i=>db[i]);
+  const ids=cmpIds();
   const mats=[...new Set(ids.flatMap(i=>db[i].mats.map(m=>m[0])))];
+  if(jrOn()){const J=jIds(ids);mats.push(...J.map(x=>x+"_EMPTY"));ids.push(...J.map(x=>x+"_FULL"))}
   $("cs").textContent="Fiyatlar çekiliyor...";
   try{
     px.mats=Object.assign({},px.mats,await getPrices(mats,$("buyCity").value));
@@ -989,7 +1022,7 @@ $("cmp").onclick=async()=>{
   cmpShown=true;
   calc();
 };
-const SET=["srv","buyCity","craftCity","sellCity","strat","lpbBase","lpbCity","lpbFocus","daily","fee","pool","mast","rf","rid","rrf","rrid"],CHK=["prem","cb","foc"];
+const SET=["srv","buyCity","craftCity","sellCity","strat","lpbBase","lpbCity","lpbFocus","daily","fee","pool","mast","rf","rid","rrf","rrid"],CHK=["prem","cb","foc","jr"];
 let pending=[];
 const pfs=()=>{try{return JSON.parse(localStorage.getItem("aoprofiles"+KS)||"{}")}catch(e){return{}}};
 function pfList(sel){
@@ -1144,7 +1177,7 @@ $("dailyOn").addEventListener("change",()=>{$("daily").value=$("dailyOn").checke
 $("srv").addEventListener("change",()=>{renderDaily();calc()});
 window.__dr=true;renderDaily();loadDaily();
 
-document.querySelectorAll("#srv,#buyCity,#craftCity,#sellCity,#onlyIssues,#top5Sel,#strat,#prem,#setup,#cb,#foc,#lpbBase,#lpbCity,#lpbFocus,#daily,#mast,#rf,#rid,#rrf,#rrid,#fee,#pool").forEach(e=>e.addEventListener("input",calc));
+document.querySelectorAll("#srv,#buyCity,#craftCity,#sellCity,#onlyIssues,#top5Sel,#strat,#prem,#setup,#cb,#foc,#jr,#lpbBase,#lpbCity,#lpbFocus,#daily,#mast,#rf,#rid,#rrf,#rrid,#fee,#pool").forEach(e=>e.addEventListener("input",calc));
 calc();
 
 const BMC={weapon:["Silah",/^T\d_(MAIN|2H)_/],armor:["Zırh",/^T\d_ARMOR_/],head:["Kafalık",/^T\d_HEAD_/],shoes:["Ayakkabı",/^T\d_SHOES_/],off:["Offhand",/^T\d_OFF_/],bag:["Çanta/Pelerin",/^T\d_(BAG|CAPE)/]};
