@@ -2,7 +2,7 @@
 import { ImageResponse } from "@vercel/og";
 import { getBuild, getGroup, game, iconId, itemName, iconUrl } from "./_build.js";
 
-export const config = { runtime: "edge" };
+// Node ortamında çalışır: edge'de @vercel/og yazı tipini yükleyemeyip boş görsel döndürüyordu
 
 const C = { bg: "#0b0f14", card: "#11161d", card2: "#151b23", line: "#323c49", ink: "#e6e9ee", mut: "#8b95a3", acc: "#f0883e", accT: "#ffd6b3", acc2: "#7a3e16" };
 // Satori JSX yerine düz nesne kabul eder
@@ -72,7 +72,7 @@ function groupImage(G, x) {
   ]);
 }
 
-export default async function handler(req) {
+export async function GET(req) {
   const u = new URL(req.url);
   const b = u.searchParams.get("b"), g = u.searchParams.get("g");
   const G = await game(u.origin);
