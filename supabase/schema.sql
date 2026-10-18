@@ -129,3 +129,65 @@ create policy "bonus okuma" on public.daily_bonus for select using (true);
 drop policy if exists "bonus yönetim" on public.daily_bonus;
 create policy "bonus yönetim" on public.daily_bonus
   for all using (public.is_admin()) with check (public.is_admin());
+
+-- BUILDS (yeni eklendi): bu bölümü SQL Editor'de çalıştırman yeterli.
+-- Herkes okur (paylaşım linki giriş yapmadan da açılır), giriş yapan herkes ekler,
+-- sadece sahibi düzenler, sahibi ya da admin siler.
+create table if not exists public.builds (
+  id uuid primary key default gen_random_uuid(),
+  owner uuid not null default auth.uid() references auth.users on delete cascade,
+  owner_name text,
+  title text not null check (length(title) between 1 and 80),
+  content text not null default 'ZvZ' check (length(content) <= 40),
+  role text check (length(role) <= 40),
+  descr text check (length(descr) <= 3000),
+  gear jsonb not null default '{}'::jsonb check (pg_column_size(gear) < 8000),
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+create table if not exists public.group_builds (
+  id uuid primary key default gen_random_uuid(),
+  owner uuid not null default auth.uid() references auth.users on delete cascade,
+  owner_name text,
+  title text not null check (length(title) between 1 and 80),
+  content text not null default 'ZvZ' check (length(content) <= 40),
+  descr text check (length(descr) <= 3000),
+  slots jsonb not null default '[]'::jsonb check (pg_column_size(slots) < 16000),
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+-- Yazar adı profilden gelir, sahibi değiştirilemez
+create or replace function public.build_stamp() returns trigger
+language plpgsql security definer set search_path = public as $$
+begin
+  if tg_op = 'UPDATE' then new.owner := old.owner; new.created_at := old.created_at; end if;
+  new.owner_name := (select name from public.profiles where id = new.owner);
+  new.updated_at := now();
+  return new;
+end $$;
+drop trigger if exists builds_stamp on public.builds;
+create trigger builds_stamp before insert or update on public.builds for each row execute function public.build_stamp();
+drop trigger if exists group_builds_stamp on public.group_builds;
+create trigger group_builds_stamp before insert or update on public.group_builds for each row execute function public.build_stamp();
+
+alter table public.builds enable row level security;
+alter table public.group_builds enable row level security;
+
+drop policy if exists "build okuma" on public.builds;
+create policy "build okuma" on public.builds for select using (true);
+drop policy if exists "build ekleme" on public.builds;
+create policy "build ekleme" on public.builds for insert with check (owner = auth.uid() and not public.is_banned());
+drop policy if exists "build düzenleme" on public.builds;
+create policy "build düzenleme" on public.builds for update using (owner = auth.uid() and not public.is_banned()) with check (owner = auth.uid());
+drop policy if exists "build silme" on public.builds;
+create policy "build silme" on public.builds for delete using (owner = auth.uid() or public.is_admin());
+
+drop policy if exists "grup okuma" on public.group_builds;
+create policy "grup okuma" on public.group_builds for select using (true);
+drop policy if exists "grup ekleme" on public.group_builds;
+create policy "grup ekleme" on public.group_builds for insert with check (owner = auth.uid() and not public.is_banned());
+drop policy if exists "grup düzenleme" on public.group_builds;
+create policy "grup düzenleme" on public.group_builds for update using (owner = auth.uid() and not public.is_banned()) with check (owner = auth.uid());
+drop policy if exists "grup silme" on public.group_builds;
+create policy "grup silme" on public.group_builds for delete using (owner = auth.uid() or public.is_admin());

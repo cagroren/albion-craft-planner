@@ -1,0 +1,488 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Albion Builds</title><link rel="manifest" href="manifest.webmanifest"><link rel="icon" href="icon-192.png"><meta name="theme-color" content="#0b0f14"><link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap">
+<script src="config.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<script src="auth.js"></script>
+<style>
+:root{--bg:#0b0f14;--card:#11161d;--card2:#151b23;--in:#0d1218;--ink:#e6e9ee;--mut:#8b95a3;--line:#252d38;--line2:#323c49;--acc:#f0883e;--acc2:#7a3e16;--accT:#ffd6b3;--good:#3fb950;--bad:#f85149;--warn:#e3b341;color-scheme:dark}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 "Inter",system-ui,-apple-system,"Segoe UI",sans-serif;padding:20px 16px;-webkit-font-smoothing:antialiased}
+main{max-width:1180px;margin:auto}
+h1{font:800 30px/1.2 "Inter",system-ui,sans-serif;letter-spacing:-.01em;margin:0}
+h2{font:700 12px/1.4 "Inter",system-ui,sans-serif;letter-spacing:.12em;text-transform:uppercase;color:var(--acc);margin:0 0 14px}
+h3{font:800 22px/1.25 "Inter",sans-serif;margin:0}
+section{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:20px;margin-bottom:16px}
+button,select,input,textarea{font:inherit;padding:9px 12px;border:1px solid var(--line2);border-radius:9px;background:var(--in);color:var(--ink);min-width:0}
+textarea{width:100%;resize:vertical}
+input::placeholder,textarea::placeholder{color:#5f6976}
+button{background:var(--acc2);color:var(--accT);border-color:#b8602a;cursor:pointer;font-weight:700;transition:background .15s,border-color .15s,color .15s}
+button:hover{background:#8f4a1b;border-color:var(--acc)}
+button.l{background:transparent;color:var(--acc);border-color:#5a3a24}
+button.l:hover{background:rgba(240,136,62,.08);border-color:var(--acc)}
+button.bad{background:transparent;color:var(--bad);border-color:rgba(248,81,73,.5)}
+button.bad:hover{background:rgba(248,81,73,.08)}
+button:disabled{opacity:.5;cursor:default}
+button:focus-visible,select:focus-visible,input:focus-visible,textarea:focus-visible,a:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
+a{color:var(--acc)}
+img[src*="render.albiononline.com"]{filter:drop-shadow(0 2px 3px rgba(0,0,0,.45))}
+.row{display:flex;gap:10px;flex-wrap:wrap;margin-top:12px;align-items:center}
+.topbar{margin:0;align-items:center;gap:10px}
+.tabs{display:flex;gap:4px;margin:0;padding:4px;background:var(--card);border:1px solid var(--line);border-radius:12px;width:fit-content;max-width:100%;overflow-x:auto;flex-wrap:nowrap}
+.tabs button{flex:none;background:transparent;border-color:transparent;color:var(--mut);white-space:nowrap;padding:8px 14px}
+.tabs button:hover{color:var(--ink);background:var(--card2);border-color:transparent}
+.tabs button.on{background:var(--acc2);color:var(--accT);border-color:#b8602a}
+.st{color:var(--mut);font-size:13px}
+.warn{border:1px solid rgba(248,81,73,.55);background:rgba(248,81,73,.06);border-radius:12px;padding:10px 14px;margin:12px 0;font-size:14px}
+.nav{display:flex;gap:18px;flex-wrap:wrap;margin:0 0 16px}
+.nav div{display:flex;gap:4px;padding:4px;background:var(--card);border:1px solid var(--line);border-radius:12px;flex-wrap:wrap}
+.nav button{background:transparent;border-color:transparent;color:var(--mut);padding:7px 13px;font-size:14px}
+.nav button:hover{background:var(--card2);color:var(--ink)}
+.nav button.on{background:var(--acc2);color:var(--accT);border-color:#b8602a}
+.flt{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px}
+.flt input{flex:1;min-width:200px}
+.cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:12px}
+.card{display:block;text-align:left;width:100%;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px 16px;color:var(--ink);font-weight:500;cursor:pointer}
+.card:hover{background:var(--card2);border-color:#5a3a24}
+.card .ic{display:flex;gap:4px;flex-wrap:wrap;margin-bottom:10px;min-height:44px}
+.card .ic img{width:44px;height:44px}
+.card b{display:block;font-size:16px;font-weight:800;line-height:1.3;margin-bottom:6px;overflow-wrap:anywhere}
+.meta{display:flex;gap:6px;flex-wrap:wrap;align-items:center;font-size:12px;color:var(--mut)}
+.bd{display:inline-flex;align-items:center;gap:4px;padding:2px 9px;border-radius:20px;font-size:12px;font-weight:700;border:1px solid var(--line2);color:var(--ink);background:var(--card2);white-space:nowrap}
+.bd.c{border-color:#b8602a;color:var(--accT);background:rgba(240,136,62,.1)}
+.bd.p{border-color:rgba(63,185,80,.5);color:#a6e3b0;background:rgba(63,185,80,.08)}
+.empty{color:var(--mut);padding:30px 10px;text-align:center}
+/* paperdoll */
+.doll{display:grid;grid-template-columns:repeat(3,84px);gap:10px;justify-content:center;flex:none}
+.sl{position:relative;width:84px;height:84px;border-radius:12px;background:var(--in);border:1px solid var(--line2);display:flex;align-items:center;justify-content:center;padding:0;color:var(--mut);font-weight:600}
+button.sl{cursor:pointer}
+button.sl:hover{border-color:var(--acc);background:var(--card2)}
+.sl img{width:78px;height:78px}
+.sl small{position:absolute;left:0;right:0;bottom:4px;text-align:center;font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:var(--mut);pointer-events:none}
+.sl.has small{display:none}
+.sl.off{opacity:.35}
+.rmx{position:absolute;top:-8px;right:-8px;width:24px;height:24px;border-radius:50%;padding:0;font-size:11px;line-height:1;background:var(--card);color:var(--mut);border:1px solid var(--line2)}
+.rmx:hover{color:var(--bad);border-color:var(--bad);background:var(--card)}
+.blank{visibility:hidden}
+.bl{display:flex;gap:24px;flex-wrap:wrap;align-items:flex-start}
+.bl>.side{flex:1;min-width:280px}
+/* skills */
+.sk{display:flex;flex-direction:column;gap:14px}
+.skg{border:1px solid var(--line);border-radius:12px;padding:12px;background:var(--card2)}
+.skg>.h{display:flex;align-items:center;gap:10px;margin-bottom:10px;font-weight:800}
+.skg>.h img{width:40px;height:40px}
+.skr{display:flex;gap:10px;align-items:center;margin-top:8px}
+.skr .k{flex:none;width:52px;font-size:11px;font-weight:800;letter-spacing:.06em;color:var(--mut);text-transform:uppercase}
+.skr .o{display:flex;gap:6px;flex-wrap:wrap}
+.sp{width:46px;height:46px;padding:0;border-radius:10px;background:var(--in);border:2px solid transparent;display:flex;align-items:center;justify-content:center;position:relative;overflow:hidden}
+.sp img{width:42px;height:42px}
+.sp span{font-size:10px;font-weight:800;color:var(--mut);padding:2px;text-align:center;line-height:1.1}
+button.sp{cursor:pointer;opacity:.45}
+button.sp:hover{opacity:.85;border-color:var(--line2);background:var(--in)}
+button.sp.on{opacity:1;border-color:var(--acc);background:rgba(240,136,62,.12)}
+.skn{font-size:12px;color:var(--mut);margin:6px 0 0 62px;min-height:18px}
+.ab{display:flex;flex-direction:column;gap:8px}
+.ai{display:flex;align-items:center;gap:12px;background:var(--card2);border:1px solid var(--line);border-radius:12px;padding:8px 12px}
+.ai .sp{width:44px;height:44px;flex:none}
+.ai .sp img{width:40px;height:40px}
+.ai .key{flex:none;width:30px;height:30px;border-radius:8px;border:1px solid #b8602a;color:var(--accT);background:var(--acc2);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:13px}
+.ai .key.ps{border-color:var(--line2);background:var(--in);color:var(--mut);font-size:10px}
+.ai div{min-width:0}
+.ai b{display:block;font-weight:700;overflow-wrap:anywhere}
+.ai small{color:var(--mut);font-size:12px}
+.ait{font-size:11px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--mut);margin:10px 2px 0}
+.desc{white-space:pre-wrap;overflow-wrap:anywhere;background:var(--card2);border:1px solid var(--line);border-radius:12px;padding:12px 14px;margin-top:14px}
+.dh{display:flex;gap:12px;flex-wrap:wrap;align-items:flex-start;justify-content:space-between;margin-bottom:16px}
+.dh .acts{display:flex;gap:8px;flex-wrap:wrap}
+/* form */
+.fg{display:grid;grid-template-columns:2fr 1fr 1fr;gap:10px}
+.fg label,.lb{display:flex;flex-direction:column;gap:4px;font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--mut)}
+.fg label input,.fg label select{text-transform:none;letter-spacing:0;font-weight:500;font-size:15px;color:var(--ink)}
+/* cost */
+.t{overflow-x:auto}
+table{border-collapse:collapse;width:100%}
+th,td{text-align:left;padding:7px 8px;border-bottom:1px solid var(--line);font-size:14px}
+th{color:var(--mut);font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase}
+td.n,th.n{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+td .pn{display:flex;align-items:center;gap:8px}
+td .pn img{width:34px;height:34px;flex:none}
+tfoot td{font-weight:800;border-bottom:0;font-size:15px}
+.tot{font-size:26px;font-weight:800;color:var(--accT);font-variant-numeric:tabular-nums}
+.old{color:var(--warn);font-size:11px;font-weight:700;margin-left:6px}
+/* group rows */
+.gr{display:flex;align-items:center;gap:12px;background:var(--card2);border:1px solid var(--line);border-radius:12px;padding:10px 12px;margin-bottom:8px}
+.gr .ic{display:flex;gap:2px;flex:none}
+.gr .ic img{width:40px;height:40px}
+.gr .nm{flex:1;min-width:0}
+.gr .nm b{display:block;overflow-wrap:anywhere}
+.gr .cnt{flex:none;font-weight:800;font-size:18px;color:var(--accT);min-width:42px;text-align:right}
+.gr input[type=number]{width:70px}
+.gr input.nt{flex:1;min-width:120px}
+a.gl{color:var(--ink);text-decoration:none}
+a.gl:hover b{color:var(--accT)}
+/* modal */
+.ov{position:fixed;inset:0;background:rgba(3,6,9,.72);display:flex;align-items:flex-start;justify-content:center;padding:40px 16px;z-index:50;overflow-y:auto}
+.md{background:var(--card);border:1px solid var(--line2);border-radius:16px;padding:18px;width:100%;max-width:820px;box-shadow:0 20px 60px rgba(0,0,0,.5)}
+.md .mh{display:flex;gap:10px;align-items:center;margin-bottom:12px}
+.md .mh input{flex:1}
+.chips{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px}
+.chips button{padding:5px 11px;font-size:13px;background:var(--in);color:var(--mut);border-color:var(--line2);font-weight:600}
+.chips button.on{background:var(--acc2);color:var(--accT);border-color:#b8602a}
+.pg{display:grid;grid-template-columns:repeat(auto-fill,minmax(112px,1fr));gap:8px;max-height:60vh;overflow-y:auto;padding:2px}
+.pi{display:flex;flex-direction:column;align-items:center;gap:4px;padding:8px 6px;background:var(--card2);border:1px solid var(--line);border-radius:12px;color:var(--ink);font-weight:600;font-size:12px;line-height:1.25;text-align:center}
+.pi:hover{border-color:var(--acc);background:var(--card2)}
+.pi img{width:64px;height:64px}
+.toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:var(--acc2);color:var(--accT);border:1px solid #b8602a;border-radius:10px;padding:10px 16px;font-weight:700;z-index:60}
+@media(max-width:700px){body{padding:12px 16px}section{padding:16px;border-radius:14px}.tabs button{padding:8px 11px}h1{font-size:24px}.fg{grid-template-columns:1fr}.cards{grid-template-columns:1fr}.doll{grid-template-columns:repeat(3,76px)}.sl{width:76px;height:76px}.sl img{width:70px;height:70px}.skn{margin-left:0}.skr{flex-direction:column;align-items:flex-start;gap:6px}.ov{padding:12px}.pg{grid-template-columns:repeat(auto-fill,minmax(96px,1fr))}}
+</style>
+</head>
+<body>
+<main>
+<div class="row topbar"><div class="tabs"><button data-go="./">Alchemy</button><button data-go="./#food">Cooking</button><button data-go="./#craft">Craft</button><button data-go="./#farm">Farming</button><button data-go="./#refine">Refining</button><button data-go="./#bm">Black Market Flips</button><button data-go="./#enchant">Enchant Yükseltme</button><button data-go="./#db">Item Database</button><button class="on" aria-current="page">Builds</button><button data-go="dps.html">DPS Meter</button></div></div>
+<div style="display:flex;align-items:center;gap:12px;margin:14px 0 16px"><img src="logo.png" alt="KVF" width="48" height="48"><h1>Builds</h1></div>
+<nav class="nav" aria-label="Build menüsü">
+  <div><button data-h="#list">Builds</button><button data-h="#mine">My Builds</button><button data-h="#new">Create Build</button></div>
+  <div><button data-h="#groups">Group Builds</button><button data-h="#mygroups">My Group Builds</button><button data-h="#gnew">Create Group Build</button></div>
+</nav>
+<div id="view"><div class="empty">Yükleniyor...</div></div>
+</main>
+<div class="ov" id="ov" hidden><div class="md" role="dialog" aria-modal="true" id="md"></div></div>
+<script>
+(function(){
+const $=id=>document.getElementById(id);
+const esc=t=>String(t==null?"":t).replace(/&/g,"&amp;").replace(/"/g,"&quot;").replace(/</g,"&lt;");
+const R="https://render.albiononline.com/v1/";
+const LS=(()=>{try{return JSON.parse(localStorage.getItem("aobuilds1")||"{}")}catch(e){return {}}})();
+const saveLS=()=>{try{localStorage.setItem("aobuilds1",JSON.stringify(LS))}catch(e){}};
+const CONTENT=["ZvZ","Small Scale","Gank","Solo PvP","Corrupted Dungeon","Hellgate","Crystal Arena","Group PvE","Solo PvE","Avalon Roads","Mists","Faction Warfare","Gathering"];
+const ROLES=["Tank","Healer","Support","Melee DPS","Ranged DPS","Battlemount","Utility"];
+const SLOTS=[["b","Çanta"],["h","Kafa"],["c","Pelerin"],["w","Silah"],["a","Zırh"],["o","Yan el"],["p","İksir"],["s","Ayakkabı"],["f","Yemek"],["",""],["m","Binek"],["",""]];
+const SN=Object.fromEntries(SLOTS.filter(s=>s[0]));
+const KEYL={w:{q:"Q",w:"W",e:"E",p:"Pasif"},h:{a:"D",p:"Pasif"},a:{a:"R",p:"Pasif"},s:{a:"F",p:"Pasif"}};
+const keyL=(sl,k)=>(KEYL[sl]||{})[k]||(k==="p"?"Pasif":"Aktif");
+const ORDER=["w","o","h","a","s","c","b","m","f","p"];
+let G=null,sb=null,me=null,isAdmin=false,B=[],GB=[],loaded=false,loadErr="",F=null,GF=null;
+
+// ---------- yardımcılar
+const iconId=(sl,v)=>{if(!v||!v.i)return "";if(sl==="m"||sl==="f"||sl==="p")return v.i;const it=G.items[v.i];if(!it)return "";const t=it.t.includes(8)?8:Math.max(...it.t);return `T${t}_${v.i}`};
+const itemName=(sl,v)=>{if(!v||!v.i)return "";if(sl==="m")return (G.mounts.find(x=>x[0]===v.i)||[,v.i])[1];if(sl==="f"||sl==="p")return (G.cons.find(x=>x[0]===v.i)||[,v.i])[1];return (G.items[v.i]||{}).n||v.i};
+const iImg=(id,sz,cls)=>id?`<img${cls?` class="${cls}"`:""} loading="lazy" src="${R}item/${encodeURIComponent(id)}.png?size=${sz||80}" alt="" onerror="this.style.visibility='hidden'">`:"";
+const spN=n=>(G.spells[n]||[n])[0];
+window.__spE=im=>{const a=im.dataset.alt;if(a){im.dataset.alt="";im.src=R+"spell/"+encodeURIComponent(a)+".png?size=64"}else{im.onerror=null;im.replaceWith(Object.assign(document.createElement("span"),{textContent:spN(im.dataset.n||"").slice(0,12)}))}};
+const sImg=n=>{const s=G.spells[n]||[n];return `<img loading="lazy" data-n="${esc(n)}" data-alt="${esc(s[1]||"")}" src="${R}spell/${encodeURIComponent(n)}.png?size=64" alt="" onerror="__spE(this)">`};
+const ago=s=>{if(!s)return "";const m=(Date.now()-Date.parse(s))/6e4;return m<60?Math.max(1,Math.round(m))+" dk önce":m<1440?Math.round(m/60)+" sa önce":m<43200?Math.round(m/1440)+" gün önce":new Date(s).toLocaleDateString("tr-TR")};
+const fmt=n=>Math.round(n).toLocaleString("tr-TR");
+const toast=t=>{const d=document.createElement("div");d.className="toast";d.textContent=t;document.body.appendChild(d);setTimeout(()=>d.remove(),2200)};
+const people=g=>(g.slots||[]).reduce((a,s)=>a+(+s.n||0),0);
+const canEdit=x=>me&&x.owner===me.id;
+const canDel=x=>me&&(x.owner===me.id||isAdmin);
+const shareUrl=h=>location.href.split("#")[0]+h;
+async function copy(t){try{await navigator.clipboard.writeText(t);toast("Link kopyalandı")}catch(e){prompt("Linki kopyala:",t)}}
+function needSb(){if(!sb){$("view").innerHTML='<section><div class="warn">Build kaydetmek için Supabase bağlantısı gerekiyor (config.js).</div></section>';return true}return false}
+function needLogin(){if(me)return false;$("view").innerHTML='<section><h2>Giriş gerekli</h2><p>Build oluşturmak için sağ üstten <b>Discord ile giriş</b> yap. Build\'lere bakmak ve link paylaşmak için giriş gerekmez.</p></section>';return true}
+
+// ---------- veri
+async function load(){
+  if(!sb){loaded=true;return}
+  const [a,b]=await Promise.all([sb.from("builds").select("*").order("updated_at",{ascending:false}).limit(1000),sb.from("group_builds").select("*").order("updated_at",{ascending:false}).limit(500)]);
+  loadErr=a.error?a.error.message:b.error?b.error.message:"";
+  B=a.data||[];GB=b.data||[];loaded=true;
+}
+const byId=id=>B.find(x=>x.id===id);
+
+// ---------- liste
+function buildIcons(x,n){return ORDER.slice(0,n||6).map(k=>iImg(iconId(k,(x.gear||{})[k]),64)).join("")}
+function filt(list,isG){
+  const q=(LS.q||"").toLowerCase(),c=LS.c||"",r=LS.r||"";
+  return list.filter(x=>(!q||(x.title+" "+(x.owner_name||"")+" "+(isG?"":ORDER.map(k=>itemName(k,(x.gear||{})[k])).join(" "))).toLowerCase().includes(q))&&(!c||x.content===c)&&(isG||!r||x.role===r));
+}
+function filters(isG){
+  return `<div class="flt"><input id="fq" type="search" placeholder="${isG?"Grup adı ya da yazar ara":"Build, silah ya da yazar ara"}" value="${esc(LS.q||"")}"><select id="fc" aria-label="İçerik"><option value="">Tüm içerikler</option>${CONTENT.map(c=>`<option${LS.c===c?" selected":""}>${c}</option>`).join("")}</select>${isG?"":`<select id="fr" aria-label="Rol"><option value="">Tüm roller</option>${ROLES.map(c=>`<option${LS.r===c?" selected":""}>${c}</option>`).join("")}</select>`}</div>`;
+}
+function bindFilters(fn){
+  $("fq").oninput=e=>{LS.q=e.target.value;saveLS();fn(true)};
+  $("fc").onchange=e=>{LS.c=e.target.value;saveLS();fn(true)};
+  if($("fr"))$("fr").onchange=e=>{LS.r=e.target.value;saveLS();fn(true)};
+}
+function buildCard(x){
+  return `<a class="card" href="#b=${x.id}"><div class="ic">${buildIcons(x)}</div><b>${esc(x.title)}</b><div class="meta"><span class="bd c">${esc(x.content)}</span>${x.role?`<span class="bd">${esc(x.role)}</span>`:""}<span>${esc(x.owner_name||"?")} · ${ago(x.updated_at)}</span></div></a>`;
+}
+function groupCard(g){
+  const ws=[...new Set((g.slots||[]).map(s=>byId(s.b)).filter(Boolean).map(x=>iconId("w",x.gear.w)).filter(Boolean))].slice(0,10);
+  return `<a class="card" href="#g=${g.id}"><div class="ic">${ws.map(i=>iImg(i,64)).join("")}</div><b>${esc(g.title)}</b><div class="meta"><span class="bd c">${esc(g.content)}</span><span class="bd p">${people(g)} kişi</span><span>${esc(g.owner_name||"?")} · ${ago(g.updated_at)}</span></div></a>`;
+}
+function vList(mine){
+  if(mine&&needLogin())return;
+  const draw=only=>{
+    const L=filt(mine?B.filter(x=>x.owner===me.id):B);
+    const html=L.length?`<div class="cards">${L.map(buildCard).join("")}</div>`:`<div class="empty">${B.length||mine?"Eşleşen build yok.":"Henüz build yok. İlkini sen oluştur."}${mine?' <a href="#new">Build oluştur</a>':""}</div>`;
+    if(only)$("lst").innerHTML=html;else{$("view").innerHTML=`${loadErr?`<div class="warn">Build'ler alınamadı: ${esc(loadErr)}</div>`:""}${filters(false)}<div id="lst">${html}</div>`;bindFilters(draw)}
+  };
+  draw();
+}
+function vGroups(mine){
+  if(mine&&needLogin())return;
+  const draw=only=>{
+    const L=filt(mine?GB.filter(x=>x.owner===me.id):GB,true);
+    const html=L.length?`<div class="cards">${L.map(groupCard).join("")}</div>`:`<div class="empty">${GB.length||mine?"Eşleşen grup build yok.":"Henüz grup build yok."}${mine?' <a href="#gnew">Grup build oluştur</a>':""}</div>`;
+    if(only)$("lst").innerHTML=html;else{$("view").innerHTML=`${loadErr?`<div class="warn">${esc(loadErr)}</div>`:""}${filters(true)}<div id="lst">${html}</div>`;bindFilters(draw)}
+  };
+  draw();
+}
+
+// ---------- detay
+function doll(gear,edit){
+  const two=gear.w&&G.items[gear.w.i]&&G.items[gear.w.i].h;
+  return `<div class="doll">${SLOTS.map(([k,n])=>{
+    if(!k)return '<div class="sl blank"></div>';
+    const v=gear[k],id=iconId(k,v),off=k==="o"&&two;
+    const tt=id?esc(itemName(k,v)):n;
+    if(!edit)return `<div class="sl${id?" has":""}${off?" off":""}" title="${tt}">${off&&!id?iImg(id||iconId("w",gear.w),80):iImg(id,80)}<small>${n}</small></div>`;
+    return `<div style="position:relative"><button type="button" class="sl${id?" has":""}${off?" off":""}" data-sl="${k}" title="${off?"Çift elli silah seçili":tt}" aria-label="${n}${id?": "+tt:""}"${off?" disabled":""}>${iImg(id,80)}<small>${n}</small></button>${id?`<button type="button" class="rmx" data-rm="${k}" aria-label="${n} kaldır" title="Kaldır">✕</button>`:""}</div>`;
+  }).join("")}</div>`;
+}
+function abilities(gear){
+  const out=[];
+  ORDER.forEach(sl=>{
+    const v=gear[sl];if(!v||!v.i)return;
+    const it=G.items[v.i];if(!it||!it.k)return;
+    const rows=Object.keys(it.k).map(k=>v[k]?`<div class="ai"><span class="key${k==="p"?" ps":""}">${keyL(sl,k)==="Pasif"?"P":keyL(sl,k)}</span><span class="sp">${sImg(v[k])}</span><div><b>${esc(spN(v[k]))}</b><small>${esc(it.n)} · ${keyL(sl,k)==="Pasif"?"Pasif":keyL(sl,k)+" yeteneği"}</small></div></div>`:"").join("");
+    if(rows)out.push(`<div class="ait">${SN[sl]}</div>`+rows);
+  });
+  return out.length?`<div class="ab">${out.join("")}</div>`:'<div class="st">Yetenek seçilmemiş.</div>';
+}
+function vBuild(id){
+  const x=byId(id);
+  if(!x){$("view").innerHTML=`<section><div class="empty">${loadErr?esc(loadErr):"Bu build bulunamadı (silinmiş olabilir)."}<br><a href="#list">Build listesine dön</a></div></section>`;return}
+  const gs=GB.filter(g=>(g.slots||[]).some(s=>s.b===x.id));
+  $("view").innerHTML=`<section><div class="dh"><div><h3>${esc(x.title)}</h3><div class="meta" style="margin-top:8px"><span class="bd c">${esc(x.content)}</span>${x.role?`<span class="bd">${esc(x.role)}</span>`:""}<span>${esc(x.owner_name||"?")} · ${ago(x.updated_at)}</span></div></div><div class="acts"><button id="cp">Linki kopyala</button>${canEdit(x)?`<button class="l" id="ed">Düzenle</button><button class="l" id="dup">Kopyasını oluştur</button>`:me?`<button class="l" id="dup">Kopyasını oluştur</button>`:""}${canDel(x)?`<button class="bad" id="del">Sil</button>`:""}</div></div>
+  <div class="bl"><div><h2>Ekipman</h2>${doll(x.gear||{},false)}</div><div class="side"><h2>Yetenekler ve pasifler</h2>${abilities(x.gear||{})}</div></div>
+  ${x.descr?`<div class="desc">${esc(x.descr)}</div>`:""}
+  ${gs.length?`<div class="st" style="margin-top:12px">Bu build'i kullanan gruplar: ${gs.map(g=>`<a href="#g=${g.id}">${esc(g.title)}</a>`).join(", ")}</div>`:""}</section>
+  <section id="cost"></section>`;
+  $("cp").onclick=()=>copy(shareUrl("#b="+x.id));
+  if($("ed"))$("ed").onclick=()=>location.hash="#edit="+x.id;
+  if($("dup"))$("dup").onclick=()=>{F={title:x.title+" (kopya)",content:x.content,role:x.role||"",descr:x.descr||"",gear:JSON.parse(JSON.stringify(x.gear||{}))};location.hash="#new"};
+  if($("del"))confirm2($("del"),"Sil",async()=>{const {error}=await sb.from("builds").delete().eq("id",x.id);if(error){toast("Silinemedi: "+error.message);return}B=B.filter(b=>b.id!==x.id);toast("Build silindi");location.hash="#list"});
+  costBox([{x,n:1}]);
+}
+function vGroup(id){
+  const g=GB.find(x=>x.id===id);
+  if(!g){$("view").innerHTML=`<section><div class="empty">${loadErr?esc(loadErr):"Bu grup build bulunamadı."}<br><a href="#groups">Grup listesine dön</a></div></section>`;return}
+  const rows=(g.slots||[]).map(s=>{const x=byId(s.b);
+    if(!x)return `<div class="gr"><div class="nm"><b>Silinmiş build</b><small class="st">${esc(s.r||"")}</small></div><span class="cnt">×${+s.n||1}</span></div>`;
+    return `<a class="gr gl" href="#b=${x.id}"><span class="ic">${iImg(iconId("w",x.gear.w),64)}${iImg(iconId("o",x.gear.o),64)}</span><span class="nm"><b>${esc(s.r||x.title)}</b><span class="meta">${[s.r?esc(x.title):"",x.role?esc(x.role):""].filter(Boolean).join(" · ")}</span></span><span class="cnt">×${+s.n||1}</span></a>`}).join("");
+  $("view").innerHTML=`<section><div class="dh"><div><h3>${esc(g.title)}</h3><div class="meta" style="margin-top:8px"><span class="bd c">${esc(g.content)}</span><span class="bd p">${people(g)} kişi</span><span>${esc(g.owner_name||"?")} · ${ago(g.updated_at)}</span></div></div><div class="acts"><button id="cp">Linki kopyala</button>${canEdit(g)?`<button class="l" id="ed">Düzenle</button>`:""}${canDel(g)?`<button class="bad" id="del">Sil</button>`:""}</div></div>
+  <h2>Kompozisyon</h2>${rows||'<div class="st">Bu grupta build yok.</div>'}
+  ${g.descr?`<div class="desc">${esc(g.descr)}</div>`:""}</section><section id="cost"></section>`;
+  $("cp").onclick=()=>copy(shareUrl("#g="+g.id));
+  if($("ed"))$("ed").onclick=()=>location.hash="#gedit="+g.id;
+  if($("del"))confirm2($("del"),"Sil",async()=>{const {error}=await sb.from("group_builds").delete().eq("id",g.id);if(error){toast("Silinemedi: "+error.message);return}GB=GB.filter(b=>b.id!==g.id);toast("Grup build silindi");location.hash="#groups"});
+  costBox((g.slots||[]).map(s=>({x:byId(s.b),n:+s.n||1,r:s.r})).filter(s=>s.x));
+}
+function confirm2(b,label,fn){
+  let armed=false,tmr=0;
+  b.onclick=async()=>{clearTimeout(tmr);
+    if(!armed){armed=true;b.textContent="Emin misin? Tekrar bas";tmr=setTimeout(()=>{armed=false;b.textContent=label},4000);return}
+    armed=false;b.disabled=true;try{await fn()}finally{b.disabled=false;b.textContent=label}};
+}
+
+// ---------- maliyet (Martlock pazarı, tahmini)
+const PC={};
+function costIds(gear,t,e){
+  return ORDER.map(sl=>{const v=gear[sl];if(!v||!v.i)return null;
+    if(sl==="m"||sl==="f"||sl==="p")return [sl,v.i];
+    const it=G.items[v.i];if(!it)return null;
+    const tt=it.t.includes(t)?t:it.t.filter(x=>x<=t).pop()||it.t[0];
+    return [sl,`T${tt}_${v.i}${e>0&&tt>=4?"@"+e:""}`];
+  }).filter(Boolean);
+}
+function costBox(list){
+  const box=$("cost");if(!box)return;
+  const t=LS.t||8,e=LS.e||0,srv=LS.srv||"europe";
+  box.innerHTML=`<div class="dh" style="margin-bottom:10px"><h2 style="margin:0">Tahmini maliyet · Martlock pazarı</h2><div class="acts"><select id="cT" aria-label="Tier">${[4,5,6,7,8].map(x=>`<option value="${x}"${x===t?" selected":""}>T${x}</option>`).join("")}</select><select id="cE" aria-label="Enchant">${[0,1,2,3,4].map(x=>`<option value="${x}"${x===e?" selected":""}>.${x}</option>`).join("")}</select><select id="cS" aria-label="Sunucu">${[["europe","Europe"],["west","Americas"],["east","Asia"]].map(([a,b])=>`<option value="${a}"${a===srv?" selected":""}>${b}</option>`).join("")}</select><button id="cF">Fiyatları çek</button></div></div><div id="cOut" class="st">Fiyatlar çekiliyor...</div>`;
+  const re=()=>{LS.t=+$("cT").value;LS.e=+$("cE").value;LS.srv=$("cS").value;saveLS();run()};
+  $("cT").onchange=re;$("cE").onchange=re;$("cS").onchange=re;$("cF").onclick=()=>{Object.keys(PC).forEach(k=>delete PC[k]);run()};
+  async function run(){
+    const t=LS.t||8,e=LS.e||0,srv=LS.srv||"europe";
+    const per=list.map(s=>({...s,ids:costIds(s.x.gear||{},t,e)}));
+    const all=[...new Set(per.flatMap(s=>s.ids.map(i=>i[1])))];
+    if(!all.length){$("cOut").textContent="Ekipman seçilmemiş.";return}
+    $("cOut").textContent="Fiyatlar çekiliyor...";
+    const need=all.filter(i=>!PC[srv+"|"+i]);
+    try{
+      for(let i=0;i<need.length;i+=60){
+        const part=need.slice(i,i+60);
+        const r=await fetch(`https://${srv}.albion-online-data.com/api/v2/stats/prices/${part.join(",")}.json?locations=Martlock`);
+        if(!r.ok)throw new Error("HTTP "+r.status);
+        const d=await r.json();
+        part.forEach(id=>PC[srv+"|"+id]={p:0,d:null});
+        d.forEach(o=>{if(!o.sell_price_min)return;const c=PC[srv+"|"+o.item_id];if(c&&(!c.p||o.sell_price_min<c.p)){c.p=o.sell_price_min;c.d=o.sell_price_min_date}});
+      }
+    }catch(err){$("cOut").innerHTML=`<div class="warn">Fiyatlar alınamadı (${esc(err.message)}). Biraz sonra tekrar dene.</div>`;return}
+    const pr=id=>PC[srv+"|"+id]||{p:0};
+    const oldT=d=>d&&Date.now()-Date.parse(d+"Z")>2*864e5?'<span class="old">eski fiyat</span>':"";
+    if(list.length===1){
+      const s=per[0];let tot=0,miss=0;
+      const rows=s.ids.map(([sl,id])=>{const p=pr(id);tot+=p.p;if(!p.p)miss++;return `<tr><td><span class="pn">${iImg(id,64)}<span>${esc(itemName(sl,s.x.gear[sl]))}<br><small class="st">${SN[sl]} · ${esc(sl==="m"?"T"+id[1]:id.replace(/^T(\d)_.*?(@(\d))?$/,(a,b,c,d)=>"T"+b+"."+(d||0)))}</small></span></span></td><td class="n">${p.p?fmt(p.p)+oldT(p.d):'<span class="st">fiyat yok</span>'}</td></tr>`}).join("");
+      $("cOut").innerHTML=`<div class="tot">${fmt(tot)} silver</div><div class="st" style="margin:2px 0 10px">Martlock'taki en düşük satış fiyatlarıyla bir setin tahmini fiyatı${miss?` · ${miss} parçanın fiyatı yok, toplama katılmadı`:""}.</div><div class="t"><table><thead><tr><th>Parça</th><th class="n">Fiyat</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+    }else{
+      let tot=0,miss=0,pp=0;
+      const rows=per.map(s=>{let one=0;s.ids.forEach(([,id])=>{const p=pr(id).p;one+=p;if(!p)miss+=s.n});tot+=one*s.n;pp+=s.n;
+        return `<tr><td><span class="pn">${iImg(iconId("w",s.x.gear.w),64)}<span>${esc(s.r||s.x.title)}${s.r?`<br><small class="st">${esc(s.x.title)}</small>`:""}</span></span></td><td class="n">${fmt(one)}</td><td class="n">×${s.n}</td><td class="n"><b>${fmt(one*s.n)}</b></td></tr>`}).join("");
+      $("cOut").innerHTML=`<div class="tot">${fmt(tot)} silver</div><div class="st" style="margin:2px 0 10px">${pp} kişilik grubun tamamı · kişi başı ortalama ${fmt(pp?tot/pp:0)} silver${miss?` · fiyatı olmayan ${miss} parça toplama katılmadı`:""}.</div><div class="t"><table><thead><tr><th lang="en">Build</th><th class="n">1 set</th><th class="n">Kişi</th><th class="n">Toplam</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+    }
+  }
+  run();
+}
+
+// ---------- build oluştur / düzenle
+function vEdit(id){
+  if(needSb()||needLogin())return;
+  if(id){const x=byId(id);if(!x||!canEdit(x)){$("view").innerHTML='<section><div class="empty">Bu build\'i düzenleyemezsin.</div></section>';return}
+    if(!F||F.id!==id)F={id,title:x.title,content:x.content,role:x.role||"",descr:x.descr||"",gear:JSON.parse(JSON.stringify(x.gear||{}))}}
+  else if(!F||F.id)F={title:"",content:LS.c||"ZvZ",role:"",descr:"",gear:{}};
+  $("view").innerHTML=`<section><h2>${id?'<span lang="en">Build</span>\'i düzenle':'Yeni <span lang="en">build</span>'}</h2>
+  <div class="fg"><label><span><span lang="en">Build</span> adı</span><input id="fT" maxlength="80" placeholder="Örn. Hallowfall healer (ZvZ)" value="${esc(F.title)}"></label><label>İçerik<select id="fC">${CONTENT.map(c=>`<option${F.content===c?" selected":""}>${c}</option>`).join("")}</select></label><label>Rol<select id="fR"><option value="">Seçilmedi</option>${ROLES.map(c=>`<option${F.role===c?" selected":""}>${c}</option>`).join("")}</select></label></div>
+  <div class="bl" style="margin-top:18px"><div><h2>Ekipman</h2><div id="fDoll"></div><div class="st" style="margin-top:8px;max-width:272px">Bir kutuya tıkla, item'ı görseliyle seç. Silah, kafa, zırh ve ayakkabıda yetenekler sağda açılır.</div></div><div class="side"><h2>Yetenekler ve pasifler</h2><div id="fSk" class="sk"></div></div></div>
+  <label class="lb" style="margin-top:18px">Açıklama, swap'lar, oynanış notları<textarea id="fD" rows="5" maxlength="3000" placeholder="Örn. Rotasyon, alternatif swap'lar, hangi durumda ne kullanılır" style="text-transform:none;letter-spacing:0;font-weight:500;font-size:15px;color:var(--ink)">${esc(F.descr)}</textarea></label>
+  <div class="row"><button id="fS">${id?"Değişiklikleri kaydet":"Build'i kaydet"}</button><button class="l" id="fX">Vazgeç</button><span class="st" id="fSt"></span></div></section>`;
+  $("fT").oninput=e=>F.title=e.target.value;$("fC").onchange=e=>F.content=e.target.value;$("fR").onchange=e=>F.role=e.target.value;$("fD").oninput=e=>F.descr=e.target.value;
+  $("fX").onclick=()=>{const b=F.id;F=null;location.hash=b?"#b="+b:"#list"};
+  $("fS").onclick=save;
+  drawForm();
+}
+function drawForm(){
+  const g=F.gear;
+  if(g.w&&G.items[g.w.i]&&G.items[g.w.i].h)delete g.o;
+  $("fDoll").innerHTML=doll(g,true);
+  $("fDoll").querySelectorAll("[data-sl]").forEach(b=>b.onclick=()=>pickItem(b.dataset.sl));
+  $("fDoll").querySelectorAll("[data-rm]").forEach(b=>b.onclick=()=>{delete g[b.dataset.rm];drawForm()});
+  const parts=ORDER.map(sl=>{const v=g[sl];if(!v||!v.i)return "";const it=G.items[v.i];if(!it||!it.k)return "";
+    return `<div class="skg"><div class="h">${iImg(iconId(sl,v),64)}<span>${esc(it.n)}<br><small class="st" style="font-weight:600">${SN[sl]}</small></span></div>${Object.entries(it.k).map(([k,l])=>{
+      if(l.length===1&&!v[k])v[k]=l[0];
+      return `<div class="skr"><span class="k">${keyL(sl,k)}</span><div class="o">${l.map(n=>`<button type="button" class="sp${v[k]===n?" on":""}" data-s="${sl}" data-k="${k}" data-n="${esc(n)}" title="${esc(spN(n))}" aria-label="${esc(spN(n))}" aria-pressed="${v[k]===n}">${sImg(n)}</button>`).join("")}</div></div><div class="skn">${v[k]?esc(spN(v[k])):'<span style="color:#5f6976">Seçilmedi</span>'}</div>`}).join("")}</div>`}).join("");
+  $("fSk").innerHTML=parts||'<div class="st">Önce silah ya da zırh seç.</div>';
+  $("fSk").querySelectorAll("button.sp").forEach(b=>b.onclick=()=>{const v=g[b.dataset.s];v[b.dataset.k]=v[b.dataset.k]===b.dataset.n?undefined:b.dataset.n;if(!v[b.dataset.k])delete v[b.dataset.k];drawForm()});
+}
+async function save(){
+  const st=$("fSt");
+  if(!F.title.trim()){st.textContent="Build'e bir ad ver.";$("fT").focus();return}
+  if(!F.gear.w){st.textContent="En azından silahı seç.";return}
+  $("fS").disabled=true;st.textContent="Kaydediliyor...";
+  const row={title:F.title.trim(),content:F.content,role:F.role||null,descr:F.descr.trim()||null,gear:F.gear};
+  const q=F.id?sb.from("builds").update(row).eq("id",F.id).select().single():sb.from("builds").insert(row).select().single();
+  const {data,error}=await q;
+  $("fS").disabled=false;
+  if(error){st.textContent="Kaydedilemedi: "+error.message;return}
+  B=[data,...B.filter(b=>b.id!==data.id)];F=null;toast("Build kaydedildi");location.hash="#b="+data.id;
+}
+
+// ---------- item seçici
+function modal(html,init){$("md").innerHTML=html;$("ov").hidden=false;document.body.style.overflow="hidden";init&&init();const f=$("md").querySelector("input");f&&f.focus()}
+function closeM(){$("ov").hidden=true;$("md").innerHTML="";document.body.style.overflow=""}
+$("ov").onclick=e=>{if(e.target===$("ov"))closeM()};
+document.addEventListener("keydown",e=>{if(e.key==="Escape"&&!$("ov").hidden)closeM()});
+const catName=c=>({cloth_armor:"Cloth",leather_armor:"Leather",plate_armor:"Plate",cloth_helmet:"Cloth",leather_helmet:"Leather",plate_helmet:"Plate",cloth_shoes:"Cloth",leather_shoes:"Leather",plate_shoes:"Plate",booktype:"Book",shieldtype:"Shield",torchtype:"Torch",bags:"Bag",satchels:"Satchel",basemounts:"Binek",battle_mount:"Battle mount",raremounts:"Nadir",food:"Yemek",potions:"İksir",shapeshifterstaff:"Shapeshifter"}[c]||String(c).replace("accessoires_capes_","").replace(/staff$/," staff").replace(/^./,a=>a.toUpperCase()));
+function pickItem(sl){
+  let L;
+  if(sl==="m")L=G.mounts.map(([id,n,c])=>({v:id,n,img:id,c:catName(c)}));
+  else if(sl==="f"||sl==="p")L=G.cons.filter(c=>c[2]===sl).map(([id,n])=>({v:id,n:n+" (T"+id[1]+")",img:id,c:""}));
+  else L=Object.entries(G.items).filter(([,it])=>it.s===sl).map(([b,it])=>({v:b,n:it.n,img:`T${it.t.includes(8)?8:Math.max(...it.t)}_${b}`,c:catName(it.c)}));
+  L.sort((a,b)=>a.c.localeCompare(b.c)||a.n.localeCompare(b.n));
+  const cats=[...new Set(L.map(x=>x.c).filter(Boolean))];
+  let cat="";
+  modal(`<div class="mh"><input id="pq" type="search" placeholder="${SN[sl]} ara (İngilizce ad)" aria-label="Ara"><button class="l" id="pX" aria-label="Kapat">✕</button></div>${cats.length>1?`<div class="chips" id="pc"><button class="on" data-c="">Tümü</button>${cats.map(c=>`<button data-c="${esc(c)}">${esc(c)}</button>`).join("")}</div>`:""}<div class="pg" id="pg"></div>`,()=>{
+    const draw=()=>{const q=$("pq").value.trim().toLowerCase();
+      const M=L.filter(x=>(!cat||x.c===cat)&&(!q||x.n.toLowerCase().includes(q)));
+      $("pg").innerHTML=M.map(x=>`<button type="button" class="pi" data-v="${esc(x.v)}">${iImg(x.img,64)}<span>${esc(x.n)}</span></button>`).join("")||'<div class="st">Sonuç yok.</div>';
+      $("pg").querySelectorAll("[data-v]").forEach(b=>b.onclick=()=>{const old=F.gear[sl];F.gear[sl]={i:b.dataset.v};if(old&&old.i===b.dataset.v)F.gear[sl]=old;closeM();drawForm()});
+    };
+    $("pq").oninput=draw;$("pX").onclick=closeM;
+    if($("pc"))$("pc").querySelectorAll("button").forEach(b=>b.onclick=()=>{cat=b.dataset.c;$("pc").querySelectorAll("button").forEach(x=>x.classList.toggle("on",x===b));draw()});
+    draw();
+  });
+}
+
+// ---------- grup build oluştur / düzenle
+function vGEdit(id){
+  if(needSb()||needLogin())return;
+  if(id){const g=GB.find(x=>x.id===id);if(!g||!canEdit(g)){$("view").innerHTML='<section><div class="empty">Bu grup build\'i düzenleyemezsin.</div></section>';return}
+    if(!GF||GF.id!==id)GF={id,title:g.title,content:g.content,descr:g.descr||"",slots:JSON.parse(JSON.stringify(g.slots||[]))}}
+  else if(!GF||GF.id)GF={title:"",content:LS.c||"ZvZ",descr:"",slots:[]};
+  $("view").innerHTML=`<section><h2>${id?'Grup <span lang="en">build</span>\'i düzenle':'Yeni grup <span lang="en">build</span>'}</h2>
+  <div class="fg" style="grid-template-columns:2fr 1fr"><label>Grup adı<input id="gT" maxlength="80" placeholder="Örn. 20 kişilik ZvZ comp" value="${esc(GF.title)}"></label><label>İçerik<select id="gC">${CONTENT.map(c=>`<option${GF.content===c?" selected":""}>${c}</option>`).join("")}</select></label></div>
+  <div class="dh" style="margin:18px 0 10px"><h2 style="margin:0">Kompozisyon · <span id="gN"></span></h2><button id="gAdd">+ Build ekle</button></div>
+  <div id="gRows"></div>
+  <label class="lb" style="margin-top:14px">Açıklama, strateji notları<textarea id="gD" rows="4" maxlength="3000" style="text-transform:none;letter-spacing:0;font-weight:500;font-size:15px;color:var(--ink)">${esc(GF.descr)}</textarea></label>
+  <div class="row"><button id="gS">${id?"Değişiklikleri kaydet":"Grup build'i kaydet"}</button><button class="l" id="gX">Vazgeç</button><span class="st" id="gSt"></span></div></section>`;
+  $("gT").oninput=e=>GF.title=e.target.value;$("gC").onchange=e=>GF.content=e.target.value;$("gD").oninput=e=>GF.descr=e.target.value;
+  $("gX").onclick=()=>{const b=GF.id;GF=null;location.hash=b?"#g="+b:"#groups"};
+  $("gAdd").onclick=pickBuild;$("gS").onclick=gSave;
+  drawG();
+}
+function drawG(){
+  $("gN").textContent=GF.slots.reduce((a,s)=>a+(+s.n||0),0)+" kişi";
+  $("gRows").innerHTML=GF.slots.map((s,i)=>{const x=byId(s.b);
+    return `<div class="gr"><span class="ic">${x?iImg(iconId("w",x.gear.w),64):""}</span><div class="nm" style="flex:0 1 220px"><b>${x?esc(x.title):"Silinmiş build"}</b><span class="meta">${x&&x.role?esc(x.role):""}</span></div><input class="nt" data-i="${i}" maxlength="40" placeholder="Not (örn. Main tank, Kite)" value="${esc(s.r||"")}" aria-label="Not"><input type="number" min="1" max="50" data-n="${i}" value="${+s.n||1}" aria-label="Kişi sayısı"><button class="l" data-up="${i}" aria-label="Yukarı"${i?"":" disabled"}>↑</button><button class="bad" data-del="${i}" aria-label="Çıkar">✕</button></div>`}).join("")||'<div class="empty" style="padding:16px">Henüz build eklenmedi. <b>+ Build ekle</b> ile herkesin build\'lerinden seç.</div>';
+  $("gRows").querySelectorAll("[data-i]").forEach(e=>e.oninput=()=>GF.slots[+e.dataset.i].r=e.value);
+  $("gRows").querySelectorAll("[data-n]").forEach(e=>e.oninput=()=>{GF.slots[+e.dataset.n].n=Math.max(1,Math.min(50,+e.value||1));$("gN").textContent=GF.slots.reduce((a,s)=>a+(+s.n||0),0)+" kişi"});
+  $("gRows").querySelectorAll("[data-del]").forEach(e=>e.onclick=()=>{GF.slots.splice(+e.dataset.del,1);drawG()});
+  $("gRows").querySelectorAll("[data-up]").forEach(e=>e.onclick=()=>{const i=+e.dataset.up;[GF.slots[i-1],GF.slots[i]]=[GF.slots[i],GF.slots[i-1]];drawG()});
+}
+function pickBuild(){
+  modal(`<div class="mh"><input id="pq" type="search" placeholder="Build, silah ya da yazar ara" aria-label="Ara"><button class="l" id="pX" aria-label="Kapat">✕</button></div><div id="pl" style="max-height:62vh;overflow-y:auto"></div>`,()=>{
+    const draw=()=>{const q=$("pq").value.trim().toLowerCase();
+      const M=B.filter(x=>!q||(x.title+" "+(x.owner_name||"")+" "+(x.role||"")+" "+ORDER.map(k=>itemName(k,(x.gear||{})[k])).join(" ")).toLowerCase().includes(q));
+      $("pl").innerHTML=M.map(x=>`<button type="button" class="gr" style="width:100%;text-align:left;color:var(--ink);font-weight:500" data-b="${x.id}"><span class="ic">${buildIcons(x,3)}</span><span class="nm"><b>${esc(x.title)}</b><span class="meta"><span class="bd c">${esc(x.content)}</span>${x.role?`<span class="bd">${esc(x.role)}</span>`:""}<span>${esc(x.owner_name||"")}</span></span></span></button>`).join("")||`<div class="empty">${B.length?"Sonuç yok.":"Önce tekil bir build oluşturman gerekiyor."}</div>`;
+      $("pl").querySelectorAll("[data-b]").forEach(b=>b.onclick=()=>{GF.slots.push({b:b.dataset.b,n:1,r:""});closeM();drawG()});
+    };
+    $("pq").oninput=draw;$("pX").onclick=closeM;draw();
+  });
+}
+async function gSave(){
+  const st=$("gSt");
+  if(!GF.title.trim()){st.textContent="Gruba bir ad ver.";$("gT").focus();return}
+  if(!GF.slots.length){st.textContent="En az bir build ekle.";return}
+  $("gS").disabled=true;st.textContent="Kaydediliyor...";
+  const row={title:GF.title.trim(),content:GF.content,descr:GF.descr.trim()||null,slots:GF.slots.map(s=>({b:s.b,n:+s.n||1,r:(s.r||"").trim()}))};
+  const {data,error}=await (GF.id?sb.from("group_builds").update(row).eq("id",GF.id).select().single():sb.from("group_builds").insert(row).select().single());
+  $("gS").disabled=false;
+  if(error){st.textContent="Kaydedilemedi: "+error.message;return}
+  GB=[data,...GB.filter(b=>b.id!==data.id)];GF=null;toast("Grup build kaydedildi");location.hash="#g="+data.id;
+}
+
+// ---------- yönlendirme
+function route(){
+  closeM();
+  const h=location.hash||"#list",[k,v]=h.slice(1).split("=");
+  const navK={b:"#list",edit:"#mine",g:"#groups",gedit:"#mygroups"}[k]||"#"+k;
+  document.querySelectorAll(".nav button").forEach(b=>b.classList.toggle("on",b.dataset.h===navK));
+  if(!G||!loaded){$("view").innerHTML='<div class="empty">Yükleniyor...</div>';return}
+  window.scrollTo(0,0);
+  ({list:()=>vList(false),mine:()=>vList(true),"new":()=>vEdit(null),edit:()=>vEdit(v),b:()=>vBuild(v),groups:()=>vGroups(false),mygroups:()=>vGroups(true),gnew:()=>vGEdit(null),gedit:()=>vGEdit(v),g:()=>vGroup(v)}[k]||(()=>vList(false)))();
+}
+document.querySelectorAll(".nav button").forEach(b=>b.onclick=()=>{if(b.dataset.h==="#new")F=null;if(b.dataset.h==="#gnew")GF=null;location.hash=b.dataset.h});
+document.querySelectorAll("[data-go]").forEach(b=>b.onclick=()=>{location.href=b.dataset.go});
+window.addEventListener("hashchange",route);
+
+async function start(){
+  const gd=fetch("data/builds.json").then(r=>{if(!r.ok)throw new Error("HTTP "+r.status);return r.json()});
+  sb=window.aoSb||null;
+  if(sb){
+    try{const {data:{session}}=await sb.auth.getSession();me=session&&session.user||null;
+      if(me){const {data:p}=await sb.from("profiles").select("is_admin").eq("id",me.id).maybeSingle();isAdmin=!!(p&&p.is_admin)}}catch(e){}
+  }
+  try{G=await gd}catch(e){$("view").innerHTML=`<section><div class="warn">Oyun verisi yüklenemedi (${esc(e.message)}). Sayfayı yenile.</div></section>`;return}
+  try{await load()}catch(e){loadErr=e.message||String(e);loaded=true}
+  route();
+}
+start();
+})();
+</script>
+</body>
+</html>
