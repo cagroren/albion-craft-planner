@@ -192,7 +192,8 @@ const toast=t=>{const d=document.createElement("div");d.className="toast";d.text
 const people=g=>(g.slots||[]).reduce((a,s)=>a+(+s.n||0),0);
 const canEdit=x=>me&&x.owner===me.id;
 const canDel=x=>me&&(x.owner===me.id||isAdmin);
-const shareUrl=h=>location.href.split("#")[0]+h;
+// Canlı sitede kısa /b/<id> ve /g/<id> linki: Discord'da başlık ve build görseliyle önizleme çıkar (api/share.js)
+const shareUrl=(k,id)=>/^(localhost|127\.)/.test(location.hostname)||location.protocol==="file:"?location.href.split("#")[0]+"#"+k+"="+id:location.origin+"/"+k+"/"+id;
 async function copy(t){try{await navigator.clipboard.writeText(t);toast("Link kopyalandı")}catch(e){prompt("Linki kopyala:",t)}}
 function needSb(){if(!sb){$("view").innerHTML='<section><div class="warn">Build kaydetmek için Supabase bağlantısı gerekiyor (config.js).</div></section>';return true}return false}
 function needLogin(){if(me)return false;$("view").innerHTML='<section><h2>Giriş gerekli</h2><p>Build oluşturmak için sağ üstten <b>Discord ile giriş</b> yap. Build\'lere bakmak ve link paylaşmak için giriş gerekmez.</p></section>';return true}
@@ -280,7 +281,7 @@ function vBuild(id){
   ${x.descr?`<div class="desc">${esc(x.descr)}</div>`:""}
   ${gs.length?`<div class="st" style="margin-top:12px">Bu build'i kullanan gruplar: ${gs.map(g=>`<a href="#g=${g.id}">${esc(g.title)}</a>`).join(", ")}</div>`:""}</section>
   <section id="cost"></section>`;
-  $("cp").onclick=()=>copy(shareUrl("#b="+x.id));
+  $("cp").onclick=()=>copy(shareUrl("b",x.id));
   if($("ed"))$("ed").onclick=()=>location.hash="#edit="+x.id;
   if($("dup"))$("dup").onclick=()=>{F={title:x.title+" (kopya)",content:x.content,role:x.role||"",descr:x.descr||"",gear:JSON.parse(JSON.stringify(x.gear||{}))};location.hash="#new"};
   if($("del"))confirm2($("del"),"Sil",async()=>{const {error}=await sb.from("builds").delete().eq("id",x.id);if(error){toast("Silinemedi: "+error.message);return}B=B.filter(b=>b.id!==x.id);toast("Build silindi");location.hash="#list"});
@@ -296,7 +297,7 @@ function vGroup(id){
   $("view").innerHTML=`<section><div class="dh"><div><h3>${esc(g.title)}</h3><div class="meta" style="margin-top:8px"><span class="bd c">${esc(g.content)}</span><span class="bd p">${people(g)} kişi</span><span>${esc(g.owner_name||"?")} · ${ago(g.updated_at)}</span></div></div><div class="acts"><button id="cp">Linki kopyala</button>${canEdit(g)?`<button class="l" id="ed">Düzenle</button>`:""}${canDel(g)?`<button class="bad" id="del">Sil</button>`:""}</div></div>
   <h2>Kompozisyon</h2>${rows||'<div class="st">Bu grupta build yok.</div>'}
   ${g.descr?`<div class="desc">${esc(g.descr)}</div>`:""}</section><section id="cost"></section>`;
-  $("cp").onclick=()=>copy(shareUrl("#g="+g.id));
+  $("cp").onclick=()=>copy(shareUrl("g",g.id));
   if($("ed"))$("ed").onclick=()=>location.hash="#gedit="+g.id;
   if($("del"))confirm2($("del"),"Sil",async()=>{const {error}=await sb.from("group_builds").delete().eq("id",g.id);if(error){toast("Silinemedi: "+error.message);return}GB=GB.filter(b=>b.id!==g.id);toast("Grup build silindi");location.hash="#groups"});
   costBox((g.slots||[]).map(s=>({x:slotX(s),n:+s.n||1,r:s.r})).filter(s=>s.x));

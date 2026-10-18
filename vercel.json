@@ -1,5 +1,9 @@
 {
   "cleanUrls": true,
+  "rewrites": [
+    { "source": "/b/:id", "destination": "/api/share?b=:id" },
+    { "source": "/g/:id", "destination": "/api/share?g=:id" }
+  ],
   "headers": [
     {
       "source": "/sw.js",
