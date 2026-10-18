@@ -65,6 +65,9 @@ button.sl:hover{border-color:var(--acc);background:var(--card2)}
 .sl small{position:absolute;left:0;right:0;bottom:4px;text-align:center;font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:var(--mut);pointer-events:none}
 .sl.has small{display:none}
 .sl.off{opacity:.35}
+.swp{position:absolute;right:-8px;bottom:-8px;width:38px;height:38px;border-radius:9px;background:var(--card);border:1px solid #b8602a;padding:0;display:flex;align-items:center;justify-content:center;z-index:1}
+.swp img{width:34px;height:34px}
+button.swp.add{width:30px;height:30px;font-size:14px;color:var(--accT);background:var(--acc2)}
 .rmx{position:absolute;top:-8px;right:-8px;width:24px;height:24px;border-radius:50%;padding:0;font-size:11px;line-height:1;background:var(--card);color:var(--mut);border:1px solid var(--line2)}
 .rmx:hover{color:var(--bad);border-color:var(--bad);background:var(--card)}
 .blank{visibility:hidden}
@@ -122,6 +125,12 @@ tfoot td{font-weight:800;border-bottom:0;font-size:15px}
 .gr .cnt{flex:none;font-weight:800;font-size:18px;color:var(--accT);min-width:42px;text-align:right}
 .gr input[type=number]{width:70px}
 .gr input.nt{flex:1;min-width:120px}
+.gd{margin-bottom:8px}
+.gd>summary{list-style:none;cursor:pointer;margin:0}
+.gd>summary::-webkit-details-marker{display:none}
+.gd>summary:hover b{color:var(--accT)}
+.gd[open]>summary{border-color:#5a3a24;border-bottom-left-radius:0;border-bottom-right-radius:0}
+.gdb{background:var(--card2);border:1px solid #5a3a24;border-top:0;border-radius:0 0 12px 12px;padding:14px}
 a.gl{color:var(--ink);text-decoration:none}
 a.gl:hover b{color:var(--accT)}
 /* modal */
@@ -161,10 +170,13 @@ const saveLS=()=>{try{localStorage.setItem("aobuilds1",JSON.stringify(LS))}catch
 const CONTENT=["ZvZ","Small Scale","Gank","Solo PvP","Corrupted Dungeon","Hellgate","Crystal Arena","Group PvE","Solo PvE","Avalon Roads","Mists","Faction Warfare","Gathering"];
 const ROLES=["Tank","Healer","Support","Melee DPS","Ranged DPS","Battlemount","Utility"];
 const SLOTS=[["b","Çanta"],["h","Kafa"],["c","Pelerin"],["w","Silah"],["a","Zırh"],["o","Yan el"],["p","İksir"],["s","Ayakkabı"],["f","Yemek"],["",""],["m","Binek"],["",""]];
-const SN=Object.fromEntries(SLOTS.filter(s=>s[0]));
-const KEYL={w:{q:"Q",w:"W",e:"E",p:"Pasif"},h:{a:"D",p:"Pasif"},a:{a:"R",p:"Pasif"},s:{a:"F",p:"Pasif"}};
-const keyL=(sl,k)=>(KEYL[sl]||{})[k]||(k==="p"?"Pasif":"Aktif");
-const ORDER=["w","o","h","a","s","c","b","m","f","p"];
+const SN=Object.assign(Object.fromEntries(SLOTS.filter(s=>s[0])),{x:"Swap silah"});
+// p2: Plate zırhların ikinci (PvE) pasif slotu
+const KEYL={w:{q:"Q",w:"W",e:"E",p:"Pasif"},x:{q:"Q",w:"W",e:"E",p:"Pasif"},h:{a:"D",p:"Pasif"},a:{a:"R",p:"Pasif 1",p2:"Pasif 2"},s:{a:"F",p:"Pasif"}};
+const isPas=k=>k==="p"||k==="p2";
+const keyL=(sl,k)=>(KEYL[sl]||{})[k]||(isPas(k)?"Pasif":"Aktif");
+// x: isteğe bağlı swap silahı (ana silah kutusunun sağ altında küçük görünür)
+const ORDER=["w","o","h","a","s","c","b","m","f","p","x"];
 let G=null,sb=null,me=null,isAdmin=false,B=[],GB=[],loaded=false,loadErr="",F=null,GF=null;
 
 // ---------- yardımcılar
@@ -193,6 +205,8 @@ async function load(){
   B=a.data||[];GB=b.data||[];loaded=true;
 }
 const byId=id=>B.find(x=>x.id===id);
+// Grup slotu ya kayıtlı bir build'e bağlıdır (b) ya da ekipmanı grubun içinde tutulur (g: gear, t: ad, ro: rol)
+const slotX=s=>s.b?byId(s.b):s.g?{id:null,inline:true,title:s.t||"Set",role:s.ro||"",gear:s.g}:null;
 
 // ---------- liste
 function buildIcons(x,n){return ORDER.slice(0,n||6).map(k=>iImg(iconId(k,(x.gear||{})[k]),64)).join("")}
@@ -212,7 +226,7 @@ function buildCard(x){
   return `<a class="card" href="#b=${x.id}"><div class="ic">${buildIcons(x)}</div><b>${esc(x.title)}</b><div class="meta"><span class="bd c">${esc(x.content)}</span>${x.role?`<span class="bd">${esc(x.role)}</span>`:""}<span>${esc(x.owner_name||"?")} · ${ago(x.updated_at)}</span></div></a>`;
 }
 function groupCard(g){
-  const ws=[...new Set((g.slots||[]).map(s=>byId(s.b)).filter(Boolean).map(x=>iconId("w",x.gear.w)).filter(Boolean))].slice(0,10);
+  const ws=[...new Set((g.slots||[]).map(slotX).filter(Boolean).map(x=>iconId("w",x.gear.w)).filter(Boolean))].slice(0,10);
   return `<a class="card" href="#g=${g.id}"><div class="ic">${ws.map(i=>iImg(i,64)).join("")}</div><b>${esc(g.title)}</b><div class="meta"><span class="bd c">${esc(g.content)}</span><span class="bd p">${people(g)} kişi</span><span>${esc(g.owner_name||"?")} · ${ago(g.updated_at)}</span></div></a>`;
 }
 function vList(mine){
@@ -241,8 +255,10 @@ function doll(gear,edit){
     if(!k)return '<div class="sl blank"></div>';
     const v=gear[k],id=iconId(k,v),off=k==="o"&&two;
     const tt=id?esc(itemName(k,v)):n;
-    if(!edit)return `<div class="sl${id?" has":""}${off?" off":""}" title="${tt}">${off&&!id?iImg(id||iconId("w",gear.w),80):iImg(id,80)}<small>${n}</small></div>`;
-    return `<div style="position:relative"><button type="button" class="sl${id?" has":""}${off?" off":""}" data-sl="${k}" title="${off?"Çift elli silah seçili":tt}" aria-label="${n}${id?": "+tt:""}"${off?" disabled":""}>${iImg(id,80)}<small>${n}</small></button>${id?`<button type="button" class="rmx" data-rm="${k}" aria-label="${n} kaldır" title="Kaldır">✕</button>`:""}</div>`;
+    const xid=k==="w"?iconId("x",gear.x):"",xn=xid?esc(itemName("x",gear.x)):"";
+    if(!edit)return `<div class="sl${id?" has":""}${off?" off":""}" title="${tt}">${off&&!id?iImg(id||iconId("w",gear.w),80):iImg(id,80)}<small>${n}</small>${xid?`<span class="swp" title="Swap: ${xn}">${iImg(xid,64)}</span>`:""}</div>`;
+    const swp=k==="w"&&id?`<button type="button" class="swp${xid?"":" add"}" data-sl="x" title="${xid?"Swap: "+xn+" (değiştir)":"Swap silah ekle (isteğe bağlı)"}" aria-label="${xid?"Swap silah: "+xn:"Swap silah ekle"}">${xid?iImg(xid,64):"⇄"}</button>`:"";
+    return `<div style="position:relative"><button type="button" class="sl${id?" has":""}${off?" off":""}" data-sl="${k}" title="${off?"Çift elli silah seçili":tt}" aria-label="${n}${id?": "+tt:""}"${off?" disabled":""}>${iImg(id,80)}<small>${n}</small></button>${id?`<button type="button" class="rmx" data-rm="${k}" aria-label="${n} kaldır" title="Kaldır">✕</button>`:""}${swp}</div>`;
   }).join("")}</div>`;
 }
 function abilities(gear){
@@ -250,7 +266,7 @@ function abilities(gear){
   ORDER.forEach(sl=>{
     const v=gear[sl];if(!v||!v.i)return;
     const it=G.items[v.i];if(!it||!it.k)return;
-    const rows=Object.keys(it.k).map(k=>v[k]?`<div class="ai"><span class="key${k==="p"?" ps":""}">${keyL(sl,k)==="Pasif"?"P":keyL(sl,k)}</span><span class="sp">${sImg(v[k])}</span><div><b>${esc(spN(v[k]))}</b><small>${esc(it.n)} · ${keyL(sl,k)==="Pasif"?"Pasif":keyL(sl,k)+" yeteneği"}</small></div></div>`:"").join("");
+    const rows=Object.keys(it.k).map(k=>v[k]?`<div class="ai"><span class="key${isPas(k)?" ps":""}">${isPas(k)?(k==="p2"?"P2":"P"):keyL(sl,k)}</span><span class="sp">${sImg(v[k])}</span><div><b>${esc(spN(v[k]))}</b><small>${esc(it.n)} · ${isPas(k)?keyL(sl,k):keyL(sl,k)+" yeteneği"}</small></div></div>`:"").join("");
     if(rows)out.push(`<div class="ait">${SN[sl]}</div>`+rows);
   });
   return out.length?`<div class="ab">${out.join("")}</div>`:'<div class="st">Yetenek seçilmemiş.</div>';
@@ -273,8 +289,9 @@ function vBuild(id){
 function vGroup(id){
   const g=GB.find(x=>x.id===id);
   if(!g){$("view").innerHTML=`<section><div class="empty">${loadErr?esc(loadErr):"Bu grup build bulunamadı."}<br><a href="#groups">Grup listesine dön</a></div></section>`;return}
-  const rows=(g.slots||[]).map(s=>{const x=byId(s.b);
+  const rows=(g.slots||[]).map(s=>{const x=slotX(s);
     if(!x)return `<div class="gr"><div class="nm"><b>Silinmiş build</b><small class="st">${esc(s.r||"")}</small></div><span class="cnt">×${+s.n||1}</span></div>`;
+    if(x.inline)return `<details class="gd"><summary class="gr"><span class="ic">${iImg(iconId("w",x.gear.w),64)}${iImg(iconId("o",x.gear.o),64)}</span><span class="nm"><b>${esc(s.r||x.title)}</b><span class="meta">${[s.r?esc(x.title):"",x.role?esc(x.role):""].filter(Boolean).join(" · ")}</span></span><span class="cnt">×${+s.n||1}</span></summary><div class="bl gdb"><div>${doll(x.gear,false)}</div><div class="side">${abilities(x.gear)}</div></div></details>`;
     return `<a class="gr gl" href="#b=${x.id}"><span class="ic">${iImg(iconId("w",x.gear.w),64)}${iImg(iconId("o",x.gear.o),64)}</span><span class="nm"><b>${esc(s.r||x.title)}</b><span class="meta">${[s.r?esc(x.title):"",x.role?esc(x.role):""].filter(Boolean).join(" · ")}</span></span><span class="cnt">×${+s.n||1}</span></a>`}).join("");
   $("view").innerHTML=`<section><div class="dh"><div><h3>${esc(g.title)}</h3><div class="meta" style="margin-top:8px"><span class="bd c">${esc(g.content)}</span><span class="bd p">${people(g)} kişi</span><span>${esc(g.owner_name||"?")} · ${ago(g.updated_at)}</span></div></div><div class="acts"><button id="cp">Linki kopyala</button>${canEdit(g)?`<button class="l" id="ed">Düzenle</button>`:""}${canDel(g)?`<button class="bad" id="del">Sil</button>`:""}</div></div>
   <h2>Kompozisyon</h2>${rows||'<div class="st">Bu grupta build yok.</div>'}
@@ -282,7 +299,7 @@ function vGroup(id){
   $("cp").onclick=()=>copy(shareUrl("#g="+g.id));
   if($("ed"))$("ed").onclick=()=>location.hash="#gedit="+g.id;
   if($("del"))confirm2($("del"),"Sil",async()=>{const {error}=await sb.from("group_builds").delete().eq("id",g.id);if(error){toast("Silinemedi: "+error.message);return}GB=GB.filter(b=>b.id!==g.id);toast("Grup build silindi");location.hash="#groups"});
-  costBox((g.slots||[]).map(s=>({x:byId(s.b),n:+s.n||1,r:s.r})).filter(s=>s.x));
+  costBox((g.slots||[]).map(s=>({x:slotX(s),n:+s.n||1,r:s.r})).filter(s=>s.x));
 }
 function confirm2(b,label,fn){
   let armed=false,tmr=0;
@@ -356,17 +373,39 @@ function vEdit(id){
   $("fS").onclick=save;
   drawForm();
 }
+// Grup içinde set: aynı editör, ama kayıt build listesine değil grubun slotuna yazılır
+function vSlotEdit(i){
+  if(needSb()||needLogin())return;
+  const back=()=>GF&&GF.id?"#gedit="+GF.id:"#gnew";
+  const s=GF&&GF.slots[+i];
+  if(!s){location.hash=back();return}
+  if(!F||F.slot!==+i)F={slot:+i,title:s.t||"",role:s.ro||"",content:GF.content,descr:"",gear:JSON.parse(JSON.stringify(s.g||{}))};
+  $("view").innerHTML=`<section><h2>Grup için set · ${esc(GF.title||"yeni grup")}</h2>
+  <div class="fg" style="grid-template-columns:2fr 1fr"><label>Set adı<input id="fT" maxlength="80" placeholder="Örn. Main tank, Hallowfall healer" value="${esc(F.title)}"></label><label>Rol<select id="fR"><option value="">Seçilmedi</option>${ROLES.map(c=>`<option${F.role===c?" selected":""}>${c}</option>`).join("")}</select></label></div>
+  <div class="bl" style="margin-top:18px"><div><h2>Ekipman</h2><div id="fDoll"></div><div class="st" style="margin-top:8px;max-width:272px">Bir kutuya tıkla, item'ı görseliyle seç. Bu set sadece bu grupta durur, build listesine eklenmez.</div></div><div class="side"><h2>Yetenekler ve pasifler</h2><div id="fSk" class="sk"></div></div></div>
+  <div class="row"><button id="fS">Gruba kaydet</button><button class="l" id="fX">Vazgeç</button><span class="st" id="fSt"></span></div></section>`;
+  $("fT").oninput=e=>F.title=e.target.value;$("fR").onchange=e=>F.role=e.target.value;
+  $("fX").onclick=()=>{if(!s.g)GF.slots.splice(+i,1);F=null;location.hash=back()};
+  $("fS").onclick=()=>{
+    if(!F.title.trim()){$("fSt").textContent="Sete bir ad ver.";$("fT").focus();return}
+    if(!F.gear.w){$("fSt").textContent="En azından silahı seç.";return}
+    Object.assign(s,{g:F.gear,t:F.title.trim(),ro:F.role||""});F=null;location.hash=back();
+  };
+  drawForm();
+}
 function drawForm(){
   const g=F.gear;
   if(g.w&&G.items[g.w.i]&&G.items[g.w.i].h)delete g.o;
+  if(!g.w)delete g.x;
   $("fDoll").innerHTML=doll(g,true);
   $("fDoll").querySelectorAll("[data-sl]").forEach(b=>b.onclick=()=>pickItem(b.dataset.sl));
   $("fDoll").querySelectorAll("[data-rm]").forEach(b=>b.onclick=()=>{delete g[b.dataset.rm];drawForm()});
   const parts=ORDER.map(sl=>{const v=g[sl];if(!v||!v.i)return "";const it=G.items[v.i];if(!it||!it.k)return "";
-    return `<div class="skg"><div class="h">${iImg(iconId(sl,v),64)}<span>${esc(it.n)}<br><small class="st" style="font-weight:600">${SN[sl]}</small></span></div>${Object.entries(it.k).map(([k,l])=>{
+    return `<div class="skg"><div class="h">${iImg(iconId(sl,v),64)}<span>${esc(it.n)}<br><small class="st" style="font-weight:600">${SN[sl]}</small></span>${sl==="x"?`<button type="button" class="l" data-rm="x" style="margin-left:auto;padding:5px 10px;font-size:13px">Swap'ı kaldır</button>`:""}</div>${Object.entries(it.k).map(([k,l])=>{
       if(l.length===1&&!v[k])v[k]=l[0];
       return `<div class="skr"><span class="k">${keyL(sl,k)}</span><div class="o">${l.map(n=>`<button type="button" class="sp${v[k]===n?" on":""}" data-s="${sl}" data-k="${k}" data-n="${esc(n)}" title="${esc(spN(n))}" aria-label="${esc(spN(n))}" aria-pressed="${v[k]===n}">${sImg(n)}</button>`).join("")}</div></div><div class="skn">${v[k]?esc(spN(v[k])):'<span style="color:#5f6976">Seçilmedi</span>'}</div>`}).join("")}</div>`}).join("");
   $("fSk").innerHTML=parts||'<div class="st">Önce silah ya da zırh seç.</div>';
+  $("fSk").querySelectorAll("[data-rm]").forEach(b=>b.onclick=()=>{delete g[b.dataset.rm];drawForm()});
   $("fSk").querySelectorAll("button.sp").forEach(b=>b.onclick=()=>{const v=g[b.dataset.s];v[b.dataset.k]=v[b.dataset.k]===b.dataset.n?undefined:b.dataset.n;if(!v[b.dataset.k])delete v[b.dataset.k];drawForm()});
 }
 async function save(){
@@ -392,7 +431,7 @@ function pickItem(sl){
   let L;
   if(sl==="m")L=G.mounts.map(([id,n,c])=>({v:id,n,img:id,c:catName(c)}));
   else if(sl==="f"||sl==="p")L=G.cons.filter(c=>c[2]===sl).map(([id,n])=>({v:id,n:n+" (T"+id[1]+")",img:id,c:""}));
-  else L=Object.entries(G.items).filter(([,it])=>it.s===sl).map(([b,it])=>({v:b,n:it.n,img:`T${it.t.includes(8)?8:Math.max(...it.t)}_${b}`,c:catName(it.c)}));
+  else L=Object.entries(G.items).filter(([,it])=>it.s===(sl==="x"?"w":sl)).map(([b,it])=>({v:b,n:it.n,img:`T${it.t.includes(8)?8:Math.max(...it.t)}_${b}`,c:catName(it.c)}));
   L.sort((a,b)=>a.c.localeCompare(b.c)||a.n.localeCompare(b.n));
   const cats=[...new Set(L.map(x=>x.c).filter(Boolean))];
   let cat="";
@@ -416,19 +455,21 @@ function vGEdit(id){
   else if(!GF||GF.id)GF={title:"",content:LS.c||"ZvZ",descr:"",slots:[]};
   $("view").innerHTML=`<section><h2>${id?'Grup <span lang="en">build</span>\'i düzenle':'Yeni grup <span lang="en">build</span>'}</h2>
   <div class="fg" style="grid-template-columns:2fr 1fr"><label>Grup adı<input id="gT" maxlength="80" placeholder="Örn. 20 kişilik ZvZ comp" value="${esc(GF.title)}"></label><label>İçerik<select id="gC">${CONTENT.map(c=>`<option${GF.content===c?" selected":""}>${c}</option>`).join("")}</select></label></div>
-  <div class="dh" style="margin:18px 0 10px"><h2 style="margin:0">Kompozisyon · <span id="gN"></span></h2><button id="gAdd">+ Build ekle</button></div>
+  <div class="dh" style="margin:18px 0 10px"><h2 style="margin:0">Kompozisyon · <span id="gN"></span></h2><div class="acts"><button id="gNew">+ Yeni set oluştur</button><button class="l" id="gAdd">+ Kayıtlı build ekle</button></div></div>
   <div id="gRows"></div>
   <label class="lb" style="margin-top:14px">Açıklama, strateji notları<textarea id="gD" rows="4" maxlength="3000" style="text-transform:none;letter-spacing:0;font-weight:500;font-size:15px;color:var(--ink)">${esc(GF.descr)}</textarea></label>
   <div class="row"><button id="gS">${id?"Değişiklikleri kaydet":"Grup build'i kaydet"}</button><button class="l" id="gX">Vazgeç</button><span class="st" id="gSt"></span></div></section>`;
   $("gT").oninput=e=>GF.title=e.target.value;$("gC").onchange=e=>GF.content=e.target.value;$("gD").oninput=e=>GF.descr=e.target.value;
   $("gX").onclick=()=>{const b=GF.id;GF=null;location.hash=b?"#g="+b:"#groups"};
   $("gAdd").onclick=pickBuild;$("gS").onclick=gSave;
+  $("gNew").onclick=()=>{GF.slots.push({n:1,r:""});F=null;location.hash="#gslot="+(GF.slots.length-1)};
   drawG();
 }
 function drawG(){
   $("gN").textContent=GF.slots.reduce((a,s)=>a+(+s.n||0),0)+" kişi";
-  $("gRows").innerHTML=GF.slots.map((s,i)=>{const x=byId(s.b);
-    return `<div class="gr"><span class="ic">${x?iImg(iconId("w",x.gear.w),64):""}</span><div class="nm" style="flex:0 1 220px"><b>${x?esc(x.title):"Silinmiş build"}</b><span class="meta">${x&&x.role?esc(x.role):""}</span></div><input class="nt" data-i="${i}" maxlength="40" placeholder="Not (örn. Main tank, Kite)" value="${esc(s.r||"")}" aria-label="Not"><input type="number" min="1" max="50" data-n="${i}" value="${+s.n||1}" aria-label="Kişi sayısı"><button class="l" data-up="${i}" aria-label="Yukarı"${i?"":" disabled"}>↑</button><button class="bad" data-del="${i}" aria-label="Çıkar">✕</button></div>`}).join("")||'<div class="empty" style="padding:16px">Henüz build eklenmedi. <b>+ Build ekle</b> ile herkesin build\'lerinden seç.</div>';
+  $("gRows").innerHTML=GF.slots.map((s,i)=>{const x=slotX(s);
+    return `<div class="gr"><span class="ic">${x?iImg(iconId("w",x.gear.w),64):""}</span><div class="nm" style="flex:0 1 220px"><b>${x?esc(x.title):"Silinmiş build"}</b><span class="meta">${[x&&x.inline?"Gruba özel set":"",x&&x.role?esc(x.role):""].filter(Boolean).join(" · ")}</span></div>${x&&x.inline?`<button class="l" data-ed="${i}" aria-label="Seti düzenle">Düzenle</button>`:""}<input class="nt" data-i="${i}" maxlength="40" placeholder="Not (örn. Main tank, Kite)" value="${esc(s.r||"")}" aria-label="Not"><input type="number" min="1" max="50" data-n="${i}" value="${+s.n||1}" aria-label="Kişi sayısı"><button class="l" data-up="${i}" aria-label="Yukarı"${i?"":" disabled"}>↑</button><button class="bad" data-del="${i}" aria-label="Çıkar">✕</button></div>`}).join("")||'<div class="empty" style="padding:16px">Henüz set yok. <b>+ Yeni set oluştur</b> ile ekipmanı burada seç ya da <b>+ Kayıtlı build ekle</b> ile herkesin build\'lerinden seç.</div>';
+  $("gRows").querySelectorAll("[data-ed]").forEach(e=>e.onclick=()=>{F=null;location.hash="#gslot="+e.dataset.ed});
   $("gRows").querySelectorAll("[data-i]").forEach(e=>e.oninput=()=>GF.slots[+e.dataset.i].r=e.value);
   $("gRows").querySelectorAll("[data-n]").forEach(e=>e.oninput=()=>{GF.slots[+e.dataset.n].n=Math.max(1,Math.min(50,+e.value||1));$("gN").textContent=GF.slots.reduce((a,s)=>a+(+s.n||0),0)+" kişi"});
   $("gRows").querySelectorAll("[data-del]").forEach(e=>e.onclick=()=>{GF.slots.splice(+e.dataset.del,1);drawG()});
@@ -449,7 +490,7 @@ async function gSave(){
   if(!GF.title.trim()){st.textContent="Gruba bir ad ver.";$("gT").focus();return}
   if(!GF.slots.length){st.textContent="En az bir build ekle.";return}
   $("gS").disabled=true;st.textContent="Kaydediliyor...";
-  const row={title:GF.title.trim(),content:GF.content,descr:GF.descr.trim()||null,slots:GF.slots.map(s=>({b:s.b,n:+s.n||1,r:(s.r||"").trim()}))};
+  const row={title:GF.title.trim(),content:GF.content,descr:GF.descr.trim()||null,slots:GF.slots.filter(s=>s.b||s.g).map(s=>s.b?{b:s.b,n:+s.n||1,r:(s.r||"").trim()}:{g:s.g,t:s.t||"",ro:s.ro||"",n:+s.n||1,r:(s.r||"").trim()})};
   const {data,error}=await (GF.id?sb.from("group_builds").update(row).eq("id",GF.id).select().single():sb.from("group_builds").insert(row).select().single());
   $("gS").disabled=false;
   if(error){st.textContent="Kaydedilemedi: "+error.message;return}
@@ -460,11 +501,11 @@ async function gSave(){
 function route(){
   closeM();
   const h=location.hash||"#list",[k,v]=h.slice(1).split("=");
-  const navK={b:"#list",edit:"#mine",g:"#groups",gedit:"#mygroups"}[k]||"#"+k;
+  const navK={b:"#list",edit:"#mine",g:"#groups",gedit:"#mygroups",gslot:GF&&GF.id?"#mygroups":"#gnew"}[k]||"#"+k;
   document.querySelectorAll(".nav button").forEach(b=>b.classList.toggle("on",b.dataset.h===navK));
   if(!G||!loaded){$("view").innerHTML='<div class="empty">Yükleniyor...</div>';return}
   window.scrollTo(0,0);
-  ({list:()=>vList(false),mine:()=>vList(true),"new":()=>vEdit(null),edit:()=>vEdit(v),b:()=>vBuild(v),groups:()=>vGroups(false),mygroups:()=>vGroups(true),gnew:()=>vGEdit(null),gedit:()=>vGEdit(v),g:()=>vGroup(v)}[k]||(()=>vList(false)))();
+  ({list:()=>vList(false),mine:()=>vList(true),"new":()=>vEdit(null),edit:()=>vEdit(v),b:()=>vBuild(v),groups:()=>vGroups(false),mygroups:()=>vGroups(true),gnew:()=>vGEdit(null),gedit:()=>vGEdit(v),gslot:()=>vSlotEdit(v),g:()=>vGroup(v)}[k]||(()=>vList(false)))();
 }
 document.querySelectorAll(".nav button").forEach(b=>b.onclick=()=>{if(b.dataset.h==="#new")F=null;if(b.dataset.h==="#gnew")GF=null;location.hash=b.dataset.h});
 document.querySelectorAll("[data-go]").forEach(b=>b.onclick=()=>{location.href=b.dataset.go});
