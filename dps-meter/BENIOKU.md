@@ -16,6 +16,9 @@ Sonuçları panelin **DPS Meter** sekmesinde görürsün.
   açıksa onun etkisi ve ödenen silver da dahil).
 - Kayıtlar `kayitlar` klasöründe durur. Panel bunları `http://127.0.0.1:47700`
   adresinden okur; bu adres sadece senin bilgisayarından erişilebilir.
+- Destiny Board kayıt modu (geliştirme): oyunun board mesajları ham olarak
+  `destiny-kayit` klasörüne yazılır. Bu dosyalar board'u otomatik okumayı çözmek için
+  kullanılır; sadece senin bilgisayarında durur, bir yere gönderilmez.
 
 ## Kurulum (bir kere)
 

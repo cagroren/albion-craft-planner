@@ -59,6 +59,14 @@ EV = {
 }
 OP = {"Join": 2, "ClaimPaymentTransaction": 297}
 
+# Destiny Board kayıt modu (1. aşama): oyunun board mesajları henüz çözülmedi; ham hâlleri dosyaya yazılır.
+# Oyun board düğümlerine içeride "achievement" der. Adı bu desene uyan olay/işlemler kaydedilir.
+DESTINY_NAME = re.compile(r"Achievement|LearningPoints|ReSpec")
+DESTINY_EV = {83: "UpdateLearningPoints", 84: "UpdateReSpecPoints", 150: "FullAchievementInfo", 151: "FinishedAchievement",
+              152: "AchievementProgressInfo", 153: "FullAchievementProgressInfo", 154: "FullTrackedAchievementInfo",
+              155: "FullAutoLearnAchievementInfo"}
+DESTINY_OP = {147: "ReSpecAchievement", 311: "TrackAchievements", 312: "SetAchievementsAutoLearn"}
+
 CODES_URL = "https://raw.githubusercontent.com/Triky313/AlbionOnline-StatisticsAnalysis/main/src/StatisticsAnalysisTool/Network/{}.cs"
 ITEMS_URL = "https://raw.githubusercontent.com/ao-data/ao-bin-dumps/master/formatted/items.txt"
 SPELLS_URL = "https://raw.githubusercontent.com/ao-data/ao-bin-dumps/master/spells.xml"
@@ -67,6 +75,61 @@ MAX_SPELLS_PER_PLAYER = 30
 
 def log(*a):
     print(time.strftime("[%H:%M:%S]"), *a, flush=True)
+
+
+def jsonable(v, depth=0):
+    """Photon değerlerini JSON'a çevirir (bytes -> hex, iç içe listeler/sözlükler korunur)."""
+    if depth > 12:
+        return repr(v)
+    if v is None or isinstance(v, (bool, int, float, str)):
+        return v
+    if isinstance(v, (bytes, bytearray)):
+        return {"hex": bytes(v[:20000]).hex(), "len": len(v)}
+    if isinstance(v, dict):
+        return {str(k): jsonable(x, depth + 1) for k, x in v.items()}
+    if isinstance(v, (list, tuple)):
+        return [jsonable(x, depth + 1) for x in v]
+    try:
+        return [jsonable(x, depth + 1) for x in list(v)]
+    except Exception:
+        return repr(v)
+
+
+class DestinyRecorder:
+    """Board mesajlarını destiny-kayit/<başlangıç>.jsonl dosyasına satır satır yazar (dosya başına en çok 40 MB)."""
+    MAX_BYTES = 40 * 1024 * 1024
+
+    def __init__(self):
+        self.dir = os.path.join(HERE, "destiny-kayit")
+        self.path = os.path.join(self.dir, time.strftime("%Y%m%d-%H%M%S") + ".jsonl")
+        self.size = 0
+        self.counts = {}
+        self.lock = threading.Lock()
+
+    def write(self, kind, code, name, p):
+        with self.lock:
+            if self.size > self.MAX_BYTES:
+                return
+            try:
+                os.makedirs(self.dir, exist_ok=True)
+                line = json.dumps({"t": round(time.time(), 3), "kind": kind, "code": code, "name": name,
+                                   "p": jsonable(p)}, ensure_ascii=False) + "\n"
+                with open(self.path, "a", encoding="utf-8") as fh:
+                    fh.write(line)
+                self.size += len(line.encode("utf-8"))
+                first = name not in self.counts
+                self.counts[name] = self.counts.get(name, 0) + 1
+                if first:
+                    log(f"Destiny Board verisi kaydedildi: {name} ({os.path.basename(self.path)})")
+            except Exception as e:
+                log("Destiny kaydı yazılamadı:", e)
+
+    def status(self):
+        return {"file": os.path.basename(self.path) if self.counts else None, "counts": dict(self.counts),
+                "bytes": self.size}
+
+
+DESTINY = DestinyRecorder()
 
 
 def parse_enum(text):
@@ -115,10 +178,18 @@ def update_codes():
             e = parse_enum(et)
             if all(k in e for k in EV):
                 EV.update({k: e[k] for k in EV})
+            d = {v: k for k, v in e.items() if DESTINY_NAME.search(k)}
+            if d:
+                DESTINY_EV.clear()
+                DESTINY_EV.update(d)
         if ot:
             o = parse_enum(ot)
             if all(k in o for k in OP):
                 OP.update({k: o[k] for k in OP})
+            d = {v: k for k, v in o.items() if DESTINY_NAME.search(k)}
+            if d:
+                DESTINY_OP.clear()
+                DESTINY_OP.update(d)
         log("Olay kodları hazır:", ", ".join(f"{k}={v}" for k, v in EV.items()))
     except Exception as e:
         log("Kod listesi okunamadı, yerleşik değerler kullanılıyor:", e)
@@ -687,6 +758,8 @@ class Tracker:
         if code is None:
             return
         self.events += 1
+        if code in DESTINY_EV:
+            DESTINY.write("event", code, DESTINY_EV[code], p)
         with self.lock:
             if code == EV["HealthUpdate"]:
                 self.health(to_int(p.get(0)), p.get(2), p.get(3), to_int(p.get(6)), 3 in p, p.get(7))
@@ -788,10 +861,17 @@ class Tracker:
     def on_request(self, _code, p):
         # Auto-respec durumu eskiden buradan tahmin ediliyordu ama yanlış "açık" gösteriyordu;
         # artık sadece UpdateReSpecPoints olayından (silver kesildi mi) belirleniyor.
-        return
+        code = to_int(p.get(253))
+        if code in DESTINY_OP:
+            DESTINY.write("request", code, DESTINY_OP[code], p)
 
     def on_response(self, _code, p):
         code = to_int(p.get(253))
+        if code in DESTINY_OP:
+            DESTINY.write("response", code, DESTINY_OP[code], p)
+        elif code == OP["Join"]:
+            # Giriş cevabı karakterin genel bilgilerini taşır; board'la ilgili alan var mı diye o da kaydedilir
+            DESTINY.write("response", code, "Join", p)
         if code == OP["Join"]:
             with self.lock:
                 oid = to_int(p.get(0))
@@ -984,7 +1064,7 @@ class Tracker:
     def status(self):
         with self.lock:
             return {
-                "ok": True, "version": 4, "paused": self.paused,
+                "ok": True, "version": 5, "paused": self.paused, "destiny": DESTINY.status(),
                 "capturing": time.time() - self.last_packet < 10 if self.last_packet else False,
                 "packets": self.packets, "events": self.events,
                 "character": self.local_name,
