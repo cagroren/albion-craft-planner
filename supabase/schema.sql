@@ -210,3 +210,19 @@ drop policy if exists "destiny güncelleme" on public.destiny_boards;
 create policy "destiny güncelleme" on public.destiny_boards for update using (owner = auth.uid()) with check (owner = auth.uid());
 drop policy if exists "destiny silme" on public.destiny_boards;
 create policy "destiny silme" on public.destiny_boards for delete using (owner = auth.uid());
+
+-- DESTINY PLAN (yeni eklendi): Destiny Board sekmesindeki plan (hedef seviyeler), hesap başına tek satır.
+create table if not exists public.destiny_plans (
+  owner uuid primary key default auth.uid() references auth.users on delete cascade,
+  data jsonb not null default '{}'::jsonb check (pg_column_size(data) < 30000),
+  updated_at timestamptz not null default now()
+);
+alter table public.destiny_plans enable row level security;
+drop policy if exists "plan okuma" on public.destiny_plans;
+create policy "plan okuma" on public.destiny_plans for select using (owner = auth.uid());
+drop policy if exists "plan ekleme" on public.destiny_plans;
+create policy "plan ekleme" on public.destiny_plans for insert with check (owner = auth.uid());
+drop policy if exists "plan güncelleme" on public.destiny_plans;
+create policy "plan güncelleme" on public.destiny_plans for update using (owner = auth.uid()) with check (owner = auth.uid());
+drop policy if exists "plan silme" on public.destiny_plans;
+create policy "plan silme" on public.destiny_plans for delete using (owner = auth.uid());
