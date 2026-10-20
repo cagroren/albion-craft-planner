@@ -100,6 +100,8 @@ button.tbig{padding:11px 20px;font-size:15px}
 #toolsApp .rrt small{overflow-wrap:anywhere}
 #toolsApp .pmi{flex-wrap:wrap}
 .tdet{margin-top:14px}
+.skg2{margin-top:14px}
+.skg2>b{font-size:13px;letter-spacing:.06em;text-transform:uppercase;color:var(--mut)}
 .tl{display:flex;justify-content:space-between;gap:10px;font-size:13px;padding:3px 0;color:var(--mut)}
 .tl b{font-size:14px!important;color:var(--ink)!important;font-weight:700;display:inline!important;margin:0!important;white-space:nowrap}
 .tl small{font-size:11px}
@@ -1518,6 +1520,8 @@ app.innerHTML=`<section>
 <div class="rrb" id="tRR"></div>
 </section><div id="tBody"><section><div class="st" id="tLoad">Oyun verisi yükleniyor (dosya büyük, ilk açılışta biraz sürebilir)...</div></section></div>`;
 if(MODE==="ench")["tFee","tFoc"].forEach(i=>$(i).closest("label").style.display="none");
+// Farming kendi alış/satış/ada şehrini kullanır ve focus'lu/focus'suz kârı birlikte gösterir
+if(MODE==="farm")["tCity","tFee","tFoc"].forEach(i=>$(i).closest("label").style.display="none");
 $("tSrv").value=ST.srv||"europe";$("tCity").value=ST.city||(MODE==="ref"?"Thetford":"Martlock");$("tFee").value=ST.fee||400;$("tPrem").checked=ST.prem!==false;$("tFoc").checked=!!ST.foc;
 const saveSt=()=>{ST.srv=$("tSrv").value;ST.city=$("tCity").value;ST.fee=$("tFee").value;ST.prem=$("tPrem").checked;ST.foc=$("tFoc").checked;LS.set("aotools1",ST)};
 
@@ -1526,7 +1530,7 @@ const price=id=>id in MAN?MAN[id]:(PX[id]||0);
 const tax=()=>($("tPrem").checked?4:8)+2.5;
 const nmx=id=>{const n=nm0(id);return n?tierStrip(n):id};
 const QN=["","Normal","Good","Outstanding","Excellent","Masterpiece"];
-const bId=id=>String(id).split("|Q")[0];
+const bId=id=>String(id).split("|Q")[0].replace(/^[bs]:/,"");
 const lbl=k=>{const id=bId(k),q=String(k).split("|Q")[1],m=id.match(/^T(\d)_/),e=id.match(/@(\d)$/);return nmx(id)+(m?" T"+m[1]:"")+(e?"."+e[1]:"")+(q?" · "+QN[q]:"")};
 const timg=k=>img(bId(k));
 const manInput=id=>`<input type="number" min="0" data-m="${esc(id)}" value="${id in MAN?MAN[id]:""}" placeholder="${PX[id]?fmt(PX[id]):"fiyat yaz"}" aria-label="${esc(lbl(id))} fiyatı" style="width:110px">`;
@@ -1557,10 +1561,16 @@ async function build(){
     if(cs.length>=3)up.push({id,t:+id[1],c:cs.slice(0,3),label:tierStrip(nm0(id))+" (T"+id[1]+")",full:nm0(id)});
   }));
   const crops=[],animals=[];
+  // Tarla/ot: sc = sulamasız tohum dönüşü, fb = sulayınca eklenen (toplam %100'ü geçebilir), npc = Merchant fiyatı, key = spec anahtarı
+  // Hayvan: oc = yavru şansı, fb × cyc = besleme (focus) bonusu, food = büyüme boyunca toplam besin, fav = sevdiği yem
   arr(j.items.farmableitem).forEach(it=>{
-    const id=it["@uniquename"];
-    if(it["@kind"]==="plant"&&it.harvest){const h=it.harvest;crops.push({seed:id,crop:String(h["@lootlist"]).replace(/_LOOT$/,""),avg:4.5,sc:+(h.seed&&h.seed["@chance"])||0,fb:+it["@activefarmbonus"]||0,t:+it["@tier"]})}
-    if(it["@kind"]==="animal"&&it.grownitem&&/_BABY$/.test(id)&&!/EASTER|HELL/.test(id)){const g=it.grownitem,f=(it.consumption&&it.consumption.food)||{},af=f.acceptedfood||{};animals.push({baby:id,grown:g["@uniquename"],grow:+g["@growtime"],oc:+(g.offspring&&g.offspring["@chance"])||0,fb:+it["@activefarmbonus"]||0,t:+it["@tier"],nmax:+f["@nutritionmax"]||0,fav:af["@favorite"]||""})}
+    const id=it["@uniquename"],npc=+((it.craftingrequirements||{})["@silver"])||0,fb=+it["@activefarmbonus"]||0,t=+it["@tier"];
+    if(it["@kind"]==="plant"&&it.harvest){const h=it.harvest;crops.push({seed:id,crop:String(h["@lootlist"]).replace(/_LOOT$/,""),herb:it["@shopsubcategory1"]==="herbgarden",key:it["@shopsubcategory3"]||"",sc:+(h.seed&&h.seed["@chance"])||0,fb,npc,t})}
+    if(it["@kind"]==="animal"&&it.grownitem&&/_BABY$/.test(id)&&!/EASTER/.test(id)){
+      const g=it.grownitem,f=(it.consumption&&it.consumption.food)||{},af=arr(f.acceptedfood)[0]||{},grow=+g["@growtime"],spn=+f["@secondspernutrition"]||0;
+      const k=(id.match(/_FARM_(CHICKEN|GOAT|GOOSE|SHEEP|PIG|COW|HORSE|OX)_BABY$/)||[,"RARE"])[1].toLowerCase();
+      animals.push({baby:id,grown:g["@uniquename"],grow,oc:+(g.offspring&&g.offspring["@chance"])||0,fb,cyc:+it["@activefarmmaxcycles"]||1,npc,t,key:k,food:spn?grow/spn:0,meat:af["@foodcategory"]==="meat",fav:af["@favorite"]||"",favB:+af["@favoritebonus"]||0});
+    }
   });
   crops.sort((a,b)=>a.t-b.t||a.seed.localeCompare(b.seed));animals.sort((a,b)=>a.t-b.t||a.baby.localeCompare(b.baby));
   up.sort((a,b)=>a.label.localeCompare(b.label));
@@ -1572,6 +1582,7 @@ function rrParts(){const bon=MODE==="ref"&&$("tCity").value===RBON[$("rRes").val
 function rrr(){const {bon,daily}=rrParts();return 1-1/(1+(18+(bon?40:0)+($("tFoc").checked?59:0)+daily)/100)}
 function renderRR(){
   const T=tax();
+  if(MODE==="farm"){const pr=$("tPrem").checked;$("tRR").innerHTML=`<div class="rrt"><span>Satış kesintisi</span><b>%${fTax().toFixed(1)}</b><small>${FS.sm==="order"?"sell order":"buy order'a satış"}</small></div><div class="rrt ${pr?"ok":"off"}"><span>Premium</span><b>${pr?"açık":"kapalı"}</b><small>hasat ve Earthworm ×2, büyüme ×½</small></div><div class="rrt ok"><span>Ada bonusu</span><b>+%10</b><small>${esc(FS.isle)} adasında yeşil işaretli olanlar</small></div><div class="rrt ${FS.npc?"ok":"off"}"><span>Tohum / yavru</span><b>${FS.npc?"Merchant":"Pazar"}</b><small>${esc(FS.npc?"sabit fiyat":FS.buy+" pazarı")}</small></div>`;return}
   if(MODE!=="ref"){$("tRR").innerHTML=`<div class="rrt"><span>Satış kesintisi</span><b>%${T.toFixed(1)}</b><small>vergi + %2,5 kurulum</small></div><div class="rrt ${$("tPrem").checked?"ok":"off"}"><span>Premium</span><b>${$("tPrem").checked?"açık":"kapalı"}</b><small>${MODE==="farm"?"hasat ×2, büyüme ×½":"vergi %4"}</small></div>`+(MODE==="farm"?`<div class="rrt ${$("tFoc").checked?"ok":"off"}"><span>Focus</span><b>${$("tFoc").checked?"açık":"kapalı"}</b><small>tohum/yavru geri dönüşü artar</small></div>`:"");return}
   const {bon,daily}=rrParts(),res=$("rRes").value;
   $("tRR").innerHTML=`<div class="rrt big"><span>Kaynak geri dönüşü</span><b>%${(rrr()*100).toFixed(1)}</b><small>${esc($("tCity").value)}</small></div><div class="rrt"><span>Satış kesintisi</span><b>%${T.toFixed(1)}</b><small>sell order</small></div><div class="rrt ${bon?"ok":"off"}"><span>Şehir bonusu</span><b>${bon?"+%40":"yok"}</b><small>${RNAME[res]} refine bonusu ${RBON[res]}'da</small></div><div class="rrt ${$("tFoc").checked?"ok":"off"}"><span>Focus</span><b>${$("tFoc").checked?"+%59":"kapalı"}</b><small>${$("tFoc").checked?"açık":"açınca geri dönüş artar"}</small></div><div class="rrt ${daily?"ok":"off"}"><span>Günlük bonus</span><b>${daily?"+%10":"kapalı"}</b><small></small></div>`;
@@ -1703,31 +1714,115 @@ function renderRef(){
 }
 
 // ---------- FARMING
-let ftool=ST.ftool||"crop";
+// Kaynaklar: oyun verisi (items.xml, loot.xml) ve Albion wiki "Island Farms".
+// Hasat: tohum başına 3-6 ürün (ort. 4,5; Premium ×2), %10 ihtimalle 1 Earthworm (Premium ×2). Ada şehri bonusu hasadı ×1,1 yapar.
+// Sulama/besleme focus'u = 1000 / 2^(FCE/10000), FCE = 100 × mastery + 200 × o ürünün/hayvanın spec'i (spec 100 + mastery 100 → 125 focus).
+const FWORM="T1_WORM",FPLOT=9;
+const FBON={carrot:["Lymhurst"],bean:["Bridgewatch"],wheat:["Martlock"],turnip:["Fort Sterling"],cabbage:["Thetford"],potato:["Martlock"],corn:["Bridgewatch"],pumpkin:["Lymhurst"],
+  agaric:["Thetford"],comfrey:["Caerleon"],burdock:["Lymhurst"],teasel:["Bridgewatch","Caerleon"],foxglove:["Martlock"],mullein:["Caerleon","Thetford"],yarrow:["Fort Sterling"],
+  chicken:["Fort Sterling"],goat:["Bridgewatch"],goose:["Lymhurst"],sheep:["Fort Sterling"],pig:["Thetford"],cow:["Martlock"]};
+const FGRP={crop:"Crop Farmer",herb:"Herbalist",anim:"Animal Breeder"};
+const ANAME={chicken:"Chicken",goat:"Goat",goose:"Goose",sheep:"Sheep",pig:"Pig",cow:"Cow",horse:"Horse",ox:"Ox",rare:"Rare Animal"};
+const MEATS=["T3_MEAT","T4_MEAT","T5_MEAT","T6_MEAT","T7_MEAT","T8_MEAT"];
+const FS=Object.assign({buy:"Brecilien",sell:"Brecilien",isle:"Brecilien",npc:true,plots:16,pm:"last",sm:"order",sort:"p1"},ST.farm||{});
+const FSP=ST.fsp||{};
+const VOL={};
+let ftool=ST.ftool||"crop",fFetched=false;
+const saveF=()=>{ST.farm=FS;ST.fsp=FSP;LS.set("aotools1",ST)};
+const fsp=k=>Math.min(100,Math.max(0,+FSP[k]||0));
+const fGroup=x=>x.herb?"herb":x.cyc?"anim":"crop";
+const fFocus=x=>{const g=fGroup(x);return 1000/Math.pow(2,(100*fsp(g+":m")+200*fsp(g+":"+x.key))/1e4)};
+const fBon=x=>(FBON[x.key]||[]).includes(FS.isle)||(FS.isle==="Brecilien"&&!x.herb&&!x.cyc);
+const fTax=()=>($("tPrem").checked?4:8)+(FS.sm==="order"?2.5:0);
+const sellP=id=>price("s:"+id)*(1-fTax()/100);
+const volTag=k=>VOL[k]!=null?`<br><small class="st" title="Son 24 saatte satılan">${fmt(VOL[k])}/24s</small>`:"";
+const buyCell=(id,npc)=>FS.npc&&npc?`<span title="Farming Merchant fiyatı (altın fiyatına göre oyunda biraz değişebilir)">${fmt(npc)}</span><br><small class="st">Merchant</small>`:manInput("b:"+id)+volTag("b:"+id);
+
 function uiFarm(){
-  $("tBody").innerHTML=`<section><div class="tabs" style="margin-bottom:14px"><button data-ft="crop">Tarla (tohum)</button><button data-ft="anim">Hayvan büyütme</button></div>${fetchBar()}
-  <div data-fp="crop"><div class="g"><label>Tohum sayısı (1 tarla = 9)<input type="number" id="fN" value="9" min="1"></label></div>
-  <p class="s" style="margin:10px 0">Premium hasadı ikiye katlar (tohum başına ortalama 4,5 yerine 9 ürün). Focus ile sulamak tohum geri dönüş şansını artırır; geri dönen tohum maliyetten düşülür.</p>
-  <div class="t"><table><thead><tr><th>Tohum</th><th>Tohum fiyatı</th><th>Ürün fiyatı</th><th>Hasat</th><th>Tohum geri dönüşü</th><th>Kâr</th><th>Kâr / tohum</th></tr></thead><tbody id="cRows"></tbody></table></div></div>
-  <div data-fp="anim"><p class="s" style="margin:0 0 10px">Yavru al, besle, büyüyünce sat. Yem miktarı oyundaki besin değerinden; sevdiği yemle yarıya iner. Premium büyüme süresini yarıya indirir. Yavru geri dönüşü: büyüyünce bir yavru daha verme şansı.</p>
-  <div class="t"><table><thead><tr><th>Hayvan</th><th>Yavru fiyatı</th><th>Büyük fiyatı</th><th>Yem</th><th>Süre</th><th>Yavru geri dönüşü</th><th>Kâr</th><th>Kâr / gün</th></tr></thead><tbody id="aRows"></tbody></table></div></div></section>`;
-  const setF=()=>{document.querySelectorAll("[data-ft]").forEach(x=>x.classList.toggle("on",x.dataset.ft===ftool));document.querySelectorAll("[data-fp]").forEach(p=>p.hidden=p.dataset.fp!==ftool)};
-  document.querySelectorAll("[data-ft]").forEach(b=>b.onclick=()=>{ftool=b.dataset.ft;ST.ftool=ftool;LS.set("aotools1",ST);setF()});setF();
-  $("fN").addEventListener("input",render);
+  const cOpt=v=>CITIES.map(c=>`<option${c===v?" selected":""}>${c}</option>`).join("");
+  const spg=g=>{const L=g==="anim"?Object.keys(ANAME).map(k=>[k,ANAME[k]+" Breeder",(D.animals.find(a=>a.key===k)||{}).grown]):D.crops.filter(c=>(g==="herb")===c.herb).map(c=>[c.key,nmx(c.crop),c.crop]);
+    return `<div class="skg2"><b>${FGRP[g]}</b><div class="tps">${[[`${g}:m`,FGRP[g]+" (mastery)",""]].concat(L.map(([k,n,i])=>[`${g}:${k}`,n,i])).map(([k,n,i])=>`<label>${i?img(i):""}<span>${esc(n)}</span><input type="number" min="0" max="100" data-fsp="${k}" value="${fsp(k)||""}" placeholder="0" style="width:64px"></label>`).join("")}</div></div>`};
+  $("tBody").innerHTML=`<section><h2>Ada ayarları</h2><div class="g">
+  <label>Tohum / yavru / yem alış şehri<select id="fBuy">${cOpt(FS.buy)}</select></label>
+  <label>Ürün satış şehri<select id="fSell">${cOpt(FS.sell)}</select></label>
+  <label>Adanın şehri (yerel üretim bonusu)<select id="fIsle">${cOpt(FS.isle)}</select></label>
+  <label>Tarla / bahçe / ahır sayısı (her biri 9)<input type="number" id="fPlots" min="1" max="200" value="${FS.plots}"></label>
+  <label>Fiyat<select id="fPm"><option value="last"${FS.pm==="last"?" selected":""}>Son fiyat</option><option value="avg"${FS.pm==="avg"?" selected":""}>Son 24 saat ortalaması</option></select></label>
+  <label>Satış<select id="fSm"><option value="order"${FS.sm==="order"?" selected":""}>Sell order (vergi + %2,5)</option><option value="inst"${FS.sm==="inst"?" selected":""}>Hemen sat, buy order'a (sadece vergi)</option></select></label>
+  <label>Sıralama<select id="fSort"><option value="p1">Kâr (focus'lu)</option><option value="p0">Kâr (focus'suz)</option><option value="spf">Focus başına silver</option><option value="vol">Satış hacmi (24s)</option><option value="t">Tier</option></select></label>
+  <label class="c tgc"><input type="checkbox" id="fNpc"${FS.npc?" checked":""}> Tohum ve yavruyu Farming Merchant'tan al</label>
+  </div>
+  <details class="tdet"${Object.keys(FSP).length?"":" open"}><summary>Spec'ler (Destiny Board): sulama ve besleme focus'unu düşürür</summary><p class="st" style="margin:8px 0">Focus = 1000 / 2^((100 × mastery + 200 × ürün spec'i) / 10000). Mastery 100 ve spec 100'de 125 focus.</p>${spg("crop")}${spg("herb")}${spg("anim")}</details></section>
+  <section><div class="tabs" style="margin-bottom:14px"><button data-ft="crop">Tarla</button><button data-ft="herb">Ot bahçesi</button><button data-ft="anim">Hayvan</button></div>${fetchBar()}
+  <div id="fSum" class="st" style="margin:0 0 10px"></div>
+  <div data-fp="plant"><div class="t"><table><thead><tr><th>Tohum → ürün</th><th>Tohum</th><th>Ürün</th><th>Tohum dönüşü<br><small>sulamasız → sulanmış</small></th><th class="n">Kâr<br><small>focus'suz</small></th><th class="n">Kâr<br><small>focus'lu</small></th><th class="n">Focus</th><th class="n">Silver<br><small>/ focus</small></th></tr></thead><tbody id="cRows"></tbody></table></div></div>
+  <div data-fp="anim"><div class="t"><table><thead><tr><th>Hayvan</th><th>Yavru</th><th>Büyümüş</th><th>Yem</th><th>Süre</th><th>Yavru dönüşü<br><small>beslemesiz → beslenmiş</small></th><th class="n">Kâr<br><small>focus'suz</small></th><th class="n">Kâr<br><small>focus'lu</small></th><th class="n">Focus</th><th class="n">Silver<br><small>/ focus</small></th><th class="n">Kâr / gün</th></tr></thead><tbody id="aRows"></tbody></table></div></div>
+  <p class="st" style="margin:12px 0 0">Kâr, ${FPLOT} tohumluk / ${FPLOT} hayvanlık her yer için toplamdır. Geri dönen tohum ve yavru alış fiyatıyla değerlenir (satılmaz, tekrar ekilir). Sulanmış dönüş %100'ü geçerse fazlası kâra eklenir.</p></section>`;
+  $("fSort").value=FS.sort;
+  const setF=()=>{document.querySelectorAll("[data-ft]").forEach(x=>x.classList.toggle("on",x.dataset.ft===ftool));document.querySelectorAll("[data-fp]").forEach(p=>p.hidden=(p.dataset.fp==="anim")!==(ftool==="anim"))};
+  document.querySelectorAll("[data-ft]").forEach(b=>b.onclick=()=>{ftool=b.dataset.ft;ST.ftool=ftool;saveF();setF();render()});setF();
+  const set=(id,k,f,refetch)=>$(id).addEventListener(f||"change",()=>{const e=$(id);FS[k]=e.type==="checkbox"?e.checked:e.type==="number"?Math.max(1,+e.value||1):e.value;saveF();if(refetch)farmFetch();else render()});
+  set("fBuy","buy",0,1);set("fSell","sell",0,1);set("fIsle","isle");set("fPlots","plots","input");set("fPm","pm",0,1);set("fSm","sm",0,1);set("fSort","sort");set("fNpc","npc");
+  document.querySelectorAll("[data-fsp]").forEach(e=>e.oninput=()=>{const v=e.value===""?0:Math.min(100,Math.max(0,+e.value||0));if(v)FSP[e.dataset.fsp]=v;else delete FSP[e.dataset.fsp];saveF();render()});
+  farmFetch();
 }
+
+function fCrop(c){
+  const mul=$("tPrem").checked?2:1,bon=fBon(c),y=4.5*mul*(bon?1.1:1),w=0.1*mul;
+  const seed=FS.npc&&c.npc?c.npc:price("b:"+c.seed),inc=y*sellP(c.crop)+w*sellP(FWORM),f=fFocus(c);
+  const p0=inc-seed*(1-c.sc),p1=inc-seed*(1-(c.sc+c.fb));
+  return {bon,y,seed,p0,p1,f,spf:(p1-p0)/f,vol:VOL["s:"+c.crop]||0,ok:seed>0&&price("s:"+c.crop)>0};
+}
+function fAnim(a){
+  const prem=$("tPrem").checked,days=a.grow/86400/(prem?2:1);
+  const cands=a.fav?[a.fav]:a.meat?MEATS:D.crops.map(c=>c.crop);
+  const food=cands.filter(i=>price("b:"+i)>0).sort((x,y)=>price("b:"+x)-price("b:"+y))[0]||cands[0];
+  const units=a.food/48/(a.fav?1+a.favB:1),fc=units*price("b:"+food);
+  const baby=FS.npc&&a.npc?a.npc:price("b:"+a.baby),gv=sellP(a.grown),ocW=a.oc+a.fb*a.cyc,f=a.cyc*fFocus(a);
+  const p0=gv-baby*(1-a.oc)-fc,p1=gv-baby*(1-ocW)-fc;
+  return {days,food,units,fc,baby,ocW,p0,p1,f,spf:(p1-p0)/f,vol:VOL["s:"+a.grown]||0,ok:baby>0&&price("s:"+a.grown)>0,fok:!!price("b:"+food),bon:fBon(a)};
+}
+const fSorter=(a,b)=>{const k=FS.sort;if(k==="t")return a.x.t-b.x.t;const v=r=>r.c.ok?r.c[k]:-1e15;return v(b)-v(a)};
+const pc0=v=>"%"+Math.round(v*100);
 function renderFarm(){
-  const prem=$("tPrem").checked,foc=$("tFoc").checked,n=+$("fN").value||1,T=tax();
-  $("cRows").innerHTML=D.crops.map(c=>{
-    const y=c.avg*(prem?2:1),back=Math.min(1,c.sc+(foc?c.fb:0)),sp=price(c.seed),cp=price(c.crop),ok=sp>0&&cp>0,pr=y*cp*(1-T/100)-sp*(1-back);
-    return `<tr><td>${img(c.seed)}${esc(nmx(c.seed))}<br><small style="color:var(--mut)">T${c.t} → ${esc(nmx(c.crop))}</small></td><td>${manInput(c.seed)}</td><td>${manInput(c.crop)}</td><td>${(y*n).toFixed(0)} adet</td><td>%${(back*100).toFixed(0)}</td><td class="${ok?(pr>0?"pos":"neg"):""}">${ok?"<b>"+fmt(pr*n)+"</b>":'<span class="st">fiyat gir</span>'}</td><td>${ok?fmt(pr):"-"}</td></tr>`;
-  }).join("");
-  $("aRows").innerHTML=D.animals.map(a=>{
-    const food=a.fav||D.crops.filter(c=>c.t<=a.t).map(c=>c.crop).sort((x,y)=>(price(x)||1e12)-(price(y)||1e12))[0]||"";
-    const units=a.nmax/48*(a.fav?0.5:1),days=a.grow/86400/(prem?2:1),back=Math.min(1,a.oc+(foc?a.fb:0));
-    const bp=price(a.baby),gp=price(a.grown),fp=price(food),ok=bp>0&&gp>0,pr=gp*(1-T/100)-bp+back*bp-units*fp;
-    return `<tr><td>${img(a.grown)}${esc(nmx(a.grown))}<br><small style="color:var(--mut)">T${a.t}</small></td><td>${manInput(a.baby)}</td><td>${manInput(a.grown)}</td><td><small>${units.toFixed(0)}× ${esc(lbl(food))}${a.fav?" (sevdiği)":""}${fp?"<br>"+fmt(units*fp)+" silver":""}</small></td><td>${days.toFixed(1)} gün</td><td>%${(back*100).toFixed(0)}</td><td class="${ok?(pr>0?"pos":"neg"):""}">${ok?"<b>"+fmt(pr)+"</b>":'<span class="st">fiyat gir</span>'}</td><td>${ok?fmt(pr/days):"-"}</td></tr>`;
-  }).join("");
-  bindMan($("cRows"));bindMan($("aRows"));
+  const n=FPLOT,cls=v=>v>0?"pos":"neg",money=(c,v)=>c.ok?`<b class="${cls(v)}">${fmt(v*n)}</b>`:'<span class="st">fiyat gir</span>';
+  const bonTag=x=>fBon(x)?` <span class="bd bd-g" title="${esc(FS.isle)} adasında +%10 yerel üretim bonusu">+%10</span>`:"";
+  const P=D.crops.filter(c=>c.herb===(ftool==="herb")).map(x=>({x,c:fCrop(x)})).sort(fSorter);
+  $("cRows").innerHTML=P.map(({x,c})=>`<tr><td>${img(x.crop)}${esc(nmx(x.crop))}${bonTag(x)}<br><small class="st">T${x.t} · ${esc(nmx(x.seed))}</small></td><td>${buyCell(x.seed,x.npc)}</td><td>${manInput("s:"+x.crop)}${volTag("s:"+x.crop)}</td><td>${pc0(x.sc)} → <b>${pc0(x.sc+x.fb)}</b></td><td class="n">${money(c,c.p0)}</td><td class="n">${money(c,c.p1)}</td><td class="n">${fmt(c.f*n)}<br><small class="st">${fmt(c.f)}/tohum</small></td><td class="n">${c.ok?`<span class="${cls(c.spf)}">${c.spf.toFixed(1).replace(".",",")}</span>`:"-"}</td></tr>`).join("");
+  const A=D.animals.map(x=>({x,c:fAnim(x)})).sort(fSorter);
+  $("aRows").innerHTML=A.map(({x,c})=>`<tr><td>${img(x.grown)}${esc(nm0(x.grown)||nmx(x.grown))}${bonTag(x)}<br><small class="st">T${x.t} · ${esc(nm0(x.baby)||ANAME[x.key])}</small></td><td>${buyCell(x.baby,x.npc)}</td><td>${manInput("s:"+x.grown)}${volTag("s:"+x.grown)}</td><td><small>${c.units.toFixed(0)} × ${esc(lbl(c.food))}${x.fav?" (sevdiği)":""}<br>${c.fok?fmt(c.fc)+" silver":'<span class="st">yem fiyatı yok</span>'}</small></td><td>${c.days.toFixed(1).replace(".",",")} gün</td><td>${pc0(x.oc)} → <b>${pc0(c.ocW)}</b>${x.cyc>1?`<br><small class="st">${x.cyc} besleme</small>`:""}</td><td class="n">${money(c,c.p0)}</td><td class="n">${money(c,c.p1)}</td><td class="n">${fmt(c.f*n)}<br><small class="st">${fmt(c.f)}/hayvan</small></td><td class="n">${c.ok?`<span class="${cls(c.spf)}">${c.spf.toFixed(1).replace(".",",")}</span>`:"-"}</td><td class="n">${c.ok?fmt(c.p1*n/c.days):"-"}</td></tr>`).join("");
+  const plots=FS.plots,isA=ftool==="anim",best=(isA?A:P).filter(r=>r.c.ok)[0];
+  $("fSum").innerHTML=`${plots} yer × ${FPLOT} = <b>${fmt(plots*FPLOT)}</b> ${isA?"hayvan":"tohum"} · ${isA?"büyüme süresi hayvana göre":"22 saatte bir hasat"} · Earthworm ${manInput("s:"+FWORM)}`+(best?` · En iyisi <b>${esc(isA?nm0(best.x.grown)||nmx(best.x.grown):nmx(best.x.crop))}</b>: <b class="${cls(best.c.p1)}">${fmt(best.c.p1*FPLOT*plots)}</b> silver (focus'lu, ${fmt(best.c.f*FPLOT*plots)} focus)`:"");
+  bindMan($("cRows"));bindMan($("aRows"));bindMan($("fSum"));
+}
+
+// Alış şehrinden tohum/yavru/yem, satış şehrinden ürün/hayvan/Earthworm fiyatı; son 24 saatin hacmi ve ortalaması
+// Aynı anda tek çekme; arada ayar değişirse bitince bir kez daha çekilir
+let fBusy=false,fAgain=false;
+async function farmFetch(){
+  if(fBusy){fAgain=true;return}
+  fBusy=true;try{await farmFetchOnce()}finally{fBusy=false}
+  if(fAgain){fAgain=false;farmFetch()}
+}
+async function farmFetchOnce(){
+  const srv=$("tSrv").value,base=`https://${srv}.albion-online-data.com/api/v2/stats/`;
+  const buy=[...new Set([...D.crops.map(c=>c.seed),...D.animals.map(a=>a.baby),...D.crops.map(c=>c.crop),...MEATS])];
+  const sell=[...new Set([...D.crops.map(c=>c.crop),...D.animals.map(a=>a.grown),FWORM])];
+  setFst("Fiyatlar çekiliyor...");document.querySelectorAll("#toolsApp [data-fetch]").forEach(b=>b.disabled=true);
+  const loc=c=>c.replace(" ","");
+  const cur=async(ids,city,side)=>{for(let i=0;i<ids.length;i+=60)(await getJ(`${base}prices/${ids.slice(i,i+60).join(",")}.json?locations=${loc(city)}`)).forEach(d=>{
+    const v=side==="s"&&FS.sm==="inst"?d.buy_price_max:d.sell_price_min;if(!(v>0))return;const k=side+":"+d.item_id;
+    if(!PX[k]||(side==="s"&&FS.sm==="inst"?v>PX[k]:v<PX[k]))PX[k]=v})};
+  const hist=async(ids,city,side)=>{const cut=Date.now()-864e5;for(let i=0;i<ids.length;i+=60)(await getJ(`${base}history/${ids.slice(i,i+60).join(",")}.json?locations=${loc(city)}&time-scale=1`)).forEach(h=>{
+    const k=side+":"+h.item_id;let n=0,s=0;(h.data||[]).forEach(p=>{if(Date.parse(p.timestamp+"Z")>=cut){n+=p.item_count||0;s+=(p.avg_price||0)*(p.item_count||0)}});
+    VOL[k]=(VOL[k]||0)+n;if(FS.pm==="avg"&&n>0)PX[k]=Math.round(s/n)})};
+  try{
+    for(const k in PX)if(/^[bs]:/.test(k))delete PX[k];for(const k in VOL)delete VOL[k];
+    await cur(buy,FS.buy,"b");await cur(sell,FS.sell,"s");
+    await hist(sell,FS.sell,"s");await hist(D.crops.map(c=>c.seed).concat(D.animals.map(a=>a.baby)),FS.buy,"b");
+    fFetched=true;setFst(`Fiyatlar güncellendi · alış ${FS.buy}, satış ${FS.sell} · ${FS.pm==="avg"?"24 saat ortalaması":"son fiyat"} · ${clock()}`,"pos");
+  }catch(e){setFst("Fiyatlar çekilemedi ("+e.message+"). Birkaç saniye bekleyip tekrar dene ya da fiyatları elle yaz.","neg")}
+  document.querySelectorAll("#toolsApp [data-fetch]").forEach(b=>b.disabled=false);render();
 }
 
 function render(){if(!D)return;renderRR();if(MODE==="ench")renderEnch();else if(MODE==="ref")renderRef();else renderFarm()}
@@ -1761,9 +1856,9 @@ async function fetchPrices(){
   }catch(e){setFst("Fiyatlar çekilemedi ("+e.message+"). Birkaç saniye bekleyip tekrar dene ya da fiyatları elle yaz.","neg");const d=$("ePsD");if(d)d.open=true}
   document.querySelectorAll("#toolsApp [data-fetch]").forEach(b=>b.disabled=false);render();
 }
-app.addEventListener("click",e=>{if(e.target.closest("[data-fetch]"))fetchPrices()});
+app.addEventListener("click",e=>{if(e.target.closest("[data-fetch]"))(MODE==="farm"?farmFetch:fetchPrices)()});
 ["tPrem","tFoc","tFee"].forEach(i=>$(i).addEventListener("input",()=>{saveSt();render()}));
-$("tSrv").addEventListener("change",()=>{saveSt();for(const k in PX)delete PX[k];setFst("Sunucu değişti, fiyatları yeniden çek.");render()});
+$("tSrv").addEventListener("change",()=>{saveSt();for(const k in PX)delete PX[k];if(MODE==="farm"&&D){farmFetch();return}setFst("Sunucu değişti, fiyatları yeniden çek.");render()});
 $("tCity").addEventListener("change",()=>{saveSt();for(const k in PX)delete PX[k];setFst("Şehir değişti, fiyatları yeniden çek.");render()});
 
 build().then(()=>{if(MODE==="ench")uiEnch();else if(MODE==="ref")uiRef();else uiFarm();render()})
