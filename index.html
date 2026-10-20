@@ -1209,7 +1209,7 @@ calc();
 
 const BMC={weapon:["Silah",/^T\d_(MAIN|2H)_/],armor:["Zırh",/^T\d_ARMOR_/],head:["Kafalık",/^T\d_HEAD_/],shoes:["Ayakkabı",/^T\d_SHOES_/],off:["Offhand",/^T\d_OFF_/],bag:["Çanta/Pelerin",/^T\d_(BAG|CAPE)/]};
 function initBM(){
-  [...document.querySelector("main").children].forEach(el=>{if(el.id!=="bmApp"&&!el.classList.contains("row")&&el!==$("ttl").parentElement)el.style.display="none"});
+  [...document.querySelector("main").children].forEach(el=>{if(el.id!=="bmApp"&&!el.classList.contains("row")&&el.id!=="topnav"&&el!==$("ttl").parentElement)el.style.display="none"});
   $("bmApp").style.display="block";document.title="Albion Black Market Flip";$("ttl").textContent="Black Market Flip";
   const chk=(box,items,def)=>{$(box).innerHTML=items.map(([v,t])=>`<label class="c" style="display:inline-flex;margin-right:10px"><input type="checkbox" data-bm="${box}" value="${v}"${def(v)?" checked":""}> ${t}</label>`).join("")};
   chk("bmTiers",[4,5,6,7,8].map(t=>[t,"T"+t]),()=>true);
@@ -1336,7 +1336,7 @@ function initBM(){
 }
 if(BM)initBM();
 function initDB(){
-  [...document.querySelector("main").children].forEach(el=>{if(!["dbApp","idItem"].includes(el.id)&&!el.classList.contains("row")&&el!==$("ttl").parentElement)el.style.display="none"});
+  [...document.querySelector("main").children].forEach(el=>{if(!["dbApp","idItem"].includes(el.id)&&!el.classList.contains("row")&&el.id!=="topnav"&&el!==$("ttl").parentElement)el.style.display="none"});
   $("dbApp").hidden=false;document.title="Albion Item Database";$("ttl").textContent="Item Database";
   const IDC=[["weapons","Weapons"],["offhands","Off-Hands"],["head","Head Armor"],["armors","Chest Armor"],["shoes","Foot Armor"],["capes","Capes"],["mounts","Mounts"],["consumables","Consumables"],["bags","Bags"],["gathering","Gathering"],["crafting","Crafting"],["artefacts","Artifacts"],["vanity","Vanity"],["farming","Farming"],["furniture","Furniture"],["other","Other"]];
   const SUBX={booktype:"Tome",torchtype:"Torch",shieldtype:"Shield",knuckles:"War Gloves",refinedresources:"Refined Resources",cityresources:"City Resources",basemounts:"Base Mounts",raremounts:"Rare Mounts",battle_mount:"Battle Mounts",herbgarden:"Herb Garden",farmingproducts:"Farming Products",luxurygoods:"Luxury Goods",questitems:"Quest Items",killtrophy:"Kill Trophy",hardcoreexpeditions:"Hardcore Expeditions",killemotes:"Kill Emotes",avatarring:"Avatar Ring",silverbag:"Silver Bag",repairkit:"Repair Kit",lootitem:"Loot Item",fortsterling:"Fort Sterling",capes:"Capes",satchels:"Satchels",bags:"Bags",other:"Other"};
@@ -1486,7 +1486,7 @@ if(!MODE)return;
 const $=id=>document.getElementById(id);
 const TT={farm:"Farming",ref:"Refining",ench:"Enchant Yükseltme"};
 document.title="Albion "+TT[MODE];$("ttl").textContent=TT[MODE];
-[...document.querySelector("main").children].forEach(el=>{if(!el.classList.contains("row")&&el!==$("ttl").parentElement)el.style.display="none"});
+[...document.querySelector("main").children].forEach(el=>{if(!el.classList.contains("row")&&el.id!=="topnav"&&el!==$("ttl").parentElement)el.style.display="none"});
 const CITIES=["Caerleon","Bridgewatch","Lymhurst","Martlock","Fort Sterling","Thetford","Brecilien"];
 const RBON={ORE:"Thetford",WOOD:"Fort Sterling",FIBER:"Lymhurst",HIDE:"Martlock",ROCK:"Bridgewatch"};
 const RNAME={ORE:"ore",WOOD:"wood",FIBER:"fiber",HIDE:"hide",ROCK:"stone"};
