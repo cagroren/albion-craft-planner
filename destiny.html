@@ -119,7 +119,8 @@ let sb=null,me=null,BOARDS={},LIVE=null,chr=LS.chr||"",syncMsg="";
 
 // ---------- seviye kaynağı: toplayıcı (canlı) > hesabındaki kayıt > elle girilen
 const board=()=>chr&&(LIVE&&LIVE.char===chr?LIVE:BOARDS[chr])||null;
-function levelOf(name){const b=board();if(b){const i=D.idx[name];return {lv:(b.lv&&b.lv[i])||0,pr:b.prog&&b.prog[i],auto:true}}return {lv:+LS.lv[name]||0,auto:false}}
+// b.max: oyunun "sonuna ulaştı" dediği düğümler (seviyeleri ayrıca gelmez) -> en yüksek seviye
+function levelOf(name){const b=board();if(b){const i=D.idx[name],n=D.nodes[name];if(b.max&&b.max.includes(i))return {lv:n&&n.tpl?maxLv(n):0,auto:true,done:true};return {lv:(b.lv&&b.lv[i])||0,pr:b.prog&&b.prog[i],auto:true}}return {lv:+LS.lv[name]||0,auto:false}}
 
 // ---------- seviye hesapları (oyunun seviye tabloları × düğümün çarpanı)
 const tpl=n=>D.templates[n.tpl]||{lv:[],el:[]};

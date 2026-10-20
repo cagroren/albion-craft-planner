@@ -150,7 +150,7 @@ def first_int(v):
 
 class DestinyBoard:
     """Oyunun gönderdiği Destiny Board'u çözer (2. aşama).
-    FullAchievementInfo: 2 = düğüm numaraları, 3 = seviyeler (bayt). Listede olmayan düğüm seviye 0'dır.
+    FullAchievementInfo: 1 = sonuna ulaşmış düğümler, 2 = düğüm numaraları, 3 = seviyeler (bayt). İki listede de olmayan düğüm seviye 0'dır.
     FullAchievementProgressInfo: 1 = numaralar, 2 = seviyeler, 3 = seviye içi ilerleme (0-1), 4 = seviye içi fame × 10000.
     Numara = düğümün achievements.xml'deki sırası (panel data/destiny.json'daki "order" ile adını bulur)."""
     PATH = os.path.join(CACHE_DIR, "destiny-board.json")
@@ -186,6 +186,8 @@ class DestinyBoard:
             return
         self._start(char)
         self.data["lv"] = {str(to_int(i)): int(lv[k]) for k, i in enumerate(ids) if k < len(lv) and to_int(i) is not None and int(lv[k]) > 0}
+        # 1 = sonuna ulaşmış düğümler (100 ya da elite'te 120); oyun bunların seviyesini ayrıca göndermez
+        self.data["max"] = [str(to_int(i)) for i in as_list(p.get(1)) if to_int(i) is not None]
         self.data["ts"] = int(time.time() * 1000)
         self._save()
         log(f"Destiny Board okundu: {len(self.data['lv'])} düğüm ({char or '?'})")
