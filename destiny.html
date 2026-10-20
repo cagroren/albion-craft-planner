@@ -12,7 +12,7 @@
 *{box-sizing:border-box}
 [hidden]{display:none!important}
 body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 "Inter",system-ui,-apple-system,"Segoe UI",sans-serif;padding:20px 16px;-webkit-font-smoothing:antialiased}
-main{max-width:1180px;margin:auto}
+main{max-width:1240px;margin:auto}
 h1{font:800 30px/1.2 "Inter",system-ui,sans-serif;letter-spacing:-.01em;margin:0}
 h2{font:700 12px/1.4 "Inter",system-ui,sans-serif;letter-spacing:.12em;text-transform:uppercase;color:var(--acc);margin:0 0 14px}
 h3{font:800 22px/1.25 "Inter",sans-serif;margin:0}
@@ -32,56 +32,74 @@ img[src*="render.albiononline.com"]{filter:drop-shadow(0 2px 3px rgba(0,0,0,.45)
 .tabs button:hover{color:var(--ink);background:var(--card2);border-color:transparent}
 .tabs button.on{background:var(--acc2);color:var(--accT);border-color:#b8602a}
 .st{color:var(--mut);font-size:13px}
-.note{border:1px solid rgba(227,179,65,.45);background:rgba(227,179,65,.06);border-radius:12px;padding:10px 14px;margin:0 0 16px;font-size:14px}
-.lay{display:grid;grid-template-columns:minmax(300px,420px) 1fr;gap:16px;align-items:start}
-.tree{max-height:72vh;overflow-y:auto;margin-top:12px;padding-right:4px}
-.grp{margin-bottom:10px}
-.grp>summary{cursor:pointer;font-weight:800;font-size:14px;padding:6px 4px;list-style:none;display:flex;align-items:center;gap:8px}
-.grp>summary::-webkit-details-marker{display:none}
-.grp>summary::before{content:"▸";color:var(--acc);font-size:11px}
-.grp[open]>summary::before{content:"▾"}
-.grp>summary small{color:var(--mut);font-weight:600;margin-left:auto}
-.nd{display:flex;align-items:center;gap:10px;width:100%;text-align:left;background:transparent;border:1px solid transparent;border-radius:10px;padding:5px 8px;color:var(--ink);font-weight:500;font-size:14px}
-.nd:hover{background:var(--card2);border-color:var(--line)}
-.nd.on{background:rgba(240,136,62,.1);border-color:#b8602a}
-.nd img,.nd .ph{width:34px;height:34px;flex:none}
-.nd .ph{border-radius:8px;background:var(--in)}
-.nd span{flex:1;min-width:0;overflow-wrap:anywhere}
-.nd b{font-size:12px;color:var(--accT);font-weight:800}
-.nd.ms span{font-weight:800}
-.hd{display:flex;gap:14px;align-items:center;margin-bottom:16px}
-.hd img{width:64px;height:64px}
-.g{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px}
-.g label{display:flex;flex-direction:column;gap:4px;font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--mut)}
-.g label input,.g label select{text-transform:none;letter-spacing:0;font-weight:500;font-size:15px;color:var(--ink)}
-.kp{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:12px;margin-top:16px}
-.k{background:var(--card2);border:1px solid var(--line);border-radius:12px;padding:12px 14px;font-size:13px;color:var(--mut);min-width:0}
-.k b{display:block;font-size:22px;font-weight:800;color:var(--ink);margin-top:2px;overflow-wrap:anywhere;font-variant-numeric:tabular-nums}
-.k.big{border-color:#b8602a;background:linear-gradient(135deg,rgba(240,136,62,.14),rgba(240,136,62,.02) 70%),var(--card2)}
-.k.big b{color:var(--acc)}
-.bon{margin-top:16px;display:flex;flex-direction:column;gap:6px}
-.bon div{background:var(--card2);border:1px solid var(--line);border-radius:10px;padding:8px 12px;font-size:14px}
+/* durum çubuğu */
+.sbar{display:flex;gap:12px;align-items:center;flex-wrap:wrap;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:10px 14px;margin-bottom:16px}
+.live{font-size:10px;font-weight:800;letter-spacing:.1em;border-radius:20px;padding:4px 12px;border:1px solid var(--line2);color:var(--mut);text-transform:uppercase;white-space:nowrap}
+.live.on{color:var(--good);border-color:rgba(63,185,80,.6);background:rgba(63,185,80,.12)}
+.live.wait{color:var(--warn);border-color:rgba(227,179,65,.6);background:rgba(227,179,65,.1)}
+.sbar .sp{flex:1}
+/* dal ve alt dal sekmeleri */
+.cat{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}
+.cat button{background:var(--card2);color:var(--mut);border-color:var(--line2);padding:10px 16px;font-size:15px}
+.cat button.on{background:var(--acc2);color:var(--accT);border-color:#b8602a}
+.cat button small{font-weight:600;opacity:.8;margin-left:6px}
+.subs{display:flex;gap:6px;flex-wrap:wrap;padding:10px;background:var(--in);border:1px solid var(--line);border-radius:12px}
+.subs button{display:flex;align-items:center;gap:6px;padding:5px 10px 5px 6px;font-size:13px;background:transparent;color:var(--ink);border-color:transparent;font-weight:600}
+.subs button img{width:26px;height:26px}
+.subs button:hover{background:var(--card2);border-color:var(--line2)}
+.subs button.on{background:var(--acc2);color:var(--accT);border-color:#b8602a}
+.subs button b{font-size:11px;color:var(--good)}
+/* düzen */
+.lay{display:grid;grid-template-columns:1fr minmax(340px,440px);gap:16px;align-items:start;margin-top:16px}
+.side{position:sticky;top:12px}
+.cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:10px}
+.cd{display:flex;flex-direction:column;gap:8px;text-align:left;background:var(--card2);border:1px solid var(--line);border-radius:12px;padding:10px 12px;color:var(--ink);font-weight:500;cursor:pointer}
+.cd:hover{border-color:#5a3a24}
+.cd.on{border-color:var(--acc);background:rgba(240,136,62,.08)}
+.cd.ms{grid-column:1/-1;flex-direction:row;align-items:center;gap:14px;background:linear-gradient(135deg,rgba(240,136,62,.10),rgba(240,136,62,.02) 70%),var(--card2)}
+.cd .h{display:flex;align-items:center;gap:10px}
+.cd img,.cd .ph{width:44px;height:44px;flex:none}
+.cd .ph{border-radius:10px;background:var(--in)}
+.cd .nm{flex:1;min-width:0;font-weight:700;font-size:14px;line-height:1.25;overflow-wrap:anywhere}
+.cd .lv{font-size:22px;font-weight:800;color:var(--accT);font-variant-numeric:tabular-nums;white-space:nowrap}
+.cd .lv small{font-size:12px;color:var(--mut);font-weight:600}
+.cd.zero .lv{color:var(--mut)}
+.cd.max .lv{color:var(--good)}
+.bar{height:6px;border-radius:3px;background:var(--in);overflow:hidden}
+.bar i{display:block;height:100%;background:var(--acc)}
+.bar.el i{background:var(--good)}
+.cd.ms .grow{flex:1;min-width:0;display:flex;flex-direction:column;gap:6px}
+/* hesaplayıcı */
+.hd{display:flex;gap:14px;align-items:center;margin-bottom:14px}
+.hd img{width:56px;height:56px}
+.g{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.g label{display:flex;flex-direction:column;gap:4px;font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--mut)}
+.g label input{text-transform:none;letter-spacing:0;font-weight:500;font-size:15px;color:var(--ink)}
+.auto{font-size:10px;font-weight:800;letter-spacing:.06em;color:var(--good);margin-left:4px}
+.kp{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:14px}
+.k{background:var(--card2);border:1px solid var(--line);border-radius:12px;padding:10px 12px;font-size:12px;color:var(--mut);min-width:0}
+.k b{display:block;font-size:19px;font-weight:800;color:var(--ink);margin-top:2px;overflow-wrap:anywhere;font-variant-numeric:tabular-nums}
+.k.big{grid-column:1/-1;border-color:#b8602a;background:linear-gradient(135deg,rgba(240,136,62,.14),rgba(240,136,62,.02) 70%),var(--card2)}
+.k.big b{color:var(--acc);font-size:26px}
+.bon{margin-top:14px;display:flex;flex-direction:column;gap:6px}
+.bon div{background:var(--card2);border:1px solid var(--line);border-radius:10px;padding:8px 12px;font-size:13px}
 .bon b{color:var(--good)}
-.chips{display:flex;gap:6px;flex-wrap:wrap}
-.chips button{padding:5px 11px;font-size:13px;background:var(--in);color:var(--mut);border-color:var(--line2);font-weight:600}
-.chips button.on{background:var(--acc2);color:var(--accT);border-color:#b8602a}
+.q{display:flex;gap:6px;margin-top:10px}
+.q button{padding:5px 11px;font-size:13px}
 .empty{color:var(--mut);padding:30px 10px;text-align:center}
-@media(max-width:860px){.lay{grid-template-columns:1fr}.tree{max-height:46vh}}
-@media(max-width:700px){body{padding:12px 16px}section{padding:16px;border-radius:14px}.tabs button{padding:8px 11px}h1{font-size:24px}}
+@media(max-width:960px){.lay{grid-template-columns:1fr}.side{position:static}}
+@media(max-width:700px){body{padding:12px 16px}section{padding:16px;border-radius:14px}.tabs button{padding:8px 11px}h1{font-size:24px}.cards{grid-template-columns:repeat(auto-fill,minmax(160px,1fr))}.g,.kp{grid-template-columns:1fr}}
 </style>
 </head>
 <body>
 <main>
 <div class="row topbar"><div class="tabs"><button data-go="./">Alchemy</button><button data-go="./#food">Cooking</button><button data-go="./#craft">Craft</button><button data-go="./#farm">Farming</button><button data-go="./#refine">Refining</button><button data-go="./#bm">Black Market Flips</button><button data-go="./#enchant">Enchant Yükseltme</button><button data-go="./#db">Item Database</button><button data-go="builds.html">Builds</button><button class="on" aria-current="page">Destiny Board</button><button data-go="dps.html">DPS Meter</button></div></div>
 <div style="display:flex;align-items:center;gap:12px;margin:14px 0 16px"><img src="logo.png" alt="KVF" width="48" height="48"><h1>Destiny Board</h1></div>
-<div class="note">Seviyelerin oyundan otomatik okunması test aşamasında (DPS Meter v6 kayıt modu). Şimdilik bir spec seçip <b>şu anki seviyeni</b> kendin gir; girdiğin seviyeler bu tarayıcıda hatırlanır.</div>
-<div class="lay">
-<section><h2>Board</h2>
-<div class="chips" id="cats"></div>
-<input id="q" type="search" placeholder="Spec ara (örn. Claymore, Ore, Carrot)" aria-label="Spec ara" style="width:100%;margin-top:12px">
-<div class="tree" id="tree"><div class="empty">Yükleniyor...</div></div></section>
-<section id="calc"><div class="empty">Soldan bir spec seç.</div></section>
-</div>
+<div class="sbar"><span class="live" id="cState">Bağlanıyor</span><span class="st" id="cInfo"></span><span class="sp"></span><label class="st" style="display:flex;align-items:center;gap:8px">Karakter<select id="chr" aria-label="Karakter"></select></label></div>
+<section style="margin-bottom:0"><div class="cat" id="cats"></div>
+<div class="row" style="margin:0 0 10px"><input id="q" type="search" placeholder="Bütün board'da ara (örn. Claymore, Ore, Carrot)" aria-label="Spec ara" style="flex:1;min-width:220px"></div>
+<div class="subs" id="subs"></div></section>
+<div class="lay"><div id="grid"><div class="empty">Yükleniyor...</div></div><section class="side" id="calc"><div class="empty">Bir karta tıkla, hesaplayıcı burada açılır.</div></section></div>
 </main>
 <script>
 (function(){
@@ -89,16 +107,24 @@ const $=id=>document.getElementById(id);
 const esc=t=>String(t==null?"":t).replace(/&/g,"&amp;").replace(/"/g,"&quot;").replace(/</g,"&lt;");
 const fmt=n=>Math.round(n).toLocaleString("tr-TR");
 const dec=(n,d)=>(+n).toLocaleString("tr-TR",{maximumFractionDigits:d==null?2:d});
+const ago=ms=>{if(!ms)return "";const m=(Date.now()-ms)/6e4;return m<1?"az önce":m<60?Math.round(m)+" dk önce":m<1440?Math.round(m/60)+" sa önce":Math.round(m/1440)+" gün önce"};
 const LS=(()=>{try{return JSON.parse(localStorage.getItem("aodestiny1")||"{}")}catch(e){return {}}})();
-LS.lv=LS.lv||{};
+LS.lv=LS.lv||{};LS.tg=LS.tg||{};
 const saveLS=()=>{try{localStorage.setItem("aodestiny1",JSON.stringify(LS))}catch(e){}};
 const icon=id=>id?`<img loading="lazy" src="https://render.albiononline.com/v1/item/${encodeURIComponent(id)}.png?size=64" alt="" onerror="this.style.visibility='hidden'">`:'<span class="ph"></span>';
 const CATS=[["fighting","Combat"],["crafting","Crafting ve Refining"],["gathering","Gathering"],["farming","Farming, Cooking, Alchemy"],["tracking","Tracking"]];
-let D=null,cat=LS.cat||"fighting",sel=LS.sel||null;
+const API="http://127.0.0.1:47700";
+let D=null,cat=LS.cat||"fighting",sub=LS.sub||"",sel=LS.sel||null;
+let sb=null,me=null,BOARDS={},LIVE=null,chr=LS.chr||"",syncMsg="";
+
+// ---------- seviye kaynağı: toplayıcı (canlı) > hesabındaki kayıt > elle girilen
+const board=()=>chr&&(LIVE&&LIVE.char===chr?LIVE:BOARDS[chr])||null;
+function levelOf(name){const b=board();if(b){const i=D.idx[name];return {lv:(b.lv&&b.lv[i])||0,pr:b.prog&&b.prog[i],auto:true}}return {lv:+LS.lv[name]||0,auto:false}}
 
 // ---------- seviye hesapları (oyunun seviye tabloları × düğümün çarpanı)
 const tpl=n=>D.templates[n.tpl]||{lv:[],el:[]};
 const maxLv=n=>tpl(n).lv.length+tpl(n).el.length;
+function levelFame(n,i){const T=tpl(n);if(i<=T.lv.length)return T.lv[i-1][0]*n.fm;const e=T.el[i-T.lv.length-1];return e?e[0]*n.fm:0}
 function between(n,from,to){
   const T=tpl(n),r={fame:0,lp:0,efame:0,silver:0};
   for(let i=from+1;i<=to;i++){
@@ -107,73 +133,143 @@ function between(n,from,to){
   }
   return r;
 }
-// Bonus metni: oyundaki "{0} Bonus to ..." kalıbına seviye farkı × seviye başı değer konur
 function bonusLines(n,from,to){
   const T=tpl(n),B=T.lv.length,acc=new Map();
-  // Normal ve elite seviyelerdeki aynı bonus tek satırda toplanır
   const add=(list,levels)=>(list||[]).forEach(b=>{if(!levels||b.b==null)return;const k=[b.d||b.type,b.type,b.buff,b.min,b.max].join("|"),o=acc.get(k)||{b,v:0};o.v+=b.b*levels;acc.set(k,o)});
   add(n.bon,Math.max(0,Math.min(to,B)-Math.min(from,B)));
   add(n.ebon,Math.max(0,Math.max(to,B)-Math.max(from,B)));
   return [...acc.values()].map(({b,v})=>{const pc=b.type==="resourcegatherbonus";
     return (b.d||b.type).replace("{0}",`<b>+${pc?"%"+dec(v*100,1):dec(v,1)}</b>`)+(b.min!=null&&b.max!=null&&b.min!==b.max?` <small class="st">(T${b.min}-T${b.max})</small>`:b.min!=null?` <small class="st">(T${b.min})</small>`:"")});
 }
+const short=t=>String(t).replace(/ (Combat|Crafting|Tailoring|Cultivating)? ?Specialist$/,"").replace(/ Crafting Specialist$/,"");
 
-// ---------- ağaç
-function groups(){
-  const L=Object.entries(D.nodes).filter(([,n])=>n.cat===cat&&n.tpl);
-  const G={};
-  L.forEach(([id,n])=>{const k=n.sub||"Diğer";(G[k]=G[k]||[]).push([id,n])});
-  return Object.entries(G).map(([k,l])=>[k,l.sort((a,b)=>(tpl(b[1]).spec?0:1)-(tpl(a[1]).spec?0:1)||(a[1].ring||0)-(b[1].ring||0)||a[1].t.localeCompare(b[1].t))]).sort((a,b)=>a[0].localeCompare(b[0]));
+// ---------- dal / alt dal / kartlar
+const inCat=()=>Object.entries(D.nodes).filter(([,n])=>n.cat===cat&&n.tpl);
+function subsOf(){
+  const G={};inCat().forEach(([id,n])=>{const k=n.sub||"Diğer";(G[k]=G[k]||[]).push([id,n])});
+  return Object.entries(G).sort((a,b)=>a[0].localeCompare(b[0]));
 }
-function drawTree(){
-  $("cats").innerHTML=CATS.map(([k,l])=>`<button data-c="${k}" class="${k===cat?"on":""}">${l}</button>`).join("");
-  $("cats").querySelectorAll("[data-c]").forEach(b=>b.onclick=()=>{cat=LS.cat=b.dataset.c;saveLS();drawTree()});
+const sortNodes=l=>l.sort((a,b)=>(tpl(a[1]).spec?1:0)-(tpl(b[1]).spec?1:0)||(a[1].ring||0)-(b[1].ring||0)||a[1].t.localeCompare(b[1].t));
+function card(id,n,withSub){
+  const {lv,pr}=levelOf(id),M=maxLv(n),B=tpl(n).lv.length,ms=!tpl(n).spec,frac=pr&&pr[1]!=null?pr[1]:0,el=lv>=B&&M>B;
+  const pct=lv>=M?100:el?((lv-B+frac)/(M-B))*100:((lv+frac)/B)*100;
+  const inner=`<div class="h">${icon(n.icon)}<span class="nm">${esc(short(n.t))}${withSub?`<br><small class="st">${esc(n.sub||"")}</small>`:""}</span><span class="lv">${lv}<small>/${M}</small></span></div><div class="bar${el?" el":""}"><i style="width:${Math.min(100,pct).toFixed(1)}%"></i></div>`;
+  return `<button type="button" class="cd${ms?" ms":""}${id===sel?" on":""}${lv?"":" zero"}${lv>=M?" max":""}" data-n="${id}" title="${esc(n.t)}">${ms?`${icon(n.icon)}<span class="grow"><span class="nm">${esc(n.t)} <small class="st">mastery</small></span><span class="bar${el?" el":""}"><i style="width:${Math.min(100,pct).toFixed(1)}%"></i></span></span><span class="lv">${lv}<small>/${M}</small></span>`:inner}</button>`;
+}
+function drawNav(){
+  $("cats").innerHTML=CATS.map(([k,l])=>{const n=Object.values(D.nodes).filter(x=>x.cat===k&&x.tpl).length;return `<button data-c="${k}" class="${k===cat?"on":""}">${l}<small>${n}</small></button>`}).join("");
+  $("cats").querySelectorAll("[data-c]").forEach(b=>b.onclick=()=>{cat=LS.cat=b.dataset.c;sub="";$("q").value="";saveLS();drawNav();drawGrid()});
+  const S=subsOf();if(!S.some(([k])=>k===sub))sub=S[0]?S[0][0]:"";LS.sub=sub;
+  $("subs").innerHTML=S.map(([k,l])=>{const m=sortNodes(l.slice())[0],mx=l.filter(([id,n])=>{const x=levelOf(id).lv;return x&&x>=tpl(n).lv.length}).length;
+    return `<button data-s="${esc(k)}" class="${k===sub&&!$("q").value?"on":""}">${icon(m&&m[1].icon)}${esc(k)}${mx?` <b title="100 olan">${mx}✓</b>`:""}</button>`}).join("");
+  $("subs").querySelectorAll("[data-s]").forEach(b=>b.onclick=()=>{sub=LS.sub=b.dataset.s;$("q").value="";saveLS();drawNav();drawGrid()});
+}
+function drawGrid(){
   const q=$("q").value.trim().toLowerCase();
-  const G=groups().map(([k,l])=>[k,l.filter(([id,n])=>!q||(n.t+" "+k).toLowerCase().includes(q))]).filter(([,l])=>l.length);
-  $("tree").innerHTML=G.map(([k,l])=>`<details class="grp"${q||l.some(([id])=>id===sel)?" open":""}><summary>${esc(k)}<small>${l.length}</small></summary>${l.map(([id,n])=>{const lv=LS.lv[id];return `<button type="button" class="nd${id===sel?" on":""}${tpl(n).spec?"":" ms"}" data-n="${id}">${icon(n.icon)}<span>${esc(n.t)}</span>${lv?`<b>${lv}</b>`:""}</button>`}).join("")}</details>`).join("")||'<div class="empty">Sonuç yok.</div>';
-  $("tree").querySelectorAll("[data-n]").forEach(b=>b.onclick=()=>{sel=LS.sel=b.dataset.n;saveLS();drawTree();drawCalc()});
+  let L,head="";
+  if(q){L=Object.entries(D.nodes).filter(([,n])=>n.tpl&&(n.t+" "+(n.sub||"")).toLowerCase().includes(q)).slice(0,120);head=`<h2>Arama: ${L.length} sonuç</h2>`}
+  else{L=(subsOf().find(([k])=>k===sub)||[,[]])[1];head=`<h2>${esc(sub)}</h2>`}
+  L=sortNodes(L.slice());
+  // Her mastery (ör. Sword Fighter) kendi bölümünde, altında spec'leri; aramada düz liste
+  let html;
+  if(q)html=`<section>${head}<div class="cards">${L.map(([id,n])=>card(id,n,true)).join("")}</div></section>`;
+  else{
+    const ms=L.filter(([,n])=>!tpl(n).spec),used=new Set();
+    const secs=ms.map(([mid,mn])=>{const kids=L.filter(([id,n])=>tpl(n).spec&&(n.p||[]).includes(mid));kids.forEach(([id])=>used.add(id));used.add(mid);
+      return `<section><div class="cards">${card(mid,mn)}${kids.map(([id,n])=>card(id,n)).join("")}</div></section>`});
+    const rest=L.filter(([id])=>!used.has(id));
+    if(rest.length)secs.push(`<section>${ms.length?"<h2>Diğer</h2>":head}<div class="cards">${rest.map(([id,n])=>card(id,n)).join("")}</div></section>`);
+    html=secs.join("");
+  }
+  $("grid").innerHTML=L.length?html:'<section><div class="empty">Sonuç yok.</div></section>';
+  $("grid").querySelectorAll("[data-n]").forEach(b=>b.onclick=()=>{sel=LS.sel=b.dataset.n;saveLS();$("grid").querySelectorAll(".cd").forEach(x=>x.classList.toggle("on",x===b));drawCalc()});
 }
 
 // ---------- hesaplayıcı
 function drawCalc(){
-  const n=sel&&D.nodes[sel];if(!n||!n.tpl){$("calc").innerHTML='<div class="empty">Soldan bir spec seç.</div>';return}
-  const M=maxLv(n),B=tpl(n).lv.length,cur=Math.min(M,LS.lv[sel]||0),tgt=Math.min(M,Math.max(cur+1,+(LS.tg&&LS.tg[sel])||Math.min(M,Math.max(B,cur+1))));
+  const n=sel&&D.nodes[sel];if(!n||!n.tpl){$("calc").innerHTML='<div class="empty">Bir karta tıkla, hesaplayıcı burada açılır.</div>';return}
+  const M=maxLv(n),B=tpl(n).lv.length,L=levelOf(sel),cur=Math.min(M,L.lv),inAuto=L.pr&&L.pr[2]!=null?L.pr[2]:null;
+  const tgt=Math.min(M,Math.max(cur+1,+LS.tg[sel]||(cur<B?B:M)));
   const parent=(n.p||[]).map(p=>D.nodes[p]&&D.nodes[p].t).filter(Boolean).join(", ");
-  $("calc").innerHTML=`<div class="hd">${icon(n.icon)}<div><h3>${esc(n.t)}</h3><div class="st">${esc(n.sub||"")}${parent?" · üst: "+esc(parent):""} · en yüksek seviye ${M}${n.rs==="combat"?" · combat fame credit ile respec edilebilir":""}</div></div></div>
-  <div class="g"><label>Şu anki seviye<input type="number" id="cLv" min="0" max="${M}" value="${cur}"></label>
+  $("calc").innerHTML=`<div class="hd">${icon(n.icon)}<div><h3>${esc(n.t)}</h3><div class="st">${esc(n.sub||"")}${parent?" · üst: "+esc(parent):""} · en yüksek ${M}</div></div></div>
+  <div class="g"><label>Şu anki seviye${L.auto?'<span class="auto">OYUNDAN</span>':""}<input type="number" id="cLv" min="0" max="${M}" value="${cur}"${L.auto?" disabled":""}></label>
   <label>Hedef seviye<input type="number" id="cTg" min="1" max="${M}" value="${tgt}"></label>
-  <label>Bu seviyede kazandığın fame<input type="number" id="cIn" min="0" value="${LS.inl&&LS.inl[sel]||""}" placeholder="0"></label>
+  <label>Bu seviyede kazanılan fame${inAuto!=null?'<span class="auto">OYUNDAN</span>':""}<input type="number" id="cIn" min="0" value="${inAuto!=null?inAuto:(LS.inl&&LS.inl[sel])||""}" placeholder="0"${inAuto!=null?" disabled":""}></label>
   <label>Saatte kazandığın fame<input type="number" id="cFph" min="0" value="${LS.fph||""}" placeholder="örn. 1500000"></label></div>
-  <div class="row" style="margin-top:10px">${[B<M?[B,"100'e"]:null,M>B?[M,M+"'ye"]:null].filter(Boolean).map(([v,l])=>`<button type="button" class="l" data-t="${v}" style="padding:5px 11px;font-size:13px">${l} kadar</button>`).join("")}</div>
+  <div class="q">${[cur<B?[B,"100'e kadar"]:null,M>B?[M,M+"'ye kadar"]:null].filter(Boolean).map(([v,l])=>`<button type="button" class="l" data-t="${v}">${l}</button>`).join("")}</div>
   <div id="cOut"></div>`;
   const out=()=>{
     const c=Math.max(0,Math.min(M,+$("cLv").value||0)),t=Math.max(0,Math.min(M,+$("cTg").value||0)),inl=Math.max(0,+$("cIn").value||0),fph=Math.max(0,+$("cFph").value||0);
-    LS.lv[sel]=c;LS.tg=LS.tg||{};LS.tg[sel]=t;LS.inl=LS.inl||{};LS.inl[sel]=inl||undefined;LS.fph=fph||undefined;saveLS();
-    const tb=$("tree").querySelector(`[data-n="${sel}"] b`);
-    if(t<=c){$("cOut").innerHTML='<div class="empty" style="padding:18px">Hedef seviye şu anki seviyeden yüksek olmalı.</div>';return}
+    if(!L.auto){LS.lv[sel]=c||undefined;LS.inl=LS.inl||{};LS.inl[sel]=inl||undefined}
+    LS.tg[sel]=t;LS.fph=fph||undefined;saveLS();
+    if(t<=c){$("cOut").innerHTML=`<div class="empty" style="padding:18px">${c>=M?"Bu düğüm en yüksek seviyede.":"Hedef seviye şu anki seviyeden yüksek olmalı."}</div>`;return}
     const r=between(n,c,t),all=r.fame+r.efame,need=Math.max(0,all-inl),lpPerDay=D.lp.secPerPointPremium?86400/D.lp.secPerPointPremium:30;
-    const lines=bonusLines(n,c,t);
+    const lines=bonusLines(n,c,t),nextLv=levelFame(n,c+1);
     $("cOut").innerHTML=`<div class="kp">
-      <div class="k big">${c} → ${t} için gereken fame<b>${fmt(need)}</b>${inl?`<small>bu seviyede kazandığın ${fmt(inl)} düşüldü</small>`:""}</div>
-      ${r.fame?`<div class="k">1-100 arası<b>${fmt(Math.max(0,r.fame-inl))}</b><small>normal seviyeler</small></div>`:""}
-      ${r.efame?`<div class="k">Elite (100 üstü)<b>${fmt(r.efame)}</b><small>${t-Math.max(c,B)} elite seviye</small></div>`:""}
-      ${r.silver?`<div class="k">Credit ile respec yaparsan<b>${fmt(r.silver)} silver</b><small>elite fame × oyunun respec oranı; ${fmt(r.efame)} combat fame credit gerekir</small></div>`:""}
-      ${r.lp?`<div class="k">Learning Points ile<b>${fmt(r.lp)} LP</b><small>Premium'la günde ${dec(lpPerDay,0)} LP · ${dec(r.lp/lpPerDay,1)} gün</small></div>`:""}
-      ${fph?`<div class="k">Tahmini süre<b>${dec(need/fph,1)} saat</b><small>saatte ${fmt(fph)} fame ile</small></div>`:""}
+      <div class="k big">${c} → ${t} için gereken fame<b>${fmt(need)}</b>${inl?`<small>bu seviyede kazanılan ${fmt(inl)} / ${fmt(nextLv)} düşüldü</small>`:""}</div>
+      ${r.fame?`<div class="k">1-100 arası<b>${fmt(Math.max(0,r.fame-inl))}</b></div>`:""}
+      ${r.efame?`<div class="k">Elite (100 üstü)<b>${fmt(r.efame-(r.fame?0:inl))}</b><small>${t-Math.max(c,B)} elite seviye</small></div>`:""}
+      ${r.silver?`<div class="k" style="grid-column:1/-1">Combat fame credit ile respec yaparsan<b>${fmt(r.silver)} silver</b><small>${fmt(r.efame)} credit gerekir (elite fame × oyunun respec oranı)</small></div>`:""}
+      ${r.lp?`<div class="k">Learning Points ile<b>${fmt(r.lp)} LP</b><small>Premium'la ${dec(r.lp/lpPerDay,1)} gün</small></div>`:""}
+      ${fph?`<div class="k">Tahmini süre<b>${dec(need/fph,1)} saat</b><small>saatte ${fmt(fph)} fame</small></div>`:""}
     </div>
-    ${lines.length?`<h2 style="margin-top:20px">${t} seviyede kazanacağın</h2><div class="bon">${lines.map(l=>`<div>${l}</div>`).join("")}</div>`:""}
-    ${n.rs==="combat"&&r.fame?`<p class="st" style="margin-top:12px">100'ün altındaki seviyeleri credit ile respec etmenin silver bedeli oyun verisinde yok; oyundaki respec penceresinde görünür.</p>`:""}`;
-    if(tb)tb.textContent=c||"";else if(c)drawTree();
+    ${lines.length?`<h2 style="margin-top:18px">${t} seviyede kazanacağın</h2><div class="bon">${lines.map(l=>`<div>${l}</div>`).join("")}</div>`:""}`;
   };
-  ["cLv","cTg","cIn","cFph"].forEach(i=>$(i).addEventListener("input",out));
+  ["cLv","cTg","cIn","cFph"].forEach(i=>$(i).addEventListener("input",()=>{out();if(i==="cLv")refreshCard()}));
   $("calc").querySelectorAll("[data-t]").forEach(b=>b.onclick=()=>{$("cTg").value=b.dataset.t;out()});
   out();
 }
+function refreshCard(){const b=$("grid").querySelector(`[data-n="${sel}"]`);if(b){const w=document.createElement("div");w.innerHTML=card(sel,D.nodes[sel]);const nb=w.firstChild;nb.onclick=b.onclick;b.replaceWith(nb)}}
+
+// ---------- toplayıcı ve hesap
+function drawStatus(){
+  const st=$("cState"),b=board();
+  if(LIVE&&LIVE.char){st.className="live on";st.textContent="Oyundan okunuyor"}
+  else if(LIVE){st.className="live wait";st.textContent="Toplayıcı bağlı"}
+  else{st.className="live";st.textContent="Toplayıcı kapalı"}
+  $("cInfo").innerHTML=(LIVE&&!LIVE.char?"Oyuna gir ya da bölge değiştir, board gelince dolar. ":!LIVE?'Seviyeler oyundan otomatik gelsin diye <a href="dps.html" style="color:var(--acc)">DPS Meter</a> toplayıcısını aç (v7 ve üstü). ':"")
+    +(b?`${esc(b.char)} · ${Object.keys(b.lv||{}).length} düğüm · ${ago(b.ts)}`:"Kayıtlı board yok, seviyeleri elle girebilirsin.")
+    +(syncMsg?" · "+syncMsg:"")+(!me&&sb?" · Hesabına kaydetmek için Discord ile giriş yap":"");
+  const names=[...new Set([...(LIVE&&LIVE.char?[LIVE.char]:[]),...Object.keys(BOARDS)])];
+  if(!chr&&names.length)chr=LS.chr=names[0];
+  $("chr").innerHTML=names.length?names.map(c=>`<option${c===chr?" selected":""}>${esc(c)}</option>`).join(""):'<option value="">Elle giriş</option>';
+}
+async function loadBoards(){
+  if(!sb||!me)return;
+  const {data,error}=await sb.from("destiny_boards").select("char,data,updated_at");
+  if(error){syncMsg="hesaptan okunamadı ("+esc(error.message)+")";return}
+  (data||[]).forEach(r=>BOARDS[r.char]=r.data);
+}
+let lastSaved="";
+async function pollLive(){
+  let j=null;
+  try{const r=await fetch(API+"/destiny",{cache:"no-store"});if(r.ok)j=await r.json()}catch(e){}
+  const was=JSON.stringify(LIVE);LIVE=j;
+  if(j&&j.char&&j.ts){
+    if(!chr)chr=LS.chr=j.char;
+    const key=j.char+"|"+j.ts;
+    if(sb&&me&&key!==lastSaved&&(!BOARDS[j.char]||(BOARDS[j.char].ts||0)<j.ts)){
+      const {error}=await sb.from("destiny_boards").upsert({char:j.char,data:j,updated_at:new Date().toISOString()});
+      syncMsg=error?"hesaba kaydedilemedi ("+esc(error.message)+")":"hesabına kaydedildi";if(!error){BOARDS[j.char]=j;lastSaved=key}
+    }
+  }
+  drawStatus();
+  if(JSON.stringify(LIVE)!==was){drawNav();drawGrid();drawCalc()}
+}
 
 document.querySelectorAll("[data-go]").forEach(b=>b.onclick=()=>{location.href=b.dataset.go});
-$("q").addEventListener("input",drawTree);
-fetch("data/destiny.json").then(r=>{if(!r.ok)throw new Error("HTTP "+r.status);return r.json()}).then(j=>{D=j;drawTree();drawCalc()})
-  .catch(e=>{$("tree").innerHTML=`<div class="empty">Board verisi yüklenemedi (${esc(e.message)}). Sayfayı yenile.</div>`});
+$("q").addEventListener("input",()=>{drawNav();drawGrid()});
+$("chr").addEventListener("change",()=>{chr=LS.chr=$("chr").value;saveLS();drawStatus();drawNav();drawGrid();drawCalc()});
+(async()=>{
+  try{const r=await fetch("data/destiny.json");if(!r.ok)throw new Error("HTTP "+r.status);D=await r.json()}
+  catch(e){$("grid").innerHTML=`<section><div class="empty">Board verisi yüklenemedi (${esc(e.message)}). Sayfayı yenile.</div></section>`;return}
+  D.idx={};(D.order||[]).forEach((n,i)=>D.idx[n]=String(i));
+  sb=window.aoSb||null;
+  if(sb){try{const {data:{session}}=await sb.auth.getSession();me=session&&session.user||null}catch(e){}}
+  await loadBoards();
+  drawStatus();drawNav();drawGrid();drawCalc();
+  pollLive();setInterval(pollLive,10000);
+})();
 })();
 </script>
 </body>

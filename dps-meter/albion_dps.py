@@ -132,6 +132,84 @@ class DestinyRecorder:
 DESTINY = DestinyRecorder()
 
 
+def first_int(v):
+    """İç içe liste ya da metin içindeki ilk tam sayı (board fame değerleri bu biçimde gelir)."""
+    if isinstance(v, bool):
+        return int(v)
+    if isinstance(v, int):
+        return v
+    if isinstance(v, (list, tuple)):
+        for x in v:
+            n = first_int(x)
+            if n is not None:
+                return n
+        return None
+    m = re.search(r"-?\d+", str(v))
+    return int(m.group()) if m else None
+
+
+class DestinyBoard:
+    """Oyunun gönderdiği Destiny Board'u çözer (2. aşama).
+    FullAchievementInfo: 2 = düğüm numaraları, 3 = seviyeler (bayt). Listede olmayan düğüm seviye 0'dır.
+    FullAchievementProgressInfo: 1 = numaralar, 2 = seviyeler, 3 = seviye içi ilerleme (0-1), 4 = seviye içi fame × 10000.
+    Numara = düğümün achievements.xml'deki sırası (panel data/destiny.json'daki "order" ile adını bulur)."""
+    PATH = os.path.join(CACHE_DIR, "destiny-board.json")
+
+    def __init__(self):
+        self.data = {}
+        try:
+            with open(self.PATH, encoding="utf-8") as fh:
+                self.data = json.load(fh)
+        except Exception:
+            pass
+
+    def _save(self):
+        try:
+            os.makedirs(CACHE_DIR, exist_ok=True)
+            with open(self.PATH, "w", encoding="utf-8") as fh:
+                json.dump(self.data, fh, ensure_ascii=False)
+        except Exception as e:
+            log("Destiny Board kaydedilemedi:", e)
+
+    def _start(self, char):
+        # Başka karaktere geçilince sıfırlanır; ad henüz bilinmiyorsa (giriş cevabından önce) eldeki korunur
+        if char and self.data.get("char") and self.data.get("char") != char:
+            self.data = {}
+        if char:
+            self.data["char"] = char
+        self.data.setdefault("lv", {})
+        self.data.setdefault("prog", {})
+
+    def full_info(self, char, p):
+        ids, lv = as_list(p.get(2)), p.get(3)
+        if not ids or not isinstance(lv, (bytes, bytearray, list)):
+            return
+        self._start(char)
+        self.data["lv"] = {str(to_int(i)): int(lv[k]) for k, i in enumerate(ids) if k < len(lv) and to_int(i) is not None and int(lv[k]) > 0}
+        self.data["ts"] = int(time.time() * 1000)
+        self._save()
+        log(f"Destiny Board okundu: {len(self.data['lv'])} düğüm ({char or '?'})")
+
+    def progress(self, char, p):
+        ids, lv, fr, fame = as_list(p.get(1)), p.get(2), as_list(p.get(3)), as_list(p.get(4))
+        if not ids:
+            return
+        self._start(char)
+        prog = {}
+        for k, i in enumerate(ids):
+            i = to_int(i)
+            if i is None:
+                continue
+            f = first_int(fame[k]) if k < len(fame) else None
+            level = int(lv[k]) if isinstance(lv, (bytes, bytearray, list)) and k < len(lv) else None
+            prog[str(i)] = [level, round(float(fr[k]), 4) if k < len(fr) else None, round(f / FP) if f is not None else None]
+            if level:
+                self.data.setdefault("lv", {})[str(i)] = level
+        self.data["prog"] = prog
+        self.data["ts"] = int(time.time() * 1000)
+        self._save()
+
+
 def parse_enum(text):
     body = text[text.index("{") + 1:text.rindex("}")]
     body = re.sub(r"/\*.*?\*/", "", body, flags=re.S)
@@ -664,6 +742,7 @@ class Tracker:
         self.credits_total = None  # karakterdeki toplam combat fame credit
         self.respec_boost = None   # ReSpec boost açık mı (bilinmiyorsa None)
         self.paused = False        # paneldeki 'Duraklat': hasar/heal/kazanç sayılmaz, süre işlemez
+        self.board = DestinyBoard()  # Destiny Board seviyeleri (panelin Destiny Board sekmesi /destiny'den okur)
         self.live_dirty = False
         self.packets = 0
         self.events = 0
@@ -759,7 +838,13 @@ class Tracker:
             return
         self.events += 1
         if code in DESTINY_EV:
-            DESTINY.write("event", code, DESTINY_EV[code], p)
+            name = DESTINY_EV[code]
+            DESTINY.write("event", code, name, p)
+            with self.lock:
+                if name == "FullAchievementInfo":
+                    self.board.full_info(self.local_name, p)
+                elif name == "FullAchievementProgressInfo":
+                    self.board.progress(self.local_name, p)
         with self.lock:
             if code == EV["HealthUpdate"]:
                 self.health(to_int(p.get(0)), p.get(2), p.get(3), to_int(p.get(6)), 3 in p, p.get(7))
@@ -1064,7 +1149,8 @@ class Tracker:
     def status(self):
         with self.lock:
             return {
-                "ok": True, "version": 5, "paused": self.paused, "destiny": DESTINY.status(),
+                "ok": True, "version": 6, "paused": self.paused, "destiny": DESTINY.status(),
+                "board": {"char": self.board.data.get("char"), "ts": self.board.data.get("ts"), "n": len(self.board.data.get("lv", {}))},
                 "capturing": time.time() - self.last_packet < 10 if self.last_packet else False,
                 "packets": self.packets, "events": self.events,
                 "character": self.local_name,
@@ -1215,6 +1301,9 @@ def make_handler(tracker):
             elif path == "/fights":
                 with tracker.lock:
                     self.send_json(list(reversed(tracker.fights)))
+            elif path == "/destiny":
+                with tracker.lock:
+                    self.send_json(dict(tracker.board.data))
             else:
                 self.send_json({"error": "bulunamadı"}, 404)
 

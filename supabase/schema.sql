@@ -191,3 +191,22 @@ drop policy if exists "grup düzenleme" on public.group_builds;
 create policy "grup düzenleme" on public.group_builds for update using (owner = auth.uid() and not public.is_banned()) with check (owner = auth.uid());
 drop policy if exists "grup silme" on public.group_builds;
 create policy "grup silme" on public.group_builds for delete using (owner = auth.uid() or public.is_admin());
+
+-- DESTINY BOARD (yeni eklendi): DPS Meter toplayıcısının okuduğu board, karakter başına.
+-- Herkes sadece kendi satırlarını görür ve yazar.
+create table if not exists public.destiny_boards (
+  owner uuid not null default auth.uid() references auth.users on delete cascade,
+  char text not null check (length(char) between 1 and 40),
+  data jsonb not null default '{}'::jsonb check (pg_column_size(data) < 60000),
+  updated_at timestamptz not null default now(),
+  primary key (owner, char)
+);
+alter table public.destiny_boards enable row level security;
+drop policy if exists "destiny okuma" on public.destiny_boards;
+create policy "destiny okuma" on public.destiny_boards for select using (owner = auth.uid());
+drop policy if exists "destiny ekleme" on public.destiny_boards;
+create policy "destiny ekleme" on public.destiny_boards for insert with check (owner = auth.uid());
+drop policy if exists "destiny güncelleme" on public.destiny_boards;
+create policy "destiny güncelleme" on public.destiny_boards for update using (owner = auth.uid()) with check (owner = auth.uid());
+drop policy if exists "destiny silme" on public.destiny_boards;
+create policy "destiny silme" on public.destiny_boards for delete using (owner = auth.uid());

@@ -101,7 +101,10 @@ for a in ach.findall("achievement"):
 
 lp = {k: num(v) for k, v in re.findall(r'(learningpoint\w+)="([^"]+)"', chars)}
 
-data = {"src": "ao-bin-dumps", "templates": templates, "nodes": nodes,
+# Oyun düğümlere bu sırayla numara verir (0'dan başlayarak); DPS Meter toplayıcısı board'u bu numaralarla gönderir
+order = [el.get("id") for el in ach if el.tag in ("achievement", "templateachievement")]
+
+data = {"src": "ao-bin-dumps", "order": order, "templates": templates, "nodes": nodes,
         "lp": {"secPerPointPremium": lp.get("learningpointsecondsperpointpremium"), "fameFactor": lp.get("learningpointfamefactor")}}
 os.makedirs(os.path.dirname(OUT), exist_ok=True)
 with open(OUT, "w", encoding="utf-8") as fh:
