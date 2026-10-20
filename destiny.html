@@ -78,6 +78,12 @@ img[src*="render.albiononline.com"]{filter:drop-shadow(0 2px 3px rgba(0,0,0,.45)
 .cd .lv{font-size:22px;font-weight:800;color:var(--accT);font-variant-numeric:tabular-nums;white-space:nowrap}
 .cd .lv small{font-size:12px;color:var(--mut);font-weight:600}
 .cd.zero .lv{color:var(--mut)}
+.cd{position:relative}
+.cd.pk{border-color:var(--good);background:rgba(63,185,80,.10)}
+.cd.pk::after{content:"✓";position:absolute;top:6px;right:8px;font-weight:800;color:var(--good)}
+.bk{display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:flex-end;margin:0 0 10px}
+.bk.on{justify-content:flex-start;padding:8px 10px;border:1px solid var(--good);border-radius:10px;background:rgba(63,185,80,.06)}
+.bk button,.bk select{padding:6px 10px;font-size:13px}
 .cd.max .lv{color:var(--good)}
 .bar{height:6px;border-radius:3px;background:var(--in);overflow:hidden}
 .bar i{display:block;height:100%;background:var(--acc)}
@@ -178,7 +184,8 @@ function card(id,n,withSub){
   const {lv,pr}=levelOf(id),M=maxLv(n),B=tpl(n).lv.length,ms=!tpl(n).spec,frac=pr&&pr[1]!=null?pr[1]:0,el=lv>=B&&M>B;
   const pct=lv>=M?100:el?((lv-B+frac)/(M-B))*100:((lv+frac)/B)*100;
   const inner=`<div class="h">${icon(n.icon)}<span class="nm">${esc(short(n.t))}${withSub?`<br><small class="st">${esc(n.sub||"")}</small>`:""}</span><span class="lv">${lv}<small>/${M}</small></span></div><div class="bar${el?" el":""}"><i style="width:${Math.min(100,pct).toFixed(1)}%"></i></div>`;
-  return `<button type="button" class="cd${ms?" ms":""}${id===sel?" on":""}${lv?"":" zero"}${lv>=M?" max":""}" data-n="${id}" title="${esc(n.t)}">${ms?`${icon(n.icon)}<span class="grow"><span class="nm">${esc(n.t)} <small class="st">mastery</small></span><span class="bar${el?" el":""}"><i style="width:${Math.min(100,pct).toFixed(1)}%"></i></span></span><span class="lv">${lv}<small>/${M}</small></span>`:inner}</button>`;
+  const pk=PICK[secOf]&&PICK[secOf].has(id);
+  return `<button type="button" class="cd${ms?" ms":""}${pk?" pk":""}${id===sel&&!pk?" on":""}${lv?"":" zero"}${lv>=M?" max":""}" data-n="${id}" title="${esc(n.t)}">${ms?`${icon(n.icon)}<span class="grow"><span class="nm">${esc(n.t)} <small class="st">mastery</small></span><span class="bar${el?" el":""}"><i style="width:${Math.min(100,pct).toFixed(1)}%"></i></span></span><span class="lv">${lv}<small>/${M}</small></span>`:inner}</button>`;
 }
 function drawNav(){
   $("cats").innerHTML=CATS.map(([k,l])=>{const n=Object.values(D.nodes).filter(x=>x.cat===k&&x.tpl).length;return `<button data-c="${k}" class="${k===cat?"on":""}">${l}<small>${n}</small></button>`}).join("");
@@ -192,6 +199,32 @@ function drawNav(){
   $("subCur").innerHTML=LS.subHide?`Alt dal: <b style="color:var(--ink)">${esc(sub)}</b>`:"";
   $("subT").textContent=LS.subHide?"▾ Alt dalları göster":"▴ Alt dalları gizle";
 }
+// ---------- toplu seçim: her mastery bölümünün kendi seçimi var
+const PICK={},bulkMsg={};let secOf="";
+function bulkBar(key,items){
+  const k=esc(key);
+  if(!PICK[key])return `<div class="bk">${bulkMsg[key]?`<span class="st">${esc(bulkMsg[key])}</span>`:""}<button type="button" class="l" data-bm="${k}">Toplu seç</button></div>`;
+  const n=PICK[key].size,all=items.every(([id])=>PICK[key].has(id));
+  return `<div class="bk on"><b>${n} seçili</b><span class="st">Kartlara tıklayarak seç</span><span class="sp" style="flex:1"></span>
+    <button type="button" class="l" data-ba="${k}">${all?"Seçimi temizle":"Hepsini seç"}</button>
+    <select data-bt="${k}" aria-label="Hedef"><option value="b"${LS.bulkT!=="m"?" selected":""}>100'e kadar</option><option value="m"${LS.bulkT==="m"?" selected":""}>Maksimuma kadar</option></select>
+    <button type="button" data-bp="${k}"${n?"":" disabled"}>Plana ekle</button><button type="button" class="l" data-bx="${k}">Vazgeç</button></div>`;
+}
+function bindBulk(){
+  const G=$("grid"),itemsOf=k=>[...G.querySelectorAll(`[data-sec="${CSS.escape(k)}"] [data-n]`)].map(b=>b.dataset.n);
+  G.querySelectorAll("[data-bm]").forEach(b=>b.onclick=()=>{PICK[b.dataset.bm]=new Set();bulkMsg[b.dataset.bm]="";drawGrid()});
+  G.querySelectorAll("[data-bx]").forEach(b=>b.onclick=()=>{delete PICK[b.dataset.bx];drawGrid()});
+  G.querySelectorAll("[data-ba]").forEach(b=>b.onclick=()=>{const k=b.dataset.ba,ids=itemsOf(k),S=PICK[k];ids.every(i=>S.has(i))?S.clear():ids.forEach(i=>S.add(i));drawGrid()});
+  G.querySelectorAll("[data-bt]").forEach(e=>e.onchange=()=>{LS.bulkT=e.value;saveLS()});
+  G.querySelectorAll("[data-bp]").forEach(b=>b.onclick=()=>{
+    const k=b.dataset.bp,m=LS.bulkT==="m";let add=0,skip=0;LS.plan=LS.plan||[];
+    PICK[k].forEach(id=>{const n=D.nodes[id];if(!n||!n.tpl)return;const M=maxLv(n),t=m?M:Math.min(M,tpl(n).lv.length);
+      if(levelOf(id).lv>=t){skip++;return}
+      LS.plan=LS.plan.filter(p=>p.id!==id);LS.plan.push({id,to:t});add++});
+    delete PICK[k];bulkMsg[k]=`${add} spec plana eklendi${skip?` · ${skip} tanesi zaten hedefte`:""}`;
+    if(add){LS.planOpen=true;planChanged();drawPlan();drawCalc()}
+    drawGrid()});
+}
 function drawGrid(){
   const q=$("q").value.trim().toLowerCase();
   let L,head="";
@@ -200,17 +233,22 @@ function drawGrid(){
   L=sortNodes(L.slice());
   // Her mastery (ör. Sword Fighter) kendi bölümünde, altında spec'leri; aramada düz liste
   let html;
-  if(q)html=`<section>${head}<div class="cards">${L.map(([id,n])=>card(id,n,true)).join("")}</div></section>`;
+  const sec=(key,top,items,withSub)=>{secOf=key;const c=items.map(([id,n])=>card(id,n,withSub)).join("");return `<section data-sec="${esc(key)}">${top}${bulkBar(key,items)}<div class="cards">${c}</div></section>`};
+  if(q)html=sec("q:"+q,head,L,true);
   else{
     const ms=L.filter(([,n])=>!tpl(n).spec),used=new Set();
     const secs=ms.map(([mid,mn])=>{const kids=L.filter(([id,n])=>tpl(n).spec&&(n.p||[]).includes(mid));kids.forEach(([id])=>used.add(id));used.add(mid);
-      return `<section><div class="cards">${card(mid,mn)}${kids.map(([id,n])=>card(id,n)).join("")}</div></section>`});
+      return sec(mid,"",[[mid,mn],...kids])});
     const rest=L.filter(([id])=>!used.has(id));
-    if(rest.length)secs.push(`<section>${ms.length?"<h2>Diğer</h2>":head}<div class="cards">${rest.map(([id,n])=>card(id,n)).join("")}</div></section>`);
+    if(rest.length)secs.push(sec("rest:"+sub,ms.length?"<h2>Diğer</h2>":head,rest));
     html=secs.join("");
   }
   $("grid").innerHTML=L.length?html:'<section><div class="empty">Sonuç yok.</div></section>';
-  $("grid").querySelectorAll("[data-n]").forEach(b=>b.onclick=()=>{sel=LS.sel=b.dataset.n;saveLS();$("grid").querySelectorAll(".cd").forEach(x=>x.classList.toggle("on",x===b));drawCalc()});
+  bindBulk();
+  $("grid").querySelectorAll("[data-n]").forEach(b=>b.onclick=()=>{
+    const k=b.closest("[data-sec]").dataset.sec;
+    if(PICK[k]){const S=PICK[k],id=b.dataset.n;S.has(id)?S.delete(id):S.add(id);bulkMsg[k]="";drawGrid();return}
+    sel=LS.sel=b.dataset.n;saveLS();$("grid").querySelectorAll(".cd").forEach(x=>x.classList.toggle("on",x===b));drawCalc()});
 }
 
 // ---------- hesaplayıcı
@@ -305,7 +343,7 @@ function drawStatus(){
   if(LIVE&&LIVE.char){st.className="live on";st.textContent="Oyundan okunuyor"}
   else if(LIVE){st.className="live wait";st.textContent="Toplayıcı bağlı"}
   else{st.className="live";st.textContent="Toplayıcı kapalı"}
-  $("cInfo").innerHTML=(LIVE&&!LIVE.char?"Oyuna gir ya da bölge değiştir, board gelince dolar. ":!LIVE?'Seviyeler oyundan otomatik gelsin diye <a href="dps.html" style="color:var(--acc)">DPS Meter</a> toplayıcısını aç (v7 ve üstü). ':"")
+  $("cInfo").innerHTML=(LIVE&&!LIVE.char?"Oyuna gir ya da bölge değiştir, board gelince dolar. ":!LIVE?(appFlag()?'DPS Meter toplayıcısı başlatılıyor… Açılmazsa <a href="albiondps://start" style="color:var(--acc)">buradan başlat</a>. ':'Seviyeler oyundan otomatik gelsin diye <a href="dps.html" style="color:var(--acc)">DPS Meter</a> toplayıcısını aç (v9: bir kere aç, sonra bu sekmede kendisi açılır). '):"")
     +(b?`${esc(b.char)} · ${Object.keys(b.lv||{}).length} düğüm · ${ago(b.ts)}`:"Kayıtlı board yok, seviyeleri elle girebilirsin.")
     +(syncMsg?" · "+syncMsg:"")+(!me&&sb?" · Hesabına kaydetmek için Discord ile giriş yap":"");
   const names=[...new Set([...(LIVE&&LIVE.char?[LIVE.char]:[]),...Object.keys(BOARDS)])];
@@ -318,10 +356,15 @@ async function loadBoards(){
   if(error){syncMsg="hesaptan okunamadı ("+esc(error.message)+")";return}
   (data||[]).forEach(r=>BOARDS[r.char]=r.data);
 }
-let lastSaved="";
+let lastSaved="",launched=false;
+// DPS Meter sayfasıyla ortak: toplayıcı v9+ bu bilgisayarda bir kere açıldıysa albiondps:// ile başlatılabilir
+function appFlag(){try{return !!JSON.parse(localStorage.getItem("aodps1")||"{}").app}catch(e){return false}}
+function setAppFlag(){try{const o=JSON.parse(localStorage.getItem("aodps1")||"{}");o.app=1;localStorage.setItem("aodps1",JSON.stringify(o))}catch(e){}}
 async function pollLive(){
   let j=null;
   try{const r=await fetch(API+"/destiny",{cache:"no-store"});if(r.ok)j=await r.json()}catch(e){}
+  if(!j&&appFlag()&&!launched){launched=true;location.href="albiondps://start"}
+  if(j&&!appFlag())fetch(API+"/status",{cache:"no-store"}).then(r=>r.json()).then(st=>{if(st.version>=9)setAppFlag()}).catch(()=>{});
   const was=JSON.stringify(LIVE);LIVE=j;
   if(j&&j.char&&j.ts){
     if(!chr)chr=LS.chr=j.char;
