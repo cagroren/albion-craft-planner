@@ -680,7 +680,10 @@ function parseGear(j){
     arr(it.enchantments&&it.enchantments.enchantment).forEach(e=>one(id+"@"+e["@enchantmentlevel"],e.craftingrequirements,s1));
   }));
 }
+// Sayfa açılınca kendiliğinden çalışır (aşağıda); düğme sadece yenilemek için
+let loadingRec=false;
 $("load").onclick=async()=>{
+  if(loadingRec)return;loadingRec=true;$("load").disabled=true;
   $("ls").textContent="Tarifler yükleniyor (dosya büyük, biraz sürebilir)...";
   try{
     const res=await fetch(DUMP);
@@ -702,7 +705,9 @@ $("load").onclick=async()=>{
     await loadNames();
     fillPots();renderSpecs();if(db[cur])$("pot").value=cur;updImg();calc();
     $("ls").textContent=Object.keys(db).length+" "+W+" tarifi yüklendi. "+(Object.keys(nm).length?"Eşya adları yüklendi.":"Eşya adları yüklenemedi, ID'ler gösterilecek.");
-  }catch(e){$("ls").textContent="Tarifler yüklenemedi ("+e.message+"). Bağlantını kontrol et ve tekrar dene.";}
+    $("load").textContent="Tarifleri yenile";
+  }catch(e){$("ls").textContent="Tarifler yüklenemedi ("+e.message+"). Bağlantını kontrol et ve Tarifleri yükle'ye bas.";}
+  finally{loadingRec=false;$("load").disabled=false}
 };
 function fillPots(){
   const t=$("tier").value;
@@ -1070,7 +1075,7 @@ $("pfSel").onchange=()=>{
   const n=$("pfSel").value,o=pfs();
   if(!n||!o[n]){setActive("");pfList("");return}
   applyPf(o[n]);setActive(n);pfList(n);
-  $("pfSt").textContent=`"${n}" profili yüklendi.`+(pending.length?` Plandaki ${W}lar için Tarifleri yükle düğmesine bas.`:"");
+  $("pfSt").textContent=`"${n}" profili yüklendi.`+(pending.length?` Plandaki ${W}lar tarifler yüklenince eklenecek.`:"");
 };
 const pfWrite=(n,msg)=>{
   const o=pfs();o[n]=snap();
@@ -1140,6 +1145,8 @@ $("sortF").onclick=()=>sortBy(p=>{const e=evalRec(p.id);return e.fc>0?e.profit/e
 try{const x=JSON.parse(localStorage.getItem("aoplan3"+KS)||"{}");spec=x.spec||{};fo={};$("mast").value=x.mast==null?(FOOD?0:100):x.mast;if(x.rf)$("rf").value=x.rf;if(x.rid)$("rid").value=x.rid;if(x.rrf)$("rrf").value=x.rrf;if(x.rrid)$("rrid").value=x.rrid}catch(e){}
 ["mast","rf","rid","rrf","rrid"].forEach(i=>$(i).addEventListener("input",save));
 try{const act=localStorage.getItem("aoactive"+KS),o=pfs();pfList(act);if(act&&o[act])applyPf(o[act])}catch(e){}
+// Alchemy, Cooking ve Craft'ta tarifler sayfa açılınca yüklenir (diğer sekmeler bu planlayıcıyı kullanmaz)
+if(!BM&&!DB&&!/^#(farm|refine|enchant)$/.test(location.hash))$("load").click();
 $("citySel").addEventListener("change",()=>{
   const v=$("citySel").value;if(v===BMK){$("buyCity").value="Caerleon";$("craftCity").value="Caerleon";$("sellCity").value=BMK}else ["buyCity","craftCity","sellCity"].forEach(i=>$(i).value=v);
   px={mats:{},outs:{},city:px.city};hist={};
