@@ -23,6 +23,7 @@ import webbrowser
 import zlib
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
+VERSION = 9                  # GitHub'daki dps-vN sürümüyle aynı olmalı (güncelleme kontrolü bunu karşılaştırır)
 PORT = int(os.environ.get("ALBION_DPS_PORT") or 47700)
 COMBAT_GAP_SECONDS = 5       # vuruşlar arası bundan uzun boşluk "savaş süresi"ne sayılmaz
 FP = 10000.0                 # oyunun sabit noktalı sayı çarpanı
@@ -1151,7 +1152,7 @@ class Tracker:
     def status(self):
         with self.lock:
             return {
-                "ok": True, "version": 6, "paused": self.paused, "destiny": DESTINY.status(),
+                "ok": True, "version": VERSION, "update": APP.update, "dataClient": APP.data_client, "paused": self.paused, "destiny": DESTINY.status(),
                 "board": {"char": self.board.data.get("char"), "ts": self.board.data.get("ts"), "n": len(self.board.data.get("lv", {}))},
                 "capturing": time.time() - self.last_packet < 10 if self.last_packet else False,
                 "packets": self.packets, "events": self.events,
@@ -1320,6 +1321,9 @@ def make_handler(tracker):
                 with tracker.lock:
                     tracker.set_paused(self.path.startswith("/pause"))
                 self.send_json({"ok": True, "paused": tracker.paused})
+            elif self.path.split("?")[0].rstrip("/") == "/update":
+                ok = APP.start_update()
+                self.send_json({"ok": ok, "update": APP.update}, 200 if ok else 409)
             else:
                 self.send_json({"error": "bulunamadı"}, 404)
 
@@ -1343,33 +1347,218 @@ def make_handler(tracker):
     return H
 
 
+# ---------------------------------------------------------------------------
+# Masaüstü kısmı: albiondps:// bağlantısı, tepsi simgesi, Albion Data client, otomatik güncelleme
+# ---------------------------------------------------------------------------
+REPO_RELEASES = "https://api.github.com/repos/cagroren/albion-craft-planner/releases?per_page=20"
+EXE_NAME = "AlbionDPSMeter.exe"
+DATA_CLIENT_URL = "https://github.com/ao-data/albiondata-client/releases/latest/download/update-windows-amd64.exe.gz"
+DATA_CLIENT_DIR = os.path.join(HERE, "albiondata")
+NO_WINDOW = 0x08000000  # CREATE_NO_WINDOW
+FROZEN = getattr(sys, "frozen", False)
+# Site albiondps:// ile açtıysa ya da güncellemeden sonra yeniden açıldıysa tarayıcı tekrar açılmaz
+FROM_LINK = any(a.lower().startswith("albiondps:") or a == "--updated" for a in sys.argv[1:])
+
+
+def message(text, title="Albion DPS Meter"):
+    log(text)
+    if os.name == "nt" and sys.stdin is None:  # pencere yok: Windows mesaj kutusu
+        import ctypes
+        ctypes.windll.user32.MessageBoxW(None, text, title, 0x40)
+    else:
+        try:
+            input("Kapatmak için Enter'a bas...")
+        except EOFError:
+            pass
+
+
+def register_link():
+    """albiondps:// adresini bu exe'ye bağlar; site toplayıcı kapalıysa onu bununla açar (yönetici izni gerekmez)."""
+    if not (FROZEN and os.name == "nt"):
+        return
+    try:
+        import winreg
+        exe = sys.executable
+        base = r"Software\Classes\albiondps"
+        for sub, name, val in (("", "", "URL:Albion DPS Meter"), ("", "URL Protocol", ""),
+                               (r"\DefaultIcon", "", f'"{exe}",0'), (r"\shell\open\command", "", f'"{exe}" "%1"')):
+            with winreg.CreateKey(winreg.HKEY_CURRENT_USER, base + sub) as k:
+                winreg.SetValueEx(k, name, 0, winreg.REG_SZ, val)
+    except OSError as e:
+        log("albiondps:// kaydedilemedi:", e)
+
+
+class App:
+    def __init__(self):
+        self.update = None       # {"version": N, "url": ..., "state": "var" | "iniyor" | "hata", "error": ...}
+        self.data_client = None  # "çalışıyor" | "zaten açık" | "indiriliyor" | "hata: ..."
+        self.proc = None
+
+    # --- Albion Data Project client (pazar fiyatlarını albion-online-data.com'a gönderir) ---
+    def start_data_client(self):
+        if os.name != "nt" or os.environ.get("ALBION_NO_DATA_CLIENT"):
+            return
+        try:
+            import subprocess
+            out = subprocess.run(["tasklist", "/FI", "IMAGENAME eq albiondata-client.exe", "/NH"],
+                                 capture_output=True, text=True, creationflags=NO_WINDOW).stdout
+            if "albiondata-client" in out.lower():
+                self.data_client = "zaten açık"
+                return
+            exe = os.path.join(DATA_CLIENT_DIR, "albiondata-client.exe")
+            if not os.path.exists(exe):
+                self.data_client = "indiriliyor"
+                log("Albion Data client indiriliyor...")
+                import gzip
+                os.makedirs(DATA_CLIENT_DIR, exist_ok=True)
+                req = urllib.request.Request(DATA_CLIENT_URL, headers={"User-Agent": "AlbionDPSMeter"})
+                data = gzip.decompress(urllib.request.urlopen(req, timeout=120).read())
+                if data[:2] != b"MZ":
+                    raise ValueError("indirilen dosya exe değil")
+                with open(exe + ".tmp", "wb") as fh:
+                    fh.write(data)
+                os.replace(exe + ".tmp", exe)
+            self.proc = subprocess.Popen([exe, "-minimize"], cwd=DATA_CLIENT_DIR, creationflags=NO_WINDOW,
+                                         stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, stdin=subprocess.DEVNULL)
+            self.data_client = "çalışıyor"
+            log("Albion Data client başlatıldı.")
+        except Exception as e:
+            self.data_client = f"hata: {e}"
+            log("Albion Data client başlatılamadı:", e)
+
+    def stop_data_client(self):
+        if self.proc and self.proc.poll() is None:
+            self.proc.terminate()
+
+    # --- Otomatik güncelleme (GitHub'daki en yeni dps-vN sürümü) ---
+    def check_update(self):
+        try:
+            req = urllib.request.Request(REPO_RELEASES, headers={"User-Agent": "AlbionDPSMeter", "Accept": "application/vnd.github+json"})
+            best = None
+            for r in json.loads(urllib.request.urlopen(req, timeout=20).read()):
+                m = re.fullmatch(r"dps-v(\d+)", r.get("tag_name") or "")
+                if not m or r.get("draft") or r.get("prerelease"):
+                    continue
+                n = int(m.group(1))
+                url = next((a["browser_download_url"] for a in r.get("assets", []) if a.get("name") == EXE_NAME), None)
+                if url and n > VERSION and (best is None or n > best["version"]):
+                    best = {"version": n, "url": url, "state": "var"}
+            if best:
+                log(f"Yeni sürüm var: dps-v{best['version']} (panelden 'Güncelle'ye bas)")
+            self.update = best
+        except Exception as e:
+            log("Güncelleme kontrol edilemedi:", e)
+
+    def start_update(self):
+        u = self.update
+        if not u or u.get("state") == "iniyor" or not FROZEN:
+            return False
+        u["state"] = "iniyor"
+        threading.Thread(target=self._do_update, args=(u,), daemon=True).start()
+        return True
+
+    def _do_update(self, u):
+        try:
+            import subprocess
+            exe = sys.executable
+            new = exe + ".new"
+            req = urllib.request.Request(u["url"], headers={"User-Agent": "AlbionDPSMeter"})
+            data = urllib.request.urlopen(req, timeout=300).read()
+            if data[:2] != b"MZ" or len(data) < 1_000_000:
+                raise ValueError("indirilen dosya bozuk")
+            with open(new, "wb") as fh:
+                fh.write(data)
+            # Çalışan exe kendi üstüne yazamaz: küçük bir betik program kapanınca dosyayı değiştirip yeniden açar.
+            # Tek dosyalık exe iki işlemdir (açıcı + program), ikisinin de kapanması beklenir.
+            wait = "".join(f'tasklist /FI "PID eq {p}" /NH | find "{p}" >nul && (timeout /t 1 /nobreak >nul & goto w)\r\n'
+                           for p in {os.getpid(), os.getppid()})
+            os.makedirs(CACHE_DIR, exist_ok=True)
+            bat = os.path.join(CACHE_DIR, "guncelle.bat")
+            with open(bat, "w", encoding="mbcs") as fh:
+                fh.write(f'@echo off\r\n:w\r\n{wait}move /y "{new}" "{exe}" >nul\r\nstart "" "{exe}" --updated\r\ndel "%~f0"\r\n')
+            log(f"dps-v{u['version']} indirildi, yeniden başlatılıyor...")
+            # Yeni exe eski exe'nin geçici klasör ayarlarını devralırsa açılamaz; ortam sıfırlanarak başlatılır
+            env = {k: v for k, v in os.environ.items() if not k.upper().startswith(("_PYI", "_MEI"))}
+            env["PYINSTALLER_RESET_ENVIRONMENT"] = "1"
+            subprocess.Popen(["cmd", "/c", bat], creationflags=NO_WINDOW, close_fds=True, env=env)
+            self.quit()
+        except Exception as e:
+            u["state"], u["error"] = "hata", str(e)
+            log("Güncelleme başarısız:", e)
+
+    def quit(self):
+        self.stop_data_client()
+        os._exit(0)
+
+
+APP = App()
+
+
+def make_tray():
+    """Saatin yanındaki simge. pystray yoksa (kaynak koddan çalıştırırken) None döner."""
+    try:
+        import pystray
+        from PIL import Image, ImageDraw
+    except ImportError:
+        return None
+    img = Image.new("RGBA", (64, 64), (0, 0, 0, 0))
+    d = ImageDraw.Draw(img)
+    d.ellipse((2, 2, 62, 62), fill=(240, 136, 62, 255))
+    for x, top in ((18, 36), (29, 26), (40, 16)):
+        d.rectangle((x, top, x + 7, 48), fill=(20, 20, 20, 255))
+    menu = pystray.Menu(
+        pystray.MenuItem("DPS Meter'ı aç", lambda: webbrowser.open(PANEL_URL), default=True),
+        pystray.MenuItem("Kapat", lambda icon: (icon.stop(), APP.quit())))
+    return pystray.Icon("AlbionDPSMeter", img, f"Albion DPS Meter v{VERSION}", menu)
+
+
+def setup_output():
+    # Penceresiz (--noconsole) exe'de çıktılar dosyaya yazılır
+    if sys.stdout is None or sys.stderr is None:
+        os.makedirs(CACHE_DIR, exist_ok=True)
+        f = open(os.path.join(CACHE_DIR, "toplayici.log"), "w", encoding="utf-8", buffering=1)
+        sys.stdout = sys.stdout or f
+        sys.stderr = sys.stderr or f
+
+
 def main():
+    setup_output()
     print("=" * 60)
-    print("  Albion DPS Meter toplayıcısı")
-    print("  Panelde 'DPS Meter' sekmesini aç. Bu pencere açık kalsın.")
+    print(f"  Albion DPS Meter toplayıcısı v{VERSION}")
+    print("  Panelde 'DPS Meter' sekmesini aç. Saatin yanındaki simgeden kapatılır.")
     print("=" * 60, flush=True)
+    register_link()
     if os.name == "nt" and not os.path.exists(os.path.join(os.environ.get("SystemRoot", r"C:\Windows"), "System32", "Npcap", "wpcap.dll")):
-        log("Npcap kurulu değil. Açılan sayfadan indirip varsayılan ayarlarla kur,")
-        log("sonra bu programı tekrar çalıştır.")
         webbrowser.open("https://npcap.com/#download")
-        input("Kapatmak için Enter'a bas...")
+        message("Npcap kurulu değil. Açılan sayfadan indirip varsayılan ayarlarla kur, sonra bu programı tekrar çalıştır.")
+        return
+    class Server(ThreadingHTTPServer):
+        # Windows'ta SO_REUSEADDR aynı portu ikinci kez açtırır; tek kopya çalışsın diye port özel tutulur
+        allow_reuse_address = False
+
+        def server_bind(self):
+            import socket
+            if hasattr(socket, "SO_EXCLUSIVEADDRUSE"):
+                self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_EXCLUSIVEADDRUSE, 1)
+            super().server_bind()
+    try:
+        srv = Server(("127.0.0.1", PORT), BaseHTTPRequestHandler)
+    except OSError:
+        if not FROM_LINK:  # site açmaya çalıştıysa sessizce çık, zaten açık
+            message(f"DPS Meter zaten açık (saatin yanındaki simge). {PORT} portu kullanımda.")
         return
     update_codes()
     load_items()
     load_spells()
     tracker = Tracker()
     parser = PhotonParser(tracker.on_event, tracker.on_request, tracker.on_response)
-
-    try:
-        srv = ThreadingHTTPServer(("127.0.0.1", PORT), make_handler(tracker))
-    except OSError:
-        log(f"HATA: {PORT} portu kullanımda. Toplayıcı zaten açık olabilir.")
-        input("Kapatmak için Enter'a bas...")
-        return
+    srv.RequestHandlerClass = make_handler(tracker)
     threading.Thread(target=srv.serve_forever, daemon=True).start()
     log(f"Panel bağlantısı hazır: http://127.0.0.1:{PORT}")
-    if getattr(sys, "frozen", False) and not os.environ.get("ALBION_NO_BROWSER"):
+    if FROZEN and not FROM_LINK and not os.environ.get("ALBION_NO_BROWSER"):
         webbrowser.open(PANEL_URL)
+    threading.Thread(target=APP.check_update, daemon=True).start()
+    threading.Thread(target=APP.start_data_client, daemon=True).start()
 
     def ticker():
         while True:
@@ -1379,8 +1568,15 @@ def main():
 
     log("Albion'u aç (ya da karakter seçim ekranına dön), oyuna gir.")
     log("İpucu: Partiyi doğru görmesi için toplayıcıyı oyuna girmeden önce başlat.")
-    run_capture(tracker, parser)
-    input("Kapatmak için Enter'a bas...")
+    tray = make_tray()
+    if tray is None:
+        run_capture(tracker, parser)
+        APP.stop_data_client()
+        message("Toplayıcı durdu.")
+        return
+    threading.Thread(target=run_capture, args=(tracker, parser), daemon=True).start()
+    tray.run()
+    APP.quit()
 
 
 if __name__ == "__main__":

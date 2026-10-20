@@ -38,8 +38,8 @@ Python kuruluysa exe yerine `DPS Meter Baslat.bat` ile kaynak koddan da çalış
 
 ## Exe'yi yeniden derlemek (geliştirici için)
 
-    py -3 -m pip install pyinstaller scapy pillow
-    py -3 -m PyInstaller --onefile --console --name AlbionDPSMeter --collect-submodules scapy.layers albion_dps.py
+    py -3 -m pip install pyinstaller scapy pillow pystray
+    py -3 -m PyInstaller --onefile --noconsole --name AlbionDPSMeter --collect-submodules scapy.layers --hidden-import pystray._win32 albion_dps.py
 
 ## Sorun çözme
 
