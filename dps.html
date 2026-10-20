@@ -130,7 +130,7 @@ tr.spr>td{background:var(--in);padding:4px 8px 10px}
     <p id="startBtn" hidden><a href="albiondps://start" style="display:inline-block;padding:9px 14px;border:1px solid #b8602a;border-radius:9px;background:var(--acc2);color:var(--accT);font-weight:700;text-decoration:none">DPS Meter'ı başlat</a></p>
     <ol class="steps">
       <li><b>Npcap'i kur</b> (bir kere): <a href="https://npcap.com/#download" target="_blank" rel="noopener">npcap.com</a> adresinden indir, varsayılan ayarlarla kur. Windows'un oyun trafiğini okuyabilmesini sağlar.</li>
-      <li><b>Toplayıcıyı indir:</b> <a href="https://github.com/cagroren/albion-craft-planner/releases/latest/download/AlbionDPSMeter.exe">AlbionDPSMeter.exe</a> (16 MB). Python ya da başka bir şey kurman gerekmez. İstediğin bir klasöre koy, kayıtların onun yanında tutulur.</li>
+      <li><b>Toplayıcıyı indir:</b> <a href="https://github.com/cagroren/albion-craft-planner/releases/latest/download/AlbionDPSMeter.exe">AlbionDPSMeter.exe</a> (24 MB). Python ya da başka bir şey kurman gerekmez. İstediğin bir klasöre koy, kayıtların onun yanında tutulur.</li>
       <li><b>Bir kere çift tıkla.</b> Arka planda çalışır, saatin yanındaki simgeden kapatılır. Bundan sonra bu sekmeye girince kendisi açılır ve yeni sürüm çıkınca buradan güncellenir. Albion Data Project client'ı da (pazar fiyatlarını paylaşır) birlikte başlatır. Windows "bilgisayarınız korundu" derse <b>Ek bilgi</b> → <b>Yine de çalıştır</b>'a bas (program imzasız olduğu için bu uyarı çıkar).</li>
       <li><b>Albion'a gir.</b> Partinin doğru görünmesi için toplayıcıyı karakter seçim ekranındayken başlatman en iyisi.</li>
       <li>Tarayıcı <b>"yerel ağdaki cihazlara erişim"</b> izni sorarsa <b>İzin ver</b> de. Bu sayfa bağlanınca otomatik dolacak.</li>
@@ -206,7 +206,7 @@ function updateHtml(){
 function render(){
   const cs=$("cState");
   $("setup").hidden=connected;$("main").hidden=!connected;$("histSec").hidden=!connected||!fights.length;$("avgSec").hidden=!connected||!fights.length;
-  if(!connected){cs.className="live";cs.textContent="Bağlı değil";$("cInfo").textContent=LS.app?"DPS Meter başlatılıyor… Tarayıcı \"AlbionDPSMeter açılsın mı?\" diye sorarsa \"Her zaman izin ver\"i işaretleyip Aç'a bas.":"Toplayıcı çalışmıyor ya da tarayıcı bağlantıya izin vermedi.";$("startBtn").hidden=!LS.app;$("party").hidden=true;return}
+  if(!connected){cs.className="live";cs.textContent="Bağlı değil";$("cInfo").textContent=LS.app?"DPS Meter başlatılıyor… Tarayıcı \"AlbionDPSMeter açılsın mı?\" diye sorarsa \"Her zaman izin ver\"i işaretleyip Aç'a bas.":"Toplayıcı çalışmıyor ya da tarayıcı bağlantıya izin vermedi.";$("startBtn").hidden=false;$("party").hidden=true;return}
   const cap=status.capturing;
   cs.className="live "+(cap?"on":"wait");cs.textContent=cap?"Oyun verisi geliyor":"Bağlı, oyun bekleniyor";
   $("cInfo").innerHTML=updateHtml()+(status.version>=4?"":`<b style="color:var(--warn)">Toplayıcı eski sürüm: ${status.version>=3?"duraklatma yok":"combat fame credit doğru sayılmaz"}. Yeni AlbionDPSMeter.exe'yi indirip onu aç.</b> `)+(status.character?`Karakter: <b style="color:var(--ink)">${esc(status.character)}</b>${status.partyKnown?"":" · parti bilgisi henüz gelmedi, şimdilik sadece sen sayılıyorsun"}`:"Karakter henüz görülmedi. Oyuna gir ya da bir bölge değiştir.");
