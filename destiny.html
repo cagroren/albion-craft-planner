@@ -49,6 +49,20 @@ img[src*="render.albiononline.com"]{filter:drop-shadow(0 2px 3px rgba(0,0,0,.45)
 .subs button:hover{background:var(--card2);border-color:var(--line2)}
 .subs button.on{background:var(--acc2);color:var(--accT);border-color:#b8602a}
 .subs button b{font-size:11px;color:var(--good)}
+.subh{display:flex;align-items:center;gap:10px;margin:0 0 8px}
+.subh button{margin-left:auto;padding:4px 10px;font-size:12px}
+/* plan */
+.pl{width:100%;border-collapse:collapse}
+.pl th,.pl td{text-align:left;padding:7px 8px;border-bottom:1px solid var(--line);font-size:14px;vertical-align:middle}
+.pl th{color:var(--mut);font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase}
+.pl td.n,.pl th.n{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+.pl td .pn{display:flex;align-items:center;gap:8px}
+.pl td .pn img{width:32px;height:32px;flex:none}
+.pl tfoot td{font-weight:800;border-bottom:0}
+.pl input{width:70px;padding:5px 8px}
+.plh{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.plh h2{margin:0}
+.plt{overflow-x:auto;margin-top:12px}
 /* düzen */
 .lay{display:grid;grid-template-columns:1fr minmax(340px,440px);gap:16px;align-items:start;margin-top:16px}
 .side{position:sticky;top:12px}
@@ -98,7 +112,9 @@ img[src*="render.albiononline.com"]{filter:drop-shadow(0 2px 3px rgba(0,0,0,.45)
 <div class="sbar"><span class="live" id="cState">Bağlanıyor</span><span class="st" id="cInfo"></span><span class="sp"></span><label class="st" style="display:flex;align-items:center;gap:8px">Karakter<select id="chr" aria-label="Karakter"></select></label></div>
 <section style="margin-bottom:0"><div class="cat" id="cats"></div>
 <div class="row" style="margin:0 0 10px"><input id="q" type="search" placeholder="Bütün board'da ara (örn. Claymore, Ore, Carrot)" aria-label="Spec ara" style="flex:1;min-width:220px"></div>
+<div class="subh"><span class="st" id="subCur"></span><button type="button" class="l" id="subT"></button></div>
 <div class="subs" id="subs"></div></section>
+<section id="plan" style="margin:16px 0 0" hidden></section>
 <div class="lay"><div id="grid"><div class="empty">Yükleniyor...</div></div><section class="side" id="calc"><div class="empty">Bir karta tıkla, hesaplayıcı burada açılır.</div></section></div>
 </main>
 <script>
@@ -126,12 +142,16 @@ function levelOf(name){const b=board();if(b){const i=D.idx[name],n=D.nodes[name]
 const tpl=n=>D.templates[n.tpl]||{lv:[],el:[]};
 const maxLv=n=>tpl(n).lv.length+tpl(n).el.length;
 function levelFame(n,i){const T=tpl(n);if(i<=T.lv.length)return T.lv[i-1][0]*n.fm;const e=T.el[i-T.lv.length-1];return e?e[0]*n.fm:0}
+// Credit ile respec (oyundaki respec penceresiyle birebir): credit = fame × LP çarpanı × respec çarpanı (off-hand 0.2),
+// silver = credit × oran. Oran altın fiyatıyla oynar; varsayılanı oyundan alınan görsellerden (0,38147).
+const SPC0=0.38147,spc=()=>+LS.spc>0?+LS.spc:SPC0;
 function between(n,from,to){
-  const T=tpl(n),r={fame:0,lp:0,efame:0,silver:0};
+  const T=tpl(n),r={fame:0,lp:0,efame:0,cr:0,ecr:0},k=n.rs==="combat"?n.lm*(n.rm||1):0;
   for(let i=from+1;i<=to;i++){
-    if(i<=T.lv.length){const [f,l]=T.lv[i-1];r.fame+=f*n.fm;r.lp+=l*n.lm}
-    else{const e=T.el[i-T.lv.length-1];if(!e)break;r.efame+=e[0]*n.fm;r.silver+=e[0]*n.fm*e[1]}
+    if(i<=T.lv.length){const [f,l]=T.lv[i-1];r.fame+=f*n.fm;r.lp+=l*n.lm;r.cr+=f*n.fm*k}
+    else{const e=T.el[i-T.lv.length-1];if(!e)break;r.efame+=e[0]*n.fm;r.ecr+=e[0]*n.fm*k}
   }
+  r.silver=(r.cr+r.ecr)*spc();
   return r;
 }
 function bonusLines(n,from,to){
@@ -146,9 +166,12 @@ const short=t=>String(t).replace(/ (Combat|Crafting|Tailoring|Cultivating)? ?Spe
 
 // ---------- dal / alt dal / kartlar
 const inCat=()=>Object.entries(D.nodes).filter(([,n])=>n.cat===cat&&n.tpl);
+// Zırhlar önce (Cloth, Leather, Plate), sonra diğer alt dallar alfabetik
+const SUBFIRST=["Cloth Armor Fighter","Leather Armor Fighter","Plate Armor Fighter"];
+const subRank=k=>{const i=SUBFIRST.indexOf(k);return i<0?99:i};
 function subsOf(){
   const G={};inCat().forEach(([id,n])=>{const k=n.sub||"Diğer";(G[k]=G[k]||[]).push([id,n])});
-  return Object.entries(G).sort((a,b)=>a[0].localeCompare(b[0]));
+  return Object.entries(G).sort((a,b)=>subRank(a[0])-subRank(b[0])||a[0].localeCompare(b[0]));
 }
 const sortNodes=l=>l.sort((a,b)=>(tpl(a[1]).spec?1:0)-(tpl(b[1]).spec?1:0)||(a[1].ring||0)-(b[1].ring||0)||a[1].t.localeCompare(b[1].t));
 function card(id,n,withSub){
@@ -164,6 +187,10 @@ function drawNav(){
   $("subs").innerHTML=S.map(([k,l])=>{const m=sortNodes(l.slice())[0],mx=l.filter(([id,n])=>{const x=levelOf(id).lv;return x&&x>=tpl(n).lv.length}).length;
     return `<button data-s="${esc(k)}" class="${k===sub&&!$("q").value?"on":""}">${icon(m&&m[1].icon)}${esc(k)}${mx?` <b title="100 olan">${mx}✓</b>`:""}</button>`}).join("");
   $("subs").querySelectorAll("[data-s]").forEach(b=>b.onclick=()=>{sub=LS.sub=b.dataset.s;$("q").value="";saveLS();drawNav();drawGrid()});
+  // Alt dal çubuğu küçültülebilir: kapalıyken sadece seçili alt dalın adı görünür
+  $("subs").hidden=!!LS.subHide;
+  $("subCur").innerHTML=LS.subHide?`Alt dal: <b style="color:var(--ink)">${esc(sub)}</b>`:"";
+  $("subT").textContent=LS.subHide?"▾ Alt dalları göster":"▴ Alt dalları gizle";
 }
 function drawGrid(){
   const q=$("q").value.trim().toLowerCase();
@@ -196,8 +223,9 @@ function drawCalc(){
   <div class="g"><label>Şu anki seviye${L.auto?'<span class="auto">OYUNDAN</span>':""}<input type="number" id="cLv" min="0" max="${M}" value="${cur}"${L.auto?" disabled":""}></label>
   <label>Hedef seviye<input type="number" id="cTg" min="1" max="${M}" value="${tgt}"></label>
   <label>Bu seviyede kazanılan fame${inAuto!=null?'<span class="auto">OYUNDAN</span>':""}<input type="number" id="cIn" min="0" value="${inAuto!=null?inAuto:(LS.inl&&LS.inl[sel])||""}" placeholder="0"${inAuto!=null?" disabled":""}></label>
-  <label>Saatte kazandığın fame<input type="number" id="cFph" min="0" value="${LS.fph||""}" placeholder="örn. 1500000"></label></div>
-  <div class="q">${[cur<B?[B,"100'e kadar"]:null,M>B?[M,M+"'ye kadar"]:null].filter(Boolean).map(([v,l])=>`<button type="button" class="l" data-t="${v}">${l}</button>`).join("")}</div>
+  <label>Saatte kazandığın fame<input type="number" id="cFph" min="0" value="${LS.fph||""}" placeholder="örn. 1500000"></label>
+  ${n.rs==="combat"?`<label>Silver / credit oranı<input type="number" id="cSpc" min="0" step="0.0001" value="${LS.spc||""}" placeholder="${SPC0}"></label>`:""}</div>
+  <div class="q">${[cur<B?[B,"100'e kadar"]:null,M>B?[M,M+"'ye kadar"]:null].filter(Boolean).map(([v,l])=>`<button type="button" class="l" data-t="${v}">${l}</button>`).join("")}<button type="button" id="cAdd" style="margin-left:auto">${(LS.plan||[]).some(p=>p.id===sel)?"Plandaki hedefi güncelle":"Plana ekle"}</button></div>
   <div id="cOut"></div>`;
   const out=()=>{
     const c=Math.max(0,Math.min(M,+$("cLv").value||0)),t=Math.max(0,Math.min(M,+$("cTg").value||0)),inl=Math.max(0,+$("cIn").value||0),fph=Math.max(0,+$("cFph").value||0);
@@ -210,17 +238,46 @@ function drawCalc(){
       <div class="k big">${c} → ${t} için gereken fame<b>${fmt(need)}</b>${inl?`<small>bu seviyede kazanılan ${fmt(inl)} / ${fmt(nextLv)} düşüldü</small>`:""}</div>
       ${r.fame?`<div class="k">1-100 arası<b>${fmt(Math.max(0,r.fame-inl))}</b></div>`:""}
       ${r.efame?`<div class="k">Elite (100 üstü)<b>${fmt(r.efame-(r.fame?0:inl))}</b><small>${t-Math.max(c,B)} elite seviye</small></div>`:""}
-      ${r.silver?`<div class="k" style="grid-column:1/-1">Combat fame credit ile respec yaparsan<b>${fmt(r.silver)} silver</b><small>${fmt(r.efame)} credit gerekir (elite fame × oyunun respec oranı)</small></div>`:""}
+      ${r.cr+r.ecr?`<div class="k" style="grid-column:1/-1">Combat fame credit ile respec yaparsan<b>${fmt(r.cr+r.ecr)} credit + ${fmt(r.silver)} silver</b><small>credit = fame × ${dec(n.lm*(n.rm||1),3)} (bu düğümün oranı) · silver = credit × ${dec(spc(),4)}${r.cr?" · 100 altı seviyelerin respec maliyeti oyunda henüz doğrulanmadı":""}</small></div>`:""}
       ${r.lp?`<div class="k">Learning Points ile<b>${fmt(r.lp)} LP</b><small>Premium'la ${dec(r.lp/lpPerDay,1)} gün</small></div>`:""}
       ${fph?`<div class="k">Tahmini süre<b>${dec(need/fph,1)} saat</b><small>saatte ${fmt(fph)} fame</small></div>`:""}
     </div>
     ${lines.length?`<h2 style="margin-top:18px">${t} seviyede kazanacağın</h2><div class="bon">${lines.map(l=>`<div>${l}</div>`).join("")}</div>`:""}`;
   };
-  ["cLv","cTg","cIn","cFph"].forEach(i=>$(i).addEventListener("input",()=>{out();if(i==="cLv")refreshCard()}));
+  ["cLv","cTg","cIn","cFph"].forEach(i=>$(i).addEventListener("input",()=>{out();if(i==="cLv")refreshCard();drawPlan()}));
+  if($("cSpc"))$("cSpc").addEventListener("input",()=>{LS.spc=+$("cSpc").value>0?+$("cSpc").value:undefined;saveLS();out();drawPlan()});
   $("calc").querySelectorAll("[data-t]").forEach(b=>b.onclick=()=>{$("cTg").value=b.dataset.t;out()});
+  $("cAdd").onclick=()=>{const t=Math.max(0,Math.min(M,+$("cTg").value||0));LS.plan=(LS.plan||[]).filter(p=>p.id!==sel);LS.plan.push({id:sel,to:t});LS.planOpen=true;saveLS();$("cAdd").textContent="Plandaki hedefi güncelle";drawPlan()};
   out();
 }
 function refreshCard(){const b=$("grid").querySelector(`[data-n="${sel}"]`);if(b){const w=document.createElement("div");w.innerHTML=card(sel,D.nodes[sel]);const nb=w.firstChild;nb.onclick=b.onclick;b.replaceWith(nb)}}
+
+// ---------- plan: birden çok spec'in hedefe toplam maliyeti (seviyeler canlı board'dan)
+function drawPlan(){
+  const P=(LS.plan||[]).filter(p=>D.nodes[p.id]&&D.nodes[p.id].tpl),el=$("plan");
+  if(!P.length){el.hidden=true;return}
+  el.hidden=false;
+  const lpDay=D.lp.secPerPointPremium?86400/D.lp.secPerPointPremium:30,fph=+LS.fph||0,T={fame:0,cr:0,silver:0,lp:0};
+  const rows=P.map((p,i)=>{
+    const n=D.nodes[p.id],L=levelOf(p.id),c=Math.min(maxLv(n),L.lv),t=Math.min(maxLv(n),p.to);
+    const r=t>c?between(n,c,t):{fame:0,efame:0,cr:0,ecr:0,silver:0,lp:0},inl=t>c&&L.pr&&L.pr[2]!=null?L.pr[2]:0,need=Math.max(0,r.fame+r.efame-inl);
+    T.fame+=need;T.cr+=r.cr+r.ecr;T.silver+=r.silver;T.lp+=r.lp;
+    return `<tr><td><span class="pn">${icon(n.icon)}<a href="#" data-go="${p.id}" style="color:var(--ink)">${esc(short(n.t))}</a></span><small class="st">${esc(n.sub||"")}</small></td>
+      <td class="n">${c}${L.auto?' <small class="st">oyun</small>':""}</td><td class="n"><input type="number" min="1" max="${maxLv(n)}" value="${t}" data-pi="${i}" aria-label="Hedef seviye"></td>
+      <td class="n">${t>c?fmt(need):'<span class="pos" style="color:var(--good)">tamam</span>'}</td><td class="n">${r.cr+r.ecr?fmt(r.cr+r.ecr):"-"}</td><td class="n">${r.silver?fmt(r.silver):"-"}</td><td class="n">${r.lp?fmt(r.lp):"-"}</td>
+      <td class="n"><button type="button" class="l" data-pd="${i}" aria-label="Plandan çıkar" style="padding:3px 9px">✕</button></td></tr>`}).join("");
+  el.innerHTML=`<div class="plh"><h2>Plan · ${P.length} spec</h2><span class="st">Seviyeler oyundan gelir; hedefi buradan değiştirebilirsin.</span><button type="button" class="l" id="pT" style="margin-left:auto;padding:4px 10px;font-size:12px">${LS.planOpen===false?"▾ Göster":"▴ Küçült"}</button><button type="button" class="l" id="pX" style="padding:4px 10px;font-size:12px">Planı temizle</button></div>
+  <div class="kp" style="grid-template-columns:repeat(auto-fit,minmax(170px,1fr))"><div class="k big" style="grid-column:auto">Toplam fame<b>${fmt(T.fame)}</b>${fph?`<small>saatte ${fmt(fph)} ile ${dec(T.fame/fph,1)} saat</small>`:""}</div>
+  ${T.cr?`<div class="k">Combat fame credit ile<b>${fmt(T.cr)} credit</b><small>+ ${fmt(T.silver)} silver</small></div>`:""}
+  ${T.lp?`<div class="k">Learning Points ile<b>${fmt(T.lp)} LP</b><small>Premium'la ${dec(T.lp/lpDay,1)} gün</small></div>`:""}</div>
+  <div class="plt"${LS.planOpen===false?" hidden":""}><table class="pl"><thead><tr><th>Spec</th><th class="n">Şu an</th><th class="n">Hedef</th><th class="n">Fame</th><th class="n">Credit</th><th class="n">Silver</th><th class="n">LP</th><th></th></tr></thead><tbody>${rows}</tbody>
+  <tfoot><tr><td>Toplam</td><td></td><td></td><td class="n">${fmt(T.fame)}</td><td class="n">${T.cr?fmt(T.cr):"-"}</td><td class="n">${T.silver?fmt(T.silver):"-"}</td><td class="n">${T.lp?fmt(T.lp):"-"}</td><td></td></tr></tfoot></table></div>`;
+  $("pT").onclick=()=>{LS.planOpen=LS.planOpen===false;saveLS();drawPlan()};
+  $("pX").onclick=()=>{if(!confirm("Plandaki bütün spec'ler silinsin mi?"))return;LS.plan=[];saveLS();drawPlan();drawCalc()};
+  el.querySelectorAll("[data-pi]").forEach(e=>e.onchange=()=>{const p=LS.plan[+e.dataset.pi];p.to=Math.max(1,+e.value||1);saveLS();drawPlan()});
+  el.querySelectorAll("[data-pd]").forEach(e=>e.onclick=()=>{LS.plan.splice(+e.dataset.pd,1);saveLS();drawPlan();drawCalc()});
+  el.querySelectorAll("[data-go]").forEach(a=>a.onclick=e=>{e.preventDefault();const n=D.nodes[a.dataset.go];sel=LS.sel=a.dataset.go;cat=LS.cat=n.cat;sub=LS.sub=n.sub||"";$("q").value="";saveLS();drawNav();drawGrid();drawCalc();$("calc").scrollIntoView({behavior:"smooth",block:"start"})});
+}
 
 // ---------- toplayıcı ve hesap
 function drawStatus(){
@@ -255,12 +312,13 @@ async function pollLive(){
     }
   }
   drawStatus();
-  if(JSON.stringify(LIVE)!==was){drawNav();drawGrid();drawCalc()}
+  if(JSON.stringify(LIVE)!==was){drawNav();drawGrid();drawCalc();drawPlan()}
 }
 
 document.querySelectorAll("[data-go]").forEach(b=>b.onclick=()=>{location.href=b.dataset.go});
 $("q").addEventListener("input",()=>{drawNav();drawGrid()});
-$("chr").addEventListener("change",()=>{chr=LS.chr=$("chr").value;saveLS();drawStatus();drawNav();drawGrid();drawCalc()});
+$("chr").addEventListener("change",()=>{chr=LS.chr=$("chr").value;saveLS();drawStatus();drawNav();drawGrid();drawCalc();drawPlan()});
+$("subT").onclick=()=>{LS.subHide=!LS.subHide;saveLS();drawNav()};
 (async()=>{
   try{const r=await fetch("data/destiny.json");if(!r.ok)throw new Error("HTTP "+r.status);D=await r.json()}
   catch(e){$("grid").innerHTML=`<section><div class="empty">Board verisi yüklenemedi (${esc(e.message)}). Sayfayı yenile.</div></section>`;return}
@@ -268,7 +326,7 @@ $("chr").addEventListener("change",()=>{chr=LS.chr=$("chr").value;saveLS();drawS
   sb=window.aoSb||null;
   if(sb){try{const {data:{session}}=await sb.auth.getSession();me=session&&session.user||null}catch(e){}}
   await loadBoards();
-  drawStatus();drawNav();drawGrid();drawCalc();
+  drawStatus();drawNav();drawGrid();drawCalc();drawPlan();
   pollLive();setInterval(pollLive,10000);
 })();
 })();

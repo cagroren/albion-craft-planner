@@ -81,6 +81,7 @@ for a in ach.findall("templateachievement"):
         "tpl": a.get("usetemplate"),
         "fm": num(a.get("famemultiplier")) or 1,
         "lm": num(a.get("lpmultiplier")) or 1,
+        "rm": num(a.get("respecmodifier")),  # off-hand'lerde 0.2: credit ile respec maliyetini düşürür
         "cat": a.get("category"),
         "ring": num(a.get("ring")),
         "icon": a.get("itemforsprite"),
