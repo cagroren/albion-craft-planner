@@ -299,7 +299,7 @@ section{padding:16px;border-radius:14px}
 
 <section>
 <h2>Plan</h2>
-<div class="row" style="margin-top:0;align-items:center"><button id="fetch">Fiyatları çek</button><button class="l" id="clr">Manuel fiyatları temizle</button><label class="c"><input type="checkbox" id="onlyIssues"> Sadece sorunlu satırlar</label></div>
+<div class="row" style="margin-top:0;align-items:center"><button id="fetch">Fiyatları çek</button><button class="l" id="clr">Manuel fiyatları temizle</button><label class="c"><input type="checkbox" id="autoPx" checked> Fiyatları dakikada bir otomatik yenile</label><label class="c"><input type="checkbox" id="onlyIssues"> Sadece sorunlu satırlar</label></div>
 <div class="st" id="fs"></div>
 <div id="warn"></div>
 <div id="topWrap" style="display:none">
@@ -754,13 +754,13 @@ $("addp").onclick=()=>{
   const id=$("pot").value;
   if(!db[id])return;
   plan.push({id,n:num("cnt")||1});
-  calc();
+  calc();fetchPrices(false);
 };
 
 $("adda").onclick=()=>{
   const n=num("cnt")||1;
   [...$("pot").options].map(o=>o.value).filter(v=>db[v]&&!plan.some(p=>p.id===v)).forEach(id=>plan.push({id,n}));
-  calc();
+  calc();fetchPrices(false);
 };
 
 async function getPricesAll(ids){
@@ -815,7 +815,16 @@ async function getPrices(ids,city){
   }
   return out;
 }
-$("fetch").onclick=async()=>{
+// auto: dakikalık otomatik yenileme (satış geçmişi 10 dk'da bir). Aynı anda tek çekme; arada gelen istek bitince bir kez daha çalışır.
+let fetching=false,fetchAgain=false,histAt=0;
+async function fetchPrices(auto){
+  if(fetching){fetchAgain=true;return}
+  fetching=true;
+  try{await fetchOnce(auto)}finally{fetching=false}
+  if(fetchAgain){fetchAgain=false;fetchPrices(true)}
+}
+$("fetch").onclick=()=>fetchPrices(false);
+async function fetchOnce(auto){
   const outs=[...new Set(plan.map(p=>p.id))];
   const mats=[...new Set(plan.flatMap(p=>db[p.id].mats.map(m=>m[0])))];
   if(!outs.length){$("fs").textContent="Önce plana "+W+" ekle.";return}
@@ -826,13 +835,16 @@ $("fetch").onclick=async()=>{
   try{
     px.mats=Object.assign({},px.mats,await getPrices(mats.concat(cMats),$("buyCity").value));
     px.outs=Object.assign({},px.outs,await getPrices(outs.concat(cIds),$("sellCity").value));
-    if(FOOD)px.city=mergeCity(px.city,await getPricesAll(outs.concat(cIds)));    const miss=mats.filter(m=>!(px.mats[m]&&px.mats[m].sell)).concat(outs.filter(o=>!(px.outs[o]&&px.outs[o][!isInst()?"sell":"buy"])));
+    if(FOOD)px.city=mergeCity(px.city,await getPricesAll(outs.concat(cIds)));
+    const miss=mats.filter(m=>!(px.mats[m]&&px.mats[m].sell)).concat(outs.filter(o=>!(px.outs[o]&&px.outs[o][!isInst()?"sell":"buy"])));
     const old=mats.filter(m=>px.mats[m]&&px.mats[m].date&&Date.now()-Date.parse(px.mats[m].date+"Z")>864e5);
-    lastFetch=clock();$("fs").textContent="Fiyatlar "+clock()+" itibarıyla güncellendi ("+(mats.length-miss.filter(x=>mats.includes(x)).length)+"/"+mats.length+" malzeme bulundu)."+(miss.length?" Fiyatı bulunamayan: "+miss.join(", ")+" (elle girebilirsin)."  :"")+(old.length?" 24 saatten eski fiyat: "+old.length+" malzeme.":"");
-    await loadHist(outs,"fs");
-  }catch(e){$("fs").textContent="Fiyat çekilemedi ("+e.message+"). Sunucuyu kontrol et, birkaç saniye bekleyip tekrar dene ya da fiyatları elle gir.";}
+    lastFetch=clock();$("fs").textContent="Fiyatlar "+clock()+" itibarıyla güncellendi ("+(mats.length-miss.filter(x=>mats.includes(x)).length)+"/"+mats.length+" malzeme bulundu)."+(miss.length?" Fiyatı bulunamayan: "+miss.join(", ")+" (elle girebilirsin)."  :"")+(old.length?" 24 saatten eski fiyat: "+old.length+" malzeme.":"")+($("autoPx").checked?" Dakikada bir otomatik yenilenir.":"");
+    const newH=outs.some(o=>!(o in hist));
+    if(!auto||newH||Date.now()-histAt>6e5){histAt=Date.now();await loadHist(outs,"fs")}
+  }catch(e){$("fs").textContent="Fiyat çekilemedi ("+e.message+")."+(auto?" Bir dakika sonra tekrar denenecek.":" Sunucuyu kontrol et, birkaç saniye bekleyip tekrar dene ya da fiyatları elle gir.");}
   calc();
-};
+}
+setInterval(()=>{if($("autoPx").checked&&plan.length&&!document.hidden&&Object.keys(db).length)fetchPrices(true)},60000);
 
 const normN=t=>String(t).toLowerCase().replace(/[^a-z]/g,"");
 const MODEN={potion:["potion","potions","alchemy"],food:["food","foods","cookedfood","meal","meals","cooking"]};
