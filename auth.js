@@ -80,7 +80,8 @@
 
   function login(){
     try{sessionStorage.setItem("aoRet",location.hash)}catch(e){}
-    sb.auth.signInWithOAuth({provider:"discord",options:{redirectTo:location.origin+location.pathname}});
+    // prompt=none: daha önce onay verdiyse Discord "Yetkilendir" ekranını tekrar göstermez
+    sb.auth.signInWithOAuth({provider:"discord",options:{redirectTo:location.origin+location.pathname,queryParams:{prompt:"none"}}});
   }
 
   function render(){
