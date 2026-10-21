@@ -1,11 +1,14 @@
 // /b/<id> ve /g/<id> paylaşım linkleri için ortak yardımcılar (Discord önizlemesi).
-// Anahtar herkese açık publishable key'dir (config.js ile aynı); okuma RLS ile herkese açık.
+// Varsa servis anahtarı kullanılır (build okuma sadece guild üyelerine açık), yoksa publishable key.
 export const SB = "https://aulscfeqndppxbtypezs.supabase.co";
 const KEY = "sb_publishable_v-eTBIU2R9vng0qCfOOpjA_lQm2m95W";
 export const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 async function rest(path) {
-  const r = await fetch(`${SB}/rest/v1/${path}`, { headers: { apikey: KEY } });
+  // Build'ler sadece guild üyelerine açık (RLS); önizleme sunucuda servis anahtarıyla okur
+  const sk = (process.env.SUPABASE_SERVICE_ROLE_KEY || "").trim();
+  const headers = sk ? { apikey: sk, ...(sk.startsWith("eyJ") ? { Authorization: `Bearer ${sk}` } : {}) } : { apikey: KEY };
+  const r = await fetch(`${SB}/rest/v1/${path}`, { headers });
   if (!r.ok) return null;
   return r.json();
 }

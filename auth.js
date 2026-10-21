@@ -1,11 +1,43 @@
 // Discord ile giriş + bulut kayıt. Supabase ayarı yoksa ya da yüklenemezse site misafir modunda çalışır.
 (function(){
   const C=window.AO_CFG||{},LS=window.localStorage;
-  if(!C.url||!C.key||/XXX/.test(C.url)||!window.supabase)return;
+  // Site sadece Kal Vas Flam Discord'unda "Üye" ve üstü roldekilere açık. Kontrol sunucuda (/api/access) yapılır;
+  // veriler ayrıca veritabanı kurallarıyla korunur. Yerel geliştirmede (localhost) kilit yok.
+  const GATE=!/^(localhost|127\.0\.0\.1|\[::1\])$/.test(location.hostname);
+  const ACC="aoAcc",FRESH=12*3600e3,GRACE=3*86400e3;
+  if(GATE){
+    document.documentElement.classList.add("aolock");
+    const s=document.createElement("style");
+    s.textContent="html.aolock body>*:not(#aogate){display:none!important}"
+      +"#aogate{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:16px;box-sizing:border-box}"
+      +"#aogate .gc{max-width:420px;width:100%;text-align:center;background:var(--card,#11161d);border:1px solid var(--line,#252d38);border-radius:16px;padding:28px 22px;color:var(--ink,#e6e9ee);font:15px/1.5 Inter,system-ui,sans-serif}"
+      +"#aogate h1{font-size:22px;margin:12px 0 6px}#aogate p{color:var(--mut,#8b95a3);margin:0 0 18px}#aogate .why{color:var(--warn,#d29922)}"
+      +"#aogate button{font:inherit;font-weight:700;padding:10px 16px;border-radius:10px;border:1px solid #b8602a;background:var(--acc2,#7a3e16);color:var(--accT,#ffd6b3);cursor:pointer}";
+    document.head.appendChild(s);
+  }
+  function gate(kind,why){
+    if(!GATE)return;
+    const go=()=>{
+      let g=document.getElementById("aogate");
+      if(!g){g=document.createElement("div");g.id="aogate";document.body.appendChild(g)}
+      const T={
+        login:["Kal Vas Flam'a özel","Bu site Kal Vas Flam Discord sunucusundaki Üye ve üstü rollere açık. Devam etmek için Discord ile giriş yap.","Discord ile giriş"],
+        check:["Kontrol ediliyor","Discord rolün kontrol ediliyor…",""],
+        denied:["Erişim yok","Bu site sadece Kal Vas Flam Discord sunucusundaki Üye ve üstü rollere açık. Hesabın ve bu sitedeki verilerin silindi.","Başka hesapla giriş"],
+        error:["Şu an kontrol edilemiyor","Discord rolün kontrol edilemedi. Biraz sonra sayfayı yenile.","Tekrar dene"],
+        off:["Giriş servisi yüklenemedi","Sayfayı yenile. Sorun sürerse internet bağlantını kontrol et.","Yenile"]}[kind];
+      g.innerHTML=`<div class="gc"><img src="logo.png" alt="KVF" width="72" height="72"><h1>${T[0]}</h1><p>${T[1]}${why?`<br><span class="why">${esc(why)}</span>`:""}</p>${T[2]?`<button type="button" id="aogo">${T[2]}</button>`:""}</div>`;
+      const b=document.getElementById("aogo");
+      if(b)b.onclick=kind==="login"||kind==="denied"?()=>login():()=>location.reload();
+    };
+    document.body?go():document.addEventListener("DOMContentLoaded",go);
+  }
+  function unlock(){document.documentElement.classList.remove("aolock");const g=document.getElementById("aogate");if(g)g.remove()}
+  const esc=t=>String(t==null?"":t).replace(/&/g,"&amp;").replace(/"/g,"&quot;").replace(/</g,"&lt;");
+  if(!C.url||!C.key||/XXX/.test(C.url)||!window.supabase){gate("off");return}
   const sb=window.supabase.createClient(C.url,C.key,{auth:{flowType:"pkce",detectSessionInUrl:true,persistSession:true}});
   window.aoSb=sb;
   const KEYS=["aoplan3","aoplan3f","aoplan3c","aoprofiles","aoprofilesf","aoprofilesc","aoactive","aoactivef","aoactivec","aobm1","aodb1"];
-  const esc=t=>String(t==null?"":t).replace(/&/g,"&amp;").replace(/"/g,"&quot;").replace(/</g,"&lt;");
   const get=k=>{try{return LS.getItem(k)}catch(e){return null}};
   const orig=Storage.prototype.setItem;
   const put=(k,v)=>{try{orig.call(LS,k,v)}catch(e){}};
@@ -84,6 +116,23 @@
     let reload=ret!=null&&ret!==location.hash;
 
     user=session&&session.user;
+    if(GATE){
+      if(!user){render();gate("login");return}
+      let c=null;try{c=JSON.parse(get(ACC)||"null")}catch(e){}
+      const mine=c&&c.uid===user.id,age=mine?Date.now()-c.ts:Infinity;
+      if(age<FRESH)unlock();else gate("check");
+      let a;
+      try{const r=await fetch("/api/access",{headers:{Authorization:"Bearer "+session.access_token},cache:"no-store"});a=await r.json()}
+      catch(e){a={allowed:null,error:"bağlantı hatası"}}
+      if(a.allowed===true){put(ACC,JSON.stringify({uid:user.id,ts:Date.now()}));if(a.first&&!sessionStorage.getItem("aoFirst")){sessionStorage.setItem("aoFirst","1");location.reload();return}unlock()}
+      else if(a.allowed===false){
+        try{LS.removeItem(ACC);LS.removeItem("aoSyncUser")}catch(e){}
+        await sb.auth.signOut().catch(()=>{});
+        user=null;render();gate("denied",a.why);return;
+      }
+      else if(age<GRACE)unlock();
+      else{render();gate("error",a.error);return}
+    }
     if(user){
       const {data:p}=await sb.from("profiles").select("name,avatar,banned,is_admin").eq("id",user.id).maybeSingle();
       prof=p||{};render();
@@ -99,5 +148,5 @@
     if(reload){if(ret!=null)location.hash=ret;location.reload()}
   }
 
-  document.addEventListener("DOMContentLoaded",()=>start().catch(e=>console.warn("auth",e)));
+  document.addEventListener("DOMContentLoaded",()=>start().catch(e=>{console.warn("auth",e);if(document.documentElement.classList.contains("aolock"))gate("error",String(e&&e.message||e))}));
 })();

@@ -226,3 +226,46 @@ drop policy if exists "plan güncelleme" on public.destiny_plans;
 create policy "plan güncelleme" on public.destiny_plans for update using (owner = auth.uid()) with check (owner = auth.uid());
 drop policy if exists "plan silme" on public.destiny_plans;
 create policy "plan silme" on public.destiny_plans for delete using (owner = auth.uid());
+
+-- GUILD ERİŞİMİ (yeni eklendi): sadece Kal Vas Flam Discord'unda "Üye" ve üstü roldekiler veri okuyup yazabilir.
+-- member alanını sadece sunucu (/api/access, servis anahtarı) değiştirir; kullanıcıların profiles'a yazma izni yok.
+alter table public.profiles add column if not exists discord_id text;
+alter table public.profiles add column if not exists member boolean not null default false;
+alter table public.profiles add column if not exists member_checked_at timestamptz;
+
+create or replace function public.is_member() returns boolean
+language sql stable security definer set search_path = public as $$
+  select coalesce((select (member or is_admin) and not banned from public.profiles where id = auth.uid()), false)
+$$;
+
+drop policy if exists "kendi verisi" on public.user_data;
+create policy "kendi verisi" on public.user_data
+  for all
+  using (user_id = auth.uid() and public.is_member())
+  with check (user_id = auth.uid() and public.is_member() and length(value) < 1000000);
+
+drop policy if exists "build okuma" on public.builds;
+create policy "build okuma" on public.builds for select using (public.is_member());
+drop policy if exists "build ekleme" on public.builds;
+create policy "build ekleme" on public.builds for insert with check (owner = auth.uid() and public.is_member());
+drop policy if exists "build düzenleme" on public.builds;
+create policy "build düzenleme" on public.builds for update using (owner = auth.uid() and public.is_member()) with check (owner = auth.uid());
+drop policy if exists "grup okuma" on public.group_builds;
+create policy "grup okuma" on public.group_builds for select using (public.is_member());
+drop policy if exists "grup ekleme" on public.group_builds;
+create policy "grup ekleme" on public.group_builds for insert with check (owner = auth.uid() and public.is_member());
+drop policy if exists "grup düzenleme" on public.group_builds;
+create policy "grup düzenleme" on public.group_builds for update using (owner = auth.uid() and public.is_member()) with check (owner = auth.uid());
+
+drop policy if exists "destiny okuma" on public.destiny_boards;
+create policy "destiny okuma" on public.destiny_boards for select using (owner = auth.uid() and public.is_member());
+drop policy if exists "destiny ekleme" on public.destiny_boards;
+create policy "destiny ekleme" on public.destiny_boards for insert with check (owner = auth.uid() and public.is_member());
+drop policy if exists "destiny güncelleme" on public.destiny_boards;
+create policy "destiny güncelleme" on public.destiny_boards for update using (owner = auth.uid() and public.is_member()) with check (owner = auth.uid());
+drop policy if exists "plan okuma" on public.destiny_plans;
+create policy "plan okuma" on public.destiny_plans for select using (owner = auth.uid() and public.is_member());
+drop policy if exists "plan ekleme" on public.destiny_plans;
+create policy "plan ekleme" on public.destiny_plans for insert with check (owner = auth.uid() and public.is_member());
+drop policy if exists "plan güncelleme" on public.destiny_plans;
+create policy "plan güncelleme" on public.destiny_plans for update using (owner = auth.uid() and public.is_member()) with check (owner = auth.uid());
