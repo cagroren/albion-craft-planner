@@ -47,9 +47,6 @@ th{color:var(--mut);font-weight:700;font-size:11px;letter-spacing:.08em;text-tra
 .an{display:flex;gap:10px;align-items:start;border-top:1px solid var(--line);padding:10px 0}
 .an p{flex:1;margin:0;white-space:pre-wrap}
 .an.off p{color:var(--mut);text-decoration:line-through}
-.dbc{display:inline-flex;align-items:center;gap:8px;border:1px solid rgba(63,185,80,.4);background:rgba(63,185,80,.08);border-radius:9px;padding:4px 4px 4px 10px;font-size:13px;font-weight:700;margin:0 8px 8px 0}
-.dbc b{color:var(--good)}
-.dbc button{padding:2px 8px}
 .rl{display:inline-flex;align-items:center;gap:5px;font-size:12px;color:#c3cad4;border:1px solid var(--line2);border-radius:20px;padding:0 8px;margin:0 4px 4px 0;white-space:nowrap}
 .rl i{width:8px;height:8px;border-radius:50%;background:var(--mut);flex:none}
 .sm{color:var(--mut);font-size:12px}
@@ -85,13 +82,6 @@ td .acts button{padding:5px 10px;font-size:13px}
 <div class="hd" style="margin-bottom:10px"><h2 style="margin:0">Site kullanımı</h2><select id="stDays" aria-label="Dönem" style="margin-left:auto"><option value="7">Son 7 gün</option><option value="30" selected>Son 30 gün</option><option value="90">Son 90 gün</option></select></div>
 <div class="g2"><div><div class="sm" style="margin-bottom:6px">Günlük aktif kullanıcı</div><div id="stDaily"><div class="st">Yükleniyor...</div></div></div>
 <div><div class="sm" style="margin-bottom:8px">En çok açılan sayfalar</div><div id="stPages"></div></div></div>
-</section>
-<section>
-<h2>Günlük bonuslar</h2>
-<div class="st" style="margin-bottom:4px">Oyunda gördüğün günün bonuslarını gir, sitede herkese "Günlük bonuslar" kutusunda görünür. Türü Potion ya da Yemek seçersen o sekmede günlük bonus yüzdesi otomatik bu değer olur. Craft sekmesi için kategori adını oyundaki gibi yaz (örn. Fire Staff, Plate Armor, Sword) ve türü Diğer seç, o kategorideki eşyalara otomatik uygulanır.</div>
-<div class="row"><label>Tarih<input type="date" id="dbDay"></label><label>Sunucu<select id="dbSrv"><option value="europe">Europe</option><option value="west">West (Americas)</option><option value="east">East (Asia)</option></select></label><label>Kategori adı<input id="dbName" maxlength="60" placeholder="örn. Potions, Firestaff"></label><label>Bonus<select id="dbPct"><option value="10">+10%</option><option value="20">+20%</option></select></label><label>Tür<select id="dbKind"><option value="potion">Potion</option><option value="food">Yemek</option><option value="other">Diğer</option></select></label><button id="dbAdd">Ekle</button></div>
-<div class="st" id="dbSt" style="margin-top:8px"></div>
-<div id="dbList" style="margin-top:6px"></div>
 </section>
 <section>
 <h2>Duyuru yayınla</h2>
@@ -140,7 +130,7 @@ async function start(){
   if(!p||!p.is_admin){$("gate").textContent="Bu sayfa için yetkin yok.";return}
   $("gate").hidden=true;$("app").hidden=false;
   token=session.access_token;
-  loadUsers();loadAnn();initDb();loadSweep();loadStats();loadRemovals();loadDiscord();
+  loadUsers();loadAnn();loadSweep();loadStats();loadRemovals();loadDiscord();
   setInterval(loadSweep,30e3);
 }
 
@@ -208,24 +198,6 @@ $("anAdd").onclick=async()=>{
   $("anAdd").disabled=false;
   if(error){$("anSt").textContent="Yayınlanamadı: "+error.message;return}
   $("anTxt").value="";$("anSt").textContent="Yayınlandı.";loadAnn();
-};
-const today=()=>{const d=new Date();return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0")};
-const KN={potion:"Potion",food:"Yemek",other:"Diğer"},SN={europe:"Europe",west:"West",east:"East"};
-function initDb(){$("dbDay").value=today();$("dbDay").onchange=loadDb;$("dbSrv").onchange=loadDb;loadDb()}
-async function loadDb(){
-  const {data,error}=await sb.from("daily_bonus").select("*").eq("day",$("dbDay").value).eq("server",$("dbSrv").value).order("created_at");
-  if(error){$("dbSt").textContent="Bonuslar alınamadı: "+error.message+(/daily_bonus/.test(error.message)?" (schema.sql'deki günlük bonus bölümünü Supabase'de çalıştırdın mı?)":"");return}
-  $("dbList").innerHTML=(data||[]).map(r=>`<span class="dbc">${esc(r.name)} <b>+${r.pct}%</b> <small style="color:var(--mut)">${KN[r.kind]}</small><button class="bad" data-dbd="${r.id}" aria-label="Sil">✕</button></span>`).join("")||`<div class="st">${esc(SN[$("dbSrv").value])} için bu tarihe bonus girilmedi.</div>`;
-  $("dbList").querySelectorAll("[data-dbd]").forEach(b=>b.onclick=async()=>{b.disabled=true;await sb.from("daily_bonus").delete().eq("id",b.dataset.dbd);loadDb()});
-}
-$("dbAdd").onclick=async()=>{
-  const n=$("dbName").value.trim();
-  if(!n){$("dbSt").textContent="Önce kategori adını yaz.";$("dbName").focus();return}
-  $("dbAdd").disabled=true;
-  const {error}=await sb.from("daily_bonus").insert({day:$("dbDay").value,server:$("dbSrv").value,name:n,pct:+$("dbPct").value,kind:$("dbKind").value});
-  $("dbAdd").disabled=false;
-  if(error){$("dbSt").textContent="Eklenemedi: "+error.message;return}
-  $("dbName").value="";$("dbSt").textContent="Eklendi.";loadDb();
 };
 async function loadDiscord(){
   try{const r=await fetch("/api/admin?op=discord",{headers:{Authorization:"Bearer "+token}});const j=await r.json();if(j.error)throw new Error(j.error);DC=j.members}
