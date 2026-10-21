@@ -70,7 +70,9 @@
   }
 
   async function start(){
-    const row=document.querySelector("main>.row");
+    // Giriş kutusu ortak üst menünün sağında durur (nav.js); menüsüz sayfada ilk satıra
+    const row=document.getElementById("topnav")||document.querySelector("main>.row");
+    if(!row)return;
     box=document.createElement("div");box.style.cssText="margin-left:auto;display:flex;gap:8px;align-items:center;flex-wrap:wrap;font-size:13px";
     row.appendChild(box);
     ann=document.createElement("div");row.after(ann);
