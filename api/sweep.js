@@ -1,4 +1,4 @@
-// /api/sweep: Vercel Cron her gün çalıştırır. Discord'dan çıkmış ya da rolü düşmüş kişilerin hesabını ve verisini siler.
+// /api/sweep: Supabase pg_cron her dakika, Vercel Cron yedek olarak her gün çalıştırır. Discord'dan çıkmış ya da rolü düşmüş kişilerin hesabını ve verisini siler.
 // Botta "Server Members Intent" açık olmalı (üye listesini okumak için).
 import { SB, svcHeaders, allowedRoles, discordIdOf, deleteUser, json } from "./_guild.js";
 
@@ -28,9 +28,20 @@ async function allUsers() {
   }
 }
 
-export async function GET(req) {
+// İki çağıran var: Vercel Cron (günde bir, CRON_SECRET) ve Supabase pg_cron (her dakika, x-sweep-key).
+// pg_cron'un anahtarını veritabanı kendisi üretip app_secrets tablosunda tutar; kimse elle girmez.
+async function authorized(req) {
   const secret = (process.env.CRON_SECRET || "").trim();
-  if (!secret || req.headers.get("authorization") !== `Bearer ${secret}`) return json({ error: "izin yok" }, 401);
+  if (secret && req.headers.get("authorization") === `Bearer ${secret}`) return true;
+  const k = req.headers.get("x-sweep-key");
+  if (!k || k.length < 32) return false;
+  const r = await fetch(`${SB}/rest/v1/app_secrets?name=eq.sweep&select=value`, { headers: svcHeaders() });
+  const j = r.ok ? await r.json() : [];
+  return !!(j[0] && j[0].value === k);
+}
+
+export async function GET(req) {
+  if (!(await authorized(req).catch(() => false))) return json({ error: "izin yok" }, 401);
   try {
     const R = await allowedRoles(), members = await guildMembers(R.gid);
     // Güvenlik: liste boş ya da şüpheli derecede kısaysa (Discord hatası) kimseyi silme

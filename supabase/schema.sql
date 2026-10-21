@@ -269,3 +269,23 @@ drop policy if exists "plan ekleme" on public.destiny_plans;
 create policy "plan ekleme" on public.destiny_plans for insert with check (owner = auth.uid() and public.is_member());
 drop policy if exists "plan güncelleme" on public.destiny_plans;
 create policy "plan güncelleme" on public.destiny_plans for update using (owner = auth.uid() and public.is_member()) with check (owner = auth.uid());
+
+-- CANLI ÜYE KONTROLÜ (yeni eklendi): Supabase her dakika /api/sweep'i çağırır; Discord'dan atılan ya da rolü
+-- düşen kişinin hesabı ve verisi en geç 1 dakikada silinir. Çağrı anahtarını veritabanı kendisi üretir.
+create extension if not exists pg_cron;
+create extension if not exists pg_net with schema extensions;
+
+create table if not exists public.app_secrets (name text primary key, value text not null);
+alter table public.app_secrets enable row level security;  -- politika yok: sadece servis anahtarı okuyabilir
+revoke all on public.app_secrets from anon, authenticated;
+insert into public.app_secrets (name, value)
+  values ('sweep', encode(extensions.gen_random_bytes(32), 'hex'))
+  on conflict (name) do nothing;
+
+select cron.unschedule(jobid) from cron.job where jobname = 'kvf-sweep';
+select cron.schedule('kvf-sweep', '* * * * *', $$
+  select net.http_get(
+    url := 'https://albion-craft-planner-lovat.vercel.app/api/sweep',
+    headers := jsonb_build_object('x-sweep-key', (select value from public.app_secrets where name = 'sweep')),
+    timeout_milliseconds := 30000)
+$$);

@@ -102,6 +102,20 @@
     ann.querySelectorAll("[data-an]").forEach(b=>b.onclick=()=>{hid.push(+b.dataset.an);put("aoAnnHid",JSON.stringify(hid));b.parentElement.remove()});
   }
 
+  async function access(session){
+    try{const r=await fetch("/api/access",{headers:{Authorization:"Bearer "+session.access_token},cache:"no-store"});return await r.json()}
+    catch(e){return {allowed:null,error:"bağlantı hatası"}}
+  }
+  // Erişim kesin olarak yok: çıkış yapılır; oturum sadece süresi dolmuşsa giriş ekranı, değilse "erişim yok"
+  async function shut(a){
+    try{LS.removeItem(ACC);LS.removeItem("aoSyncUser")}catch(e){}
+    canSync=false;
+    await sb.auth.signOut().catch(()=>{});
+    user=null;render();
+    document.documentElement.classList.add("aolock");
+    a.session?gate("login"):gate("denied",a.why);
+  }
+
   async function start(){
     // Giriş kutusu ortak üst menünün sağında durur (nav.js); menüsüz sayfada ilk satıra
     const row=document.getElementById("topnav")||document.querySelector("main>.row");
@@ -122,17 +136,18 @@
       let c=null;try{c=JSON.parse(get(ACC)||"null")}catch(e){}
       const mine=c&&c.uid===user.id,age=mine?Date.now()-c.ts:Infinity;
       if(age<FRESH)unlock();else gate("check");
-      let a;
-      try{const r=await fetch("/api/access",{headers:{Authorization:"Bearer "+session.access_token},cache:"no-store"});a=await r.json()}
-      catch(e){a={allowed:null,error:"bağlantı hatası"}}
+      const a=await access(session);
       if(a.allowed===true){put(ACC,JSON.stringify({uid:user.id,ts:Date.now()}));if(a.first&&!sessionStorage.getItem("aoFirst")){sessionStorage.setItem("aoFirst","1");location.reload();return}unlock()}
-      else if(a.allowed===false){
-        try{LS.removeItem(ACC);LS.removeItem("aoSyncUser")}catch(e){}
-        await sb.auth.signOut().catch(()=>{});
-        user=null;render();gate("denied",a.why);return;
-      }
+      else if(a.allowed===false){await shut(a);return}
       else if(age<GRACE)unlock();
       else{render();gate("error",a.error);return}
+      // Açık sayfada da 2 dakikada bir bakılır: Discord'dan atılan kişinin sayfası hemen kilitlenir
+      setInterval(async()=>{
+        const {data:{session:s}}=await sb.auth.getSession();
+        if(!s){location.reload();return}
+        const b=await access(s);
+        if(b.allowed===false)await shut(b);
+      },120e3);
     }
     if(user){
       const {data:p}=await sb.from("profiles").select("name,avatar,banned,is_admin").eq("id",user.id).maybeSingle();

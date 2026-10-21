@@ -6,7 +6,11 @@ export async function GET(req) {
   const tok = (req.headers.get("authorization") || "").replace(/^Bearer\s+/i, "");
   if (!tok) return json({ allowed: false, why: "giriş yapılmadı" }, 401);
   const ur = await fetch(`${SB}/auth/v1/user`, { headers: { apikey: ANON, Authorization: `Bearer ${tok}` } });
-  if (!ur.ok) return json({ allowed: false, why: "oturum geçersiz" }, 401);
+  if (!ur.ok) {
+    // Temizlik hesabı sildiyse token hâlâ geçerli görünür ama kullanıcı yoktur
+    if (/does not exist|user_not_found/i.test(await ur.text())) return json({ allowed: false, why: "Discord'da gerekli rolün kalmadığı için hesabın silindi", deleted: true });
+    return json({ allowed: false, why: "oturum geçersiz", session: true }, 401);
+  }
   const u = await ur.json(), did = discordIdOf(u);
   try {
     // first: üyelik yeni açıldı; sayfa verileri yeni izinle bir kere yeniden yükler
