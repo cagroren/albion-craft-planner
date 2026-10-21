@@ -48,6 +48,8 @@ export async function GET(req) {
     if (members.size < 2) throw new Error("üye listesi boş geldi, silme yapılmadı");
     const ar = await fetch(`${SB}/rest/v1/profiles?is_admin=eq.true&select=id`, { headers: svcHeaders() });
     const admins = new Set((ar.ok ? await ar.json() : []).map(x => x.id));
+    // ?dry=1: kimseyi silmeden kimlerin silineceğini listeler (kural değişikliğinden önce kontrol için)
+    const dry = new URL(req.url, "http://x").searchParams.get("dry") === "1";
     const removed = [];
     for (const u of await allUsers()) {
       if (admins.has(u.id)) continue;
@@ -55,10 +57,10 @@ export async function GET(req) {
       if (!did) continue;
       const roles = members.get(did);
       if (roles && roles.some(id => R.ids.has(id))) continue;
-      await deleteUser(u.id);
+      if (!dry) await deleteUser(u.id);
       removed.push({ name: u.user_metadata?.full_name || u.user_metadata?.name || did, why: roles ? "rolü yok" : "sunucuda değil" });
     }
-    return json({ ok: true, members: members.size, removed });
+    return json({ ok: true, dry, members: members.size, removed });
   } catch (e) {
     return json({ ok: false, error: String(e.message || e) }, 500);
   }

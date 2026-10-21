@@ -227,7 +227,7 @@ create policy "plan güncelleme" on public.destiny_plans for update using (owner
 drop policy if exists "plan silme" on public.destiny_plans;
 create policy "plan silme" on public.destiny_plans for delete using (owner = auth.uid());
 
--- GUILD ERİŞİMİ (yeni eklendi): sadece Kal Vas Flam Discord'unda "Üye" ve üstü roldekiler veri okuyup yazabilir.
+-- GUILD ERİŞİMİ (yeni eklendi): sadece Kal Vas Flam Discord'unda "Üye" rolü olanlar veri okuyup yazabilir.
 -- member alanını sadece sunucu (/api/access, servis anahtarı) değiştirir; kullanıcıların profiles'a yazma izni yok.
 alter table public.profiles add column if not exists discord_id text;
 alter table public.profiles add column if not exists member boolean not null default false;

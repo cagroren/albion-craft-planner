@@ -1,7 +1,7 @@
 // Discord ile giriş + bulut kayıt. Supabase ayarı yoksa ya da yüklenemezse site misafir modunda çalışır.
 (function(){
   const C=window.AO_CFG||{},LS=window.localStorage;
-  // Site sadece Kal Vas Flam Discord'unda "Üye" ve üstü roldekilere açık. Kontrol sunucuda (/api/access) yapılır;
+  // Site sadece Kal Vas Flam Discord'unda "Üye" rolü olanlara açık. Kontrol sunucuda (/api/access) yapılır;
   // veriler ayrıca veritabanı kurallarıyla korunur. Yerel geliştirmede (localhost) kilit yok.
   const GATE=!/^(localhost|127\.0\.0\.1|\[::1\])$/.test(location.hostname);
   const ACC="aoAcc",FRESH=12*3600e3,GRACE=3*86400e3;
@@ -21,9 +21,9 @@
       let g=document.getElementById("aogate");
       if(!g){g=document.createElement("div");g.id="aogate";document.body.appendChild(g)}
       const T={
-        login:["Kal Vas Flam'a özel","Bu site Kal Vas Flam Discord sunucusundaki Üye ve üstü rollere açık. Devam etmek için Discord ile giriş yap.","Discord ile giriş"],
+        login:["Kal Vas Flam'a özel","Bu site Kal Vas Flam Discord sunucusunda Üye rolü olanlara açık. Devam etmek için Discord ile giriş yap.","Discord ile giriş"],
         check:["Kontrol ediliyor","Discord rolün kontrol ediliyor…",""],
-        denied:["Erişim yok","Bu site sadece Kal Vas Flam Discord sunucusundaki Üye ve üstü rollere açık. Hesabın ve bu sitedeki verilerin silindi.","Başka hesapla giriş"],
+        denied:["Erişim yok","Bu site sadece Kal Vas Flam Discord sunucusunda Üye rolü olanlara açık. Hesabın ve bu sitedeki verilerin silindi.","Başka hesapla giriş"],
         error:["Şu an kontrol edilemiyor","Discord rolün kontrol edilemedi. Biraz sonra sayfayı yenile.","Tekrar dene"],
         off:["Giriş servisi yüklenemedi","Sayfayı yenile. Sorun sürerse internet bağlantını kontrol et.","Yenile"]}[kind];
       g.innerHTML=`<div class="gc"><img src="logo.png" alt="KVF" width="72" height="72"><h1>${T[0]}</h1><p>${T[1]}${why?`<br><span class="why">${esc(why)}</span>`:""}</p>${T[2]?`<button type="button" id="aogo">${T[2]}</button>`:""}</div>`;

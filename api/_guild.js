@@ -2,7 +2,7 @@
 // Vercel ortam değişkenleri:
 //   DISCORD_BOT_TOKEN           botun token'ı (Discord Developer Portal > Bot)
 //   DISCORD_GUILD_ID            sunucu ID'si
-//   DISCORD_MIN_ROLE            en düşük izinli rolün adı (varsayılan "Üye"); bu ve Discord'da üstündeki roller girer
+//   DISCORD_MIN_ROLE            siteye girmek için gereken rolün adı (varsayılan "Üye"); sadece bu rolü olanlar girer
 //   SUPABASE_SERVICE_ROLE_KEY   Supabase > Project Settings > API Keys > secret (ya da service_role)
 //   CRON_SECRET                 günlük temizliği sadece Vercel Cron çalıştırabilsin diye
 export const SB = "https://aulscfeqndppxbtypezs.supabase.co";
@@ -34,7 +34,7 @@ async function discord(path) {
 
 const low = s => String(s || "").toLocaleLowerCase("tr").trim();
 
-// İzinli rol ID'leri: DISCORD_MIN_ROLE ve Discord rol sıralamasında onun üstündekiler (@everyone hariç)
+// İzinli rol: sadece DISCORD_MIN_ROLE adındaki rol (ör. "Üye"). Üst roller tek başına yetmez, bu rol de olmalı.
 export async function allowedRoles() {
   const gid = env("DISCORD_GUILD_ID");
   if (!gid) throw new Error("DISCORD_GUILD_ID ayarlı değil");
@@ -49,7 +49,7 @@ export async function allowedRoles() {
   const roles = await r.json(), want = low(env("DISCORD_MIN_ROLE") || "Üye");
   const min = roles.find(x => low(x.name) === want);
   if (!min) throw new Error(`Discord'da "${env("DISCORD_MIN_ROLE") || "Üye"}" rolü bulunamadı`);
-  return { gid, min: min.name, ids: new Set(roles.filter(x => x.id !== gid && x.position >= min.position).map(x => x.id)) };
+  return { gid, min: min.name, ids: new Set([min.id]) };
 }
 
 // true: girebilir, false: Discord kesin olarak "üye değil / rolü yok" dedi, hata: bilinmiyor (hiçbir şey silinmez)
@@ -58,7 +58,7 @@ export async function memberAllowed(discordId, R) {
   if (r.status === 404) { const j = await r.json().catch(() => ({})); if (j.code === 10007 || j.code === 10013) return { ok: false, why: "sunucuda değil" }; }
   if (!r.ok) throw new Error(`Discord üyeliği okunamadı (${r.status})`);
   const m = await r.json();
-  return (m.roles || []).some(id => R.ids.has(id)) ? { ok: true } : { ok: false, why: `${R.min} ya da üstü rolü yok` };
+  return (m.roles || []).some(id => R.ids.has(id)) ? { ok: true } : { ok: false, why: `Discord'da ${R.min} rolün yok` };
 }
 
 export const discordIdOf = u => {
