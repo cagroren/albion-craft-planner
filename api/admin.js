@@ -49,6 +49,10 @@ export async function POST(req) {
     const u = ur.ok ? await ur.json() : {};
     await deleteUser(uid);
     await logRemovals([{ discord_id: discordIdOf(u), name: nameOf(u) || uid, why: "panelden silindi", source: "manual", by_admin: me.id }]);
+    await fetch(`${SB}/rest/v1/admin_log`, {
+      method: "POST", headers: svcHeaders({ "Content-Type": "application/json", Prefer: "return=minimal" }),
+      body: JSON.stringify({ admin: me.id, admin_name: nameOf(me), action: "Hesap sildi", target: nameOf(u) || uid })
+    }).catch(() => {});
     return json({ ok: true });
   } catch (e) {
     return json({ error: String(e.message || e) }, 502);

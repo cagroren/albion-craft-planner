@@ -380,3 +380,112 @@ begin
   if uid = auth.uid() and not a then raise exception 'Kendi adminliğini alamazsın'; end if;
   update public.profiles set is_admin = a where id = uid;
 end $$;
+
+-- PANEL 2 (yeni eklendi): resmi guild build'leri, sekme aç/kapat, admin işlem kaydı.
+alter table public.builds add column if not exists official boolean not null default false;
+alter table public.group_builds add column if not exists official boolean not null default false;
+
+-- Build damgası: "resmi" işaretini sadece admin değiştirir; sadece işaret değişince tarih (sıralama) değişmez
+create or replace function public.build_stamp() returns trigger
+language plpgsql security definer set search_path = public as $$
+begin
+  if tg_op = 'UPDATE' then
+    new.owner := old.owner; new.created_at := old.created_at;
+    if not public.is_admin() then new.official := old.official; end if;
+    if (to_jsonb(new) - 'official' - 'updated_at' - 'owner_name') = (to_jsonb(old) - 'official' - 'updated_at' - 'owner_name') then
+      return new;
+    end if;
+  elsif not public.is_admin() then
+    new.official := false;
+  end if;
+  new.owner_name := (select name from public.profiles where id = new.owner);
+  new.updated_at := now();
+  return new;
+end $$;
+
+-- Site ayarları (herkes okur, sadece admin yazar). tabs_off: kapalı sekmelerin listesi, ör. ["dps"]
+create table if not exists public.site_settings (key text primary key, value jsonb not null, updated_at timestamptz not null default now());
+alter table public.site_settings enable row level security;
+drop policy if exists "ayar okuma" on public.site_settings;
+create policy "ayar okuma" on public.site_settings for select using (true);
+drop policy if exists "ayar yazma" on public.site_settings;
+create policy "ayar yazma" on public.site_settings for all using (public.is_admin()) with check (public.is_admin());
+
+-- Admin işlem kaydı: veritabanı tetikleyicileri yazar, adminler okur
+create table if not exists public.admin_log (
+  id bigserial primary key,
+  admin uuid,
+  admin_name text,
+  action text not null,
+  target text,
+  created_at timestamptz not null default now()
+);
+alter table public.admin_log enable row level security;
+drop policy if exists "kayıt okuma" on public.admin_log;
+create policy "kayıt okuma" on public.admin_log for select using (public.is_admin());
+
+create or replace function public.admin_log_add(a text, t text) returns void
+language sql security definer set search_path = public as $$
+  insert into public.admin_log (admin, admin_name, action, target)
+  select auth.uid(), (select name from public.profiles where id = auth.uid()), a, left(t, 200)
+  where auth.uid() is not null and public.is_admin()
+$$;
+
+create or replace function public.log_profiles() returns trigger
+language plpgsql security definer set search_path = public as $$
+begin
+  if new.banned is distinct from old.banned then
+    perform public.admin_log_add(case when new.banned then 'Engelledi' else 'Engeli kaldırdı' end, new.name);
+  end if;
+  if new.is_admin is distinct from old.is_admin then
+    perform public.admin_log_add(case when new.is_admin then 'Admin yaptı' else 'Adminliği aldı' end, new.name);
+  end if;
+  return new;
+end $$;
+drop trigger if exists profiles_log on public.profiles;
+create trigger profiles_log after update on public.profiles for each row execute function public.log_profiles();
+
+create or replace function public.log_builds() returns trigger
+language plpgsql security definer set search_path = public as $$
+declare k text := case when tg_table_name = 'group_builds' then 'grup build' else 'build' end;
+begin
+  if tg_op = 'DELETE' then
+    if old.owner is distinct from auth.uid() then perform public.admin_log_add(initcap(k) || ' sildi', old.title || ' (' || coalesce(old.owner_name, '?') || ')'); end if;
+    return old;
+  end if;
+  if new.official is distinct from old.official then
+    perform public.admin_log_add(case when new.official then 'Resmi ' || k || ' yaptı' else 'Resmi ' || k || ' işaretini kaldırdı' end, new.title || ' (' || coalesce(new.owner_name, '?') || ')');
+  end if;
+  return new;
+end $$;
+drop trigger if exists builds_log on public.builds;
+create trigger builds_log after update or delete on public.builds for each row execute function public.log_builds();
+drop trigger if exists group_builds_log on public.group_builds;
+create trigger group_builds_log after update or delete on public.group_builds for each row execute function public.log_builds();
+
+create or replace function public.log_announcements() returns trigger
+language plpgsql security definer set search_path = public as $$
+begin
+  if tg_op = 'INSERT' then perform public.admin_log_add('Duyuru yayınladı', new.text);
+  elsif tg_op = 'DELETE' then perform public.admin_log_add('Duyuru sildi', old.text); return old;
+  elsif new.active is distinct from old.active then perform public.admin_log_add(case when new.active then 'Duyuruyu tekrar yayınladı' else 'Duyuruyu yayından kaldırdı' end, new.text);
+  end if;
+  return new;
+end $$;
+drop trigger if exists announcements_log on public.announcements;
+create trigger announcements_log after insert or update or delete on public.announcements for each row execute function public.log_announcements();
+
+create or replace function public.log_settings() returns trigger
+language plpgsql security definer set search_path = public as $$
+begin
+  perform public.admin_log_add('Ayar değiştirdi: ' || new.key, new.value::text);
+  return new;
+end $$;
+drop trigger if exists settings_log on public.site_settings;
+create trigger settings_log after insert or update on public.site_settings for each row execute function public.log_settings();
+
+-- Adminler başkasının build'inde sadece "resmi" işaretini değiştirebilsin (diğer alanları panel göndermez; sahibi tetikleyici korur)
+drop policy if exists "build admin" on public.builds;
+create policy "build admin" on public.builds for update using (public.is_admin()) with check (public.is_admin());
+drop policy if exists "grup admin" on public.group_builds;
+create policy "grup admin" on public.group_builds for update using (public.is_admin()) with check (public.is_admin());

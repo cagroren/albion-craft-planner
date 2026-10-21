@@ -50,6 +50,10 @@ th{color:var(--mut);font-weight:700;font-size:11px;letter-spacing:.08em;text-tra
 .rl{display:inline-flex;align-items:center;gap:5px;font-size:12px;color:#c3cad4;border:1px solid var(--line2);border-radius:20px;padding:0 8px;margin:0 4px 4px 0;white-space:nowrap}
 .rl i{width:8px;height:8px;border-radius:50%;background:var(--mut);flex:none}
 .sm{color:var(--mut);font-size:12px}
+.bd-y{color:#f2cc60;border-color:rgba(227,179,65,.6);background:rgba(227,179,65,.1)}
+.tgs{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:8px}
+.tg{flex-direction:row;align-items:center;gap:10px;font-size:14px;color:var(--ink);background:var(--card2);border:1px solid var(--line);border-radius:10px;padding:10px 12px;cursor:pointer}
+.tg input{width:18px;height:18px;accent-color:var(--acc)}
 td .acts{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}
 td .acts button{padding:5px 10px;font-size:13px}
 .sw{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px}
@@ -95,9 +99,26 @@ td .acts button{padding:5px 10px;font-size:13px}
 <div class="t"><table style="min-width:900px"><thead><tr><th>Kullanıcı</th><th>Discord rolleri</th><th>Kullanım</th><th>Son görülme</th><th>Kayıt</th><th>Durum</th><th></th></tr></thead><tbody id="uRows"></tbody></table></div>
 </section>
 <section>
+<h2>Build'ler</h2>
+<div class="sm" style="margin-bottom:8px">"Resmi yap" dediğin build Builds sayfasında en üstte ve "★ Guild onaylı" rozetiyle görünür. Uygunsuz olanları buradan silebilirsin.</div>
+<div class="row" style="margin:0 0 10px"><button data-bk="builds">Build'ler</button><button class="l" data-bk="group_builds">Grup build'leri</button><input id="bQ" placeholder="Başlık, yazar ya da içerik ara" style="min-width:220px"><label class="tg" style="padding:8px 10px"><input type="checkbox" id="bOff"> Sadece resmi</label><span class="st" id="bSt"></span></div>
+<div class="t"><table><thead><tr><th>Başlık</th><th>Yazar</th><th>İçerik</th><th>Güncelleme</th><th></th></tr></thead><tbody id="bRows"></tbody></table></div>
+</section>
+<section>
+<h2>Sekmeler</h2>
+<div class="sm" style="margin-bottom:10px">İşareti kaldırdığın sekme herkesin menüsünden gizlenir; adresi doğrudan açan "Bu sekme şu an kapalı" yazısı görür. Adminler kapalı sekmeleri görmeye ve kullanmaya devam eder.</div>
+<div class="tgs" id="tList"><div class="st">Yükleniyor...</div></div>
+<div class="row"><button id="tSave">Kaydet</button><span class="st" id="tSt"></span></div>
+</section>
+<section>
 <h2>Silinenler geçmişi</h2>
 <div class="sm" style="margin-bottom:8px">Discord'dan çıkan, Üye rolü alınan ya da panelden silinen hesaplar. Hesap ve bütün verisi silinmiştir; tekrar girerse sıfırdan başlar.</div>
 <div class="t"><table><thead><tr><th>Kişi</th><th>Sebep</th><th>Nasıl</th><th>Tarih</th></tr></thead><tbody id="rmRows"></tbody></table></div>
+</section>
+<section>
+<h2>Admin işlem kaydı</h2>
+<div class="sm" style="margin-bottom:8px">Adminlerin yaptığı engelleme, admin yapma, hesap ve build silme, resmi build, duyuru ve sekme değişiklikleri. Veritabanı otomatik kaydeder.</div>
+<div class="t"><table><thead><tr><th>Admin</th><th>İşlem</th><th>Hedef</th><th>Tarih</th></tr></thead><tbody id="lRows"></tbody></table></div>
 </section>
 <div class="tip" id="tip" hidden></div>
 </div>
@@ -130,7 +151,7 @@ async function start(){
   if(!p||!p.is_admin){$("gate").textContent="Bu sayfa için yetkin yok.";return}
   $("gate").hidden=true;$("app").hidden=false;
   token=session.access_token;
-  loadUsers();loadAnn();loadSweep();loadStats();loadRemovals();loadDiscord();
+  loadUsers();loadAnn();loadSweep();loadStats();loadRemovals();loadDiscord();loadBuilds();loadTabs();loadLog();
   setInterval(loadSweep,30e3);
 }
 
@@ -170,7 +191,7 @@ function renderUsers(){
     b.disabled=true;
     const r=await fetch("/api/admin?op=delete",{method:"POST",headers:{Authorization:"Bearer "+token,"Content-Type":"application/json"},body:JSON.stringify({uid:u.id})}).then(r=>r.json()).catch(e=>({error:e.message}));
     if(r.error){alert("Silinemedi: "+r.error);b.disabled=false;return}
-    loadUsers();loadRemovals();
+    loadUsers();loadRemovals();loadLog();
   });
   $("uRows").querySelectorAll("[data-ban]").forEach(b=>b.onclick=async()=>{
     const u=users.find(x=>x.id===b.dataset.ban),ban=b.dataset.b==="1";
@@ -231,6 +252,61 @@ async function loadStats(){
   });
   const P=(data.pages||[]).slice(0,10),pm=Math.max(1,...P.map(p=>p.views));
   $("stPages").innerHTML=P.length?`<div class="hb">${P.map(p=>`<span>${esc(PAGE[p.page]||p.page)}</span><span class="bar" title="${p.users} farklı kişi"><i style="width:${p.views/pm*100}%"></i></span><span class="v">${num(p.views)}</span>`).join("")}</div><div class="sm" style="margin-top:8px">Sayı: sayfa açılışı. Üzerine gelince kaç farklı kişi açtığı görünür.</div>`:'<div class="st">Henüz veri yok. Kullanıcılar siteyi açtıkça dolacak.</div>';
+}
+// ---------- build denetimi ve resmi build'ler
+let BL=[],bKind="builds";
+async function loadBuilds(){
+  $("bSt").textContent="Yükleniyor...";
+  const {data,error}=await sb.from(bKind).select("id,title,owner_name,content,official,updated_at").order("updated_at",{ascending:false}).limit(1000);
+  if(error){$("bSt").textContent="Alınamadı: "+error.message;return}
+  BL=data||[];$("bSt").textContent="";renderBuilds();
+}
+function renderBuilds(){
+  const q=$("bQ").value.trim().toLowerCase(),only=$("bOff").checked;
+  const L=BL.filter(x=>(!only||x.official)&&(!q||(x.title+" "+(x.owner_name||"")+" "+x.content).toLowerCase().includes(q)));
+  const link=x=>`/builds#${bKind==="builds"?"b":"g"}=${x.id}`;
+  $("bRows").innerHTML=L.map(x=>`<tr><td><a href="${link(x)}" target="_blank" rel="noopener">${esc(x.title)}</a>${x.official?' <span class="bd bd-y">★ resmi</span>':""}</td><td>${esc(x.owner_name||"?")}</td><td>${esc(x.content)}</td><td>${ago(x.updated_at)}</td><td><div class="acts"><button class="l" data-of="${x.id}" data-v="${x.official?0:1}">${x.official?"Resmiyi kaldır":"Resmi yap"}</button><button class="bad" data-bd="${x.id}">Sil</button></div></td></tr>`).join("")||`<tr><td colspan="5" class="sm">${BL.length?"Eşleşen yok.":"Henüz yok."}</td></tr>`;
+  $("bRows").querySelectorAll("[data-of]").forEach(b=>b.onclick=async()=>{
+    b.disabled=true;
+    const v=b.dataset.v==="1",{error}=await sb.from(bKind).update({official:v}).eq("id",b.dataset.of);
+    if(error){alert("Yapılamadı: "+error.message);b.disabled=false;return}
+    BL.find(x=>x.id===b.dataset.of).official=v;renderBuilds();loadLog();
+  });
+  $("bRows").querySelectorAll("[data-bd]").forEach(b=>b.onclick=async()=>{
+    const x=BL.find(y=>y.id===b.dataset.bd);
+    if(!confirm(`"${x.title}" (${x.owner_name||"?"}) kalıcı olarak silinsin mi?`))return;
+    b.disabled=true;
+    const {error}=await sb.from(bKind).delete().eq("id",x.id);
+    if(error){alert("Silinemedi: "+error.message);b.disabled=false;return}
+    BL=BL.filter(y=>y.id!==x.id);renderBuilds();loadLog();
+  });
+}
+document.querySelectorAll("[data-bk]").forEach(b=>b.onclick=()=>{bKind=b.dataset.bk;document.querySelectorAll("[data-bk]").forEach(x=>x.className=x===b?"":"l");loadBuilds()});
+$("bQ").oninput=renderBuilds;$("bOff").onchange=renderBuilds;
+
+// ---------- sekmeleri aç / kapat
+const TABS=[["craft","Craft"],["alchemy","Alchemy"],["food","Cooking"],["enchant","Enchant Yükseltme"],["farm","Farming"],["refine","Refining"],["bm","Black Market Flips"],["db","Item Database"],["builds","Builds"],["destiny","Destiny Board"],["dps","DPS Meter"]];
+async function loadTabs(){
+  const {data,error}=await sb.from("site_settings").select("value").eq("key","tabs_off").maybeSingle();
+  if(error){$("tSt").textContent="Alınamadı: "+error.message;return}
+  const off=Array.isArray(data&&data.value)?data.value:[];
+  $("tList").innerHTML=TABS.map(([k,n])=>`<label class="tg"><input type="checkbox" data-tab="${k}"${off.includes(k)?"":" checked"}> ${esc(n)}</label>`).join("");
+}
+$("tSave").onclick=async()=>{
+  const off=[...document.querySelectorAll("[data-tab]")].filter(c=>!c.checked).map(c=>c.dataset.tab);
+  if(off.length===TABS.length){$("tSt").textContent="Bütün sekmeleri kapatamazsın, en az biri açık kalmalı.";return}
+  $("tSave").disabled=true;
+  const {error}=await sb.from("site_settings").upsert({key:"tabs_off",value:off,updated_at:new Date().toISOString()});
+  $("tSave").disabled=false;
+  $("tSt").textContent=error?"Kaydedilemedi: "+error.message:off.length?`Kaydedildi. Kapalı: ${off.map(k=>TABS.find(t=>t[0]===k)[1]).join(", ")}.`:"Kaydedildi. Bütün sekmeler açık.";
+  if(!error)loadLog();
+};
+
+// ---------- admin işlem kaydı
+async function loadLog(){
+  const {data,error}=await sb.from("admin_log").select("*").order("created_at",{ascending:false}).limit(100);
+  if(error){$("lRows").innerHTML=`<tr><td colspan="4">Alınamadı: ${esc(error.message)}</td></tr>`;return}
+  $("lRows").innerHTML=(data||[]).map(r=>`<tr><td><b>${esc(r.admin_name||"-")}</b></td><td>${esc(r.action)}</td><td style="max-width:420px;overflow-wrap:anywhere">${esc(r.target||"")}</td><td>${dt(r.created_at)}</td></tr>`).join("")||'<tr><td colspan="4" class="sm">Henüz kayıt yok.</td></tr>';
 }
 $("stDays").onchange=loadStats;
 $("uQ").oninput=renderUsers;

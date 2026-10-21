@@ -18,7 +18,10 @@
   // Siteye ilk girişte (bu oturumda), ana sayfa düz açıldıysa son kalınan sekmeye geç
   var first=true;try{first=!sessionStorage.getItem("aonav");sessionStorage.setItem("aonav","1")}catch(e){first=false}
   var last=load("aolasttab");
-  if(first&&isIndex&&!location.hash&&last&&last!=="alchemy"&&URL_OF[last]){location.replace(URL_OF[last]);return}
+  // Panelden kapatılan sekmeler (auth.js güncel listeyi getirip buraya yazar; ilk çizimde önbellekteki kullanılır)
+  var OFF={off:[],admin:false};try{OFF=JSON.parse(load("aoTabsOff")||"null")||OFF}catch(e){}
+  var isOff=function(k){return OFF.off.indexOf(k)>=0};
+  if(first&&isIndex&&!location.hash&&last&&last!=="alchemy"&&URL_OF[last]&&!isOff(last)){location.replace(URL_OF[last]);return}
   store("aolasttab",page);
 
   var css=".nv{display:flex;flex-wrap:wrap;gap:8px;margin:0}"
@@ -40,6 +43,18 @@
       return '<a href="'+t[2]+'" data-k="'+t[0]+'" class="'+(on?"on":"")+(t[3]?" pin":"")+'"'+(on?' aria-current="page"':"")+'>'+t[1]+'</a>';
     }).join("")+'</div>';
   }).join("");
+  function apply(off,admin){
+    OFF={off:off||[],admin:!!admin};
+    el.querySelectorAll("a[data-k]").forEach(function(a){
+      var o=isOff(a.dataset.k);
+      a.hidden=o&&!OFF.admin;
+      var m=a.querySelector(".nvx");if(m)m.remove();
+      if(o&&OFF.admin)a.insertAdjacentHTML("beforeend",'<small class="nvx" style="margin-left:6px;font-size:10px;color:var(--warn,#e3b341)">kapalı</small>');
+    });
+    el.querySelectorAll(".nvg").forEach(function(g){g.hidden=!g.querySelector("a[data-k]:not([hidden])")});
+  }
+  apply(OFF.off,OFF.admin);
+  window.aoNav={page:page,apply:apply,home:function(){for(var k in URL_OF)if(!isOff(k))return URL_OF[k];return "./"},set:function(off,admin){store("aoTabsOff",JSON.stringify({off:off||[],admin:!!admin}));apply(off,admin)}};
   // Ana sayfa içindeki sekmeler sadece #'i değiştirir; sayfa sekmeyi açılışta okuduğu için yeniden yüklenir
   el.addEventListener("click",function(e){
     var a=e.target.closest&&e.target.closest("a[data-k]");if(!a||e.ctrlKey||e.metaKey||e.shiftKey||e.button)return;

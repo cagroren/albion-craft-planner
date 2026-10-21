@@ -55,6 +55,8 @@ img[src*="render.albiononline.com"]{filter:drop-shadow(0 2px 3px rgba(0,0,0,.45)
 .bd{display:inline-flex;align-items:center;gap:4px;padding:2px 9px;border-radius:20px;font-size:12px;font-weight:700;border:1px solid var(--line2);color:var(--ink);background:var(--card2);white-space:nowrap}
 .bd.c{border-color:#b8602a;color:var(--accT);background:rgba(240,136,62,.1)}
 .bd.p{border-color:rgba(63,185,80,.5);color:#a6e3b0;background:rgba(63,185,80,.08)}
+.bd.ok{border-color:rgba(227,179,65,.6);color:#f2cc60;background:rgba(227,179,65,.1)}
+.card.off{border-color:rgba(227,179,65,.45)}
 .empty{color:var(--mut);padding:30px 10px;text-align:center}
 /* paperdoll */
 .doll{display:grid;grid-template-columns:repeat(3,84px);gap:10px;justify-content:center;flex:none}
@@ -203,7 +205,9 @@ async function load(){
   if(!sb){loaded=true;return}
   const [a,b]=await Promise.all([sb.from("builds").select("*").order("updated_at",{ascending:false}).limit(1000),sb.from("group_builds").select("*").order("updated_at",{ascending:false}).limit(500)]);
   loadErr=a.error?a.error.message:b.error?b.error.message:"";
-  B=a.data||[];GB=b.data||[];loaded=true;
+  // Guild onaylı (resmi) olanlar en üstte, kendi aralarında yine en yeni önce
+  const off=(x,y)=>(y.official?1:0)-(x.official?1:0);
+  B=(a.data||[]).sort(off);GB=(b.data||[]).sort(off);loaded=true;
 }
 const byId=id=>B.find(x=>x.id===id);
 // Grup slotu ya kayıtlı bir build'e bağlıdır (b) ya da ekipmanı grubun içinde tutulur (g: gear, t: ad, ro: rol)
@@ -223,12 +227,13 @@ function bindFilters(fn){
   $("fc").onchange=e=>{LS.c=e.target.value;saveLS();fn(true)};
   if($("fr"))$("fr").onchange=e=>{LS.r=e.target.value;saveLS();fn(true)};
 }
+const OFF=x=>x.official?'<span class="bd ok" title="Guild yönetimi tarafından onaylandı">★ Guild onaylı</span>':"";
 function buildCard(x){
-  return `<a class="card" href="#b=${x.id}"><div class="ic">${buildIcons(x)}</div><b>${esc(x.title)}</b><div class="meta"><span class="bd c">${esc(x.content)}</span>${x.role?`<span class="bd">${esc(x.role)}</span>`:""}<span>${esc(x.owner_name||"?")} · ${ago(x.updated_at)}</span></div></a>`;
+  return `<a class="card${x.official?" off":""}" href="#b=${x.id}"><div class="ic">${buildIcons(x)}</div><b>${esc(x.title)}</b><div class="meta">${OFF(x)}<span class="bd c">${esc(x.content)}</span>${x.role?`<span class="bd">${esc(x.role)}</span>`:""}<span>${esc(x.owner_name||"?")} · ${ago(x.updated_at)}</span></div></a>`;
 }
 function groupCard(g){
   const ws=[...new Set((g.slots||[]).map(slotX).filter(Boolean).map(x=>iconId("w",x.gear.w)).filter(Boolean))].slice(0,10);
-  return `<a class="card" href="#g=${g.id}"><div class="ic">${ws.map(i=>iImg(i,64)).join("")}</div><b>${esc(g.title)}</b><div class="meta"><span class="bd c">${esc(g.content)}</span><span class="bd p">${people(g)} kişi</span><span>${esc(g.owner_name||"?")} · ${ago(g.updated_at)}</span></div></a>`;
+  return `<a class="card${g.official?" off":""}" href="#g=${g.id}"><div class="ic">${ws.map(i=>iImg(i,64)).join("")}</div><b>${esc(g.title)}</b><div class="meta">${OFF(g)}<span class="bd c">${esc(g.content)}</span><span class="bd p">${people(g)} kişi</span><span>${esc(g.owner_name||"?")} · ${ago(g.updated_at)}</span></div></a>`;
 }
 function vList(mine){
   if(mine&&needLogin())return;
@@ -276,7 +281,7 @@ function vBuild(id){
   const x=byId(id);
   if(!x){$("view").innerHTML=`<section><div class="empty">${loadErr?esc(loadErr):"Bu build bulunamadı (silinmiş olabilir)."}<br><a href="#list">Build listesine dön</a></div></section>`;return}
   const gs=GB.filter(g=>(g.slots||[]).some(s=>s.b===x.id));
-  $("view").innerHTML=`<section><div class="dh"><div><h3>${esc(x.title)}</h3><div class="meta" style="margin-top:8px"><span class="bd c">${esc(x.content)}</span>${x.role?`<span class="bd">${esc(x.role)}</span>`:""}<span>${esc(x.owner_name||"?")} · ${ago(x.updated_at)}</span></div></div><div class="acts"><button id="cp">Linki kopyala</button>${canEdit(x)?`<button class="l" id="ed">Düzenle</button><button class="l" id="dup">Kopyasını oluştur</button>`:me?`<button class="l" id="dup">Kopyasını oluştur</button>`:""}${canDel(x)?`<button class="bad" id="del">Sil</button>`:""}</div></div>
+  $("view").innerHTML=`<section><div class="dh"><div><h3>${esc(x.title)}</h3><div class="meta" style="margin-top:8px">${OFF(x)}<span class="bd c">${esc(x.content)}</span>${x.role?`<span class="bd">${esc(x.role)}</span>`:""}<span>${esc(x.owner_name||"?")} · ${ago(x.updated_at)}</span></div></div><div class="acts"><button id="cp">Linki kopyala</button>${canEdit(x)?`<button class="l" id="ed">Düzenle</button><button class="l" id="dup">Kopyasını oluştur</button>`:me?`<button class="l" id="dup">Kopyasını oluştur</button>`:""}${canDel(x)?`<button class="bad" id="del">Sil</button>`:""}</div></div>
   <div class="bl"><div><h2>Ekipman</h2>${doll(x.gear||{},false)}</div><div class="side"><h2>Yetenekler ve pasifler</h2>${abilities(x.gear||{})}</div></div>
   ${x.descr?`<div class="desc">${esc(x.descr)}</div>`:""}
   ${gs.length?`<div class="st" style="margin-top:12px">Bu build'i kullanan gruplar: ${gs.map(g=>`<a href="#g=${g.id}">${esc(g.title)}</a>`).join(", ")}</div>`:""}</section>
@@ -294,7 +299,7 @@ function vGroup(id){
     if(!x)return `<div class="gr"><div class="nm"><b>Silinmiş build</b><small class="st">${esc(s.r||"")}</small></div><span class="cnt">×${+s.n||1}</span></div>`;
     if(x.inline)return `<details class="gd"><summary class="gr"><span class="ic">${iImg(iconId("w",x.gear.w),64)}${iImg(iconId("o",x.gear.o),64)}</span><span class="nm"><b>${esc(s.r||x.title)}</b><span class="meta">${[s.r?esc(x.title):"",x.role?esc(x.role):""].filter(Boolean).join(" · ")}</span></span><span class="cnt">×${+s.n||1}</span></summary><div class="bl gdb"><div>${doll(x.gear,false)}</div><div class="side">${abilities(x.gear)}</div></div></details>`;
     return `<a class="gr gl" href="#b=${x.id}"><span class="ic">${iImg(iconId("w",x.gear.w),64)}${iImg(iconId("o",x.gear.o),64)}</span><span class="nm"><b>${esc(s.r||x.title)}</b><span class="meta">${[s.r?esc(x.title):"",x.role?esc(x.role):""].filter(Boolean).join(" · ")}</span></span><span class="cnt">×${+s.n||1}</span></a>`}).join("");
-  $("view").innerHTML=`<section><div class="dh"><div><h3>${esc(g.title)}</h3><div class="meta" style="margin-top:8px"><span class="bd c">${esc(g.content)}</span><span class="bd p">${people(g)} kişi</span><span>${esc(g.owner_name||"?")} · ${ago(g.updated_at)}</span></div></div><div class="acts"><button id="cp">Linki kopyala</button>${canEdit(g)?`<button class="l" id="ed">Düzenle</button>`:""}${canDel(g)?`<button class="bad" id="del">Sil</button>`:""}</div></div>
+  $("view").innerHTML=`<section><div class="dh"><div><h3>${esc(g.title)}</h3><div class="meta" style="margin-top:8px">${OFF(g)}<span class="bd c">${esc(g.content)}</span><span class="bd p">${people(g)} kişi</span><span>${esc(g.owner_name||"?")} · ${ago(g.updated_at)}</span></div></div><div class="acts"><button id="cp">Linki kopyala</button>${canEdit(g)?`<button class="l" id="ed">Düzenle</button>`:""}${canDel(g)?`<button class="bad" id="del">Sil</button>`:""}</div></div>
   <h2>Kompozisyon</h2>${rows||'<div class="st">Bu grupta build yok.</div>'}
   ${g.descr?`<div class="desc">${esc(g.descr)}</div>`:""}</section><section id="cost"></section>`;
   $("cp").onclick=()=>copy(shareUrl("g",g.id));

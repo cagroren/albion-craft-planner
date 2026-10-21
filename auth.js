@@ -25,10 +25,11 @@
         check:["Kontrol ediliyor","Discord rolün kontrol ediliyor…",""],
         denied:["Erişim yok","Bu site sadece Kal Vas Flam Discord sunucusunda Üye rolü olanlara açık. Hesabın ve bu sitedeki verilerin silindi.","Başka hesapla giriş"],
         error:["Şu an kontrol edilemiyor","Discord rolün kontrol edilemedi. Biraz sonra sayfayı yenile.","Tekrar dene"],
+        closed:["Bu sekme şu an kapalı","Yöneticiler bu sekmeyi geçici olarak kapattı. Diğer sekmeleri kullanmaya devam edebilirsin.","Ana sayfaya dön"],
         off:["Giriş servisi yüklenemedi","Sayfayı yenile. Sorun sürerse internet bağlantını kontrol et.","Yenile"]}[kind];
       g.innerHTML=`<div class="gc"><img src="logo.png" alt="KVF" width="72" height="72"><h1>${T[0]}</h1><p>${T[1]}${why?`<br><span class="why">${esc(why)}</span>`:""}</p>${T[2]?`<button type="button" id="aogo">${T[2]}</button>`:""}</div>`;
       const b=document.getElementById("aogo");
-      if(b)b.onclick=kind==="login"||kind==="denied"?()=>login():()=>location.reload();
+      if(b)b.onclick=kind==="login"||kind==="denied"?()=>login():kind==="closed"?()=>{location.assign(window.aoNav?window.aoNav.home():"/");setTimeout(()=>location.reload(),50)}:()=>location.reload();
     };
     document.body?go():document.addEventListener("DOMContentLoaded",go);
   }
@@ -152,6 +153,13 @@
     if(user){
       const {data:p}=await sb.from("profiles").select("name,avatar,banned,is_admin").eq("id",user.id).maybeSingle();
       prof=p||{};render();
+      // Panelden kapatılan sekmeler: menüden gizlenir, kapalı sayfa açılırsa uyarı (adminler girebilir)
+      sb.from("site_settings").select("value").eq("key","tabs_off").maybeSingle().then(({data})=>{
+        const off=Array.isArray(data&&data.value)?data.value:[];
+        if(!window.aoNav)return;
+        window.aoNav.set(off,prof.is_admin);
+        if(off.includes(window.aoNav.page)&&!prof.is_admin){document.documentElement.classList.add("aolock");gate("closed")}
+      },()=>{});
       if(prof.banned)st("Hesabın engellendi, misafir olarak devam edebilirsin");
       else{
         sb.rpc("touch").then(()=>{},()=>{});
