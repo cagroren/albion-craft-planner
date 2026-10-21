@@ -86,4 +86,41 @@ export async function deleteUser(uid) {
   if (!r.ok && r.status !== 404) throw new Error(`hesap silinemedi (${r.status})`);
 }
 
+// Sunucunun bütün üyeleri: discord id -> üye nesnesi (botta Server Members Intent açık olmalı)
+export async function guildMembers(gid) {
+  const out = new Map();
+  let after = "0";
+  for (;;) {
+    const r = await discord(`/guilds/${gid}/members?limit=1000&after=${after}`);
+    if (!r.ok) throw new Error(`Discord üye listesi okunamadı (${r.status}); botta Server Members Intent açık mı?`);
+    const page = await r.json();
+    page.forEach(m => out.set(m.user.id, m));
+    if (page.length < 1000) return out;
+    after = page[page.length - 1].user.id;
+  }
+}
+
+export async function guildRoles(gid) {
+  const r = await discord(`/guilds/${gid}/roles`);
+  if (!r.ok) throw new Error(`Discord rolleri okunamadı (${r.status})`);
+  return r.json();
+}
+
+// Panelde "silinenler geçmişi" için; kayıt yazılamazsa silme yine de geçerli
+export async function logRemovals(rows) {
+  if (!rows.length) return;
+  await fetch(`${SB}/rest/v1/removals`, {
+    method: "POST", headers: svcHeaders({ "Content-Type": "application/json", Prefer: "return=minimal" }), body: JSON.stringify(rows)
+  }).catch(() => {});
+}
+
+export async function setStatus(key, data) {
+  await fetch(`${SB}/rest/v1/app_status`, {
+    method: "POST", headers: svcHeaders({ "Content-Type": "application/json", Prefer: "resolution=merge-duplicates,return=minimal" }),
+    body: JSON.stringify({ key, data, updated_at: new Date().toISOString() })
+  }).catch(() => {});
+}
+
+export const nameOf = u => u.user_metadata?.custom_claims?.global_name || u.user_metadata?.full_name || u.user_metadata?.name || null;
+
 export const json = (o, status = 200) => new Response(JSON.stringify(o), { status, headers: { "Content-Type": "application/json; charset=utf-8", "Cache-Control": "no-store" } });

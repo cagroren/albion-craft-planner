@@ -1,21 +1,6 @@
-// /api/sweep: Supabase pg_cron her dakika, Vercel Cron yedek olarak her gün çalıştırır. Discord'dan çıkmış ya da rolü düşmüş kişilerin hesabını ve verisini siler.
-// Botta "Server Members Intent" açık olmalı (üye listesini okumak için).
-import { SB, svcHeaders, allowedRoles, discordIdOf, deleteUser, json } from "./_guild.js";
-
-const DAPI = "https://discord.com/api/v10";
-
-async function guildMembers(gid) {
-  const out = new Map();
-  let after = "0";
-  for (;;) {
-    const r = await fetch(`${DAPI}/guilds/${gid}/members?limit=1000&after=${after}`, { headers: { Authorization: `Bot ${process.env.DISCORD_BOT_TOKEN.trim()}` } });
-    if (!r.ok) throw new Error(`Discord üye listesi okunamadı (${r.status}); botta Server Members Intent açık mı?`);
-    const page = await r.json();
-    page.forEach(m => out.set(m.user.id, m.roles || []));
-    if (page.length < 1000) return out;
-    after = page[page.length - 1].user.id;
-  }
-}
+// /api/sweep: Supabase pg_cron her dakika, Vercel Cron yedek olarak her gün çalıştırır. Discord'dan çıkmış ya da
+// Üye rolü alınmış kişilerin hesabını ve verisini siler; sonucu panel için app_status ve removals'a yazar.
+import { SB, svcHeaders, allowedRoles, discordIdOf, deleteUser, guildMembers, logRemovals, setStatus, nameOf, json } from "./_guild.js";
 
 async function allUsers() {
   const out = [];
@@ -42,26 +27,31 @@ async function authorized(req) {
 
 export async function GET(req) {
   if (!(await authorized(req).catch(() => false))) return json({ error: "izin yok" }, 401);
+  // ?dry=1: kimseyi silmeden kimlerin silineceğini listeler (kural değişikliğinden önce kontrol için)
+  const dry = new URL(req.url, "http://x").searchParams.get("dry") === "1";
   try {
     const R = await allowedRoles(), members = await guildMembers(R.gid);
     // Güvenlik: liste boş ya da şüpheli derecede kısaysa (Discord hatası) kimseyi silme
     if (members.size < 2) throw new Error("üye listesi boş geldi, silme yapılmadı");
     const ar = await fetch(`${SB}/rest/v1/profiles?is_admin=eq.true&select=id`, { headers: svcHeaders() });
     const admins = new Set((ar.ok ? await ar.json() : []).map(x => x.id));
-    // ?dry=1: kimseyi silmeden kimlerin silineceğini listeler (kural değişikliğinden önce kontrol için)
-    const dry = new URL(req.url, "http://x").searchParams.get("dry") === "1";
-    const removed = [];
-    for (const u of await allUsers()) {
+    const users = await allUsers(), removed = [];
+    for (const u of users) {
       if (admins.has(u.id)) continue;
       const did = discordIdOf(u);
       if (!did) continue;
-      const roles = members.get(did);
-      if (roles && roles.some(id => R.ids.has(id))) continue;
+      const m = members.get(did);
+      if (m && (m.roles || []).some(id => R.ids.has(id))) continue;
       if (!dry) await deleteUser(u.id);
-      removed.push({ name: u.user_metadata?.full_name || u.user_metadata?.name || did, why: roles ? "rolü yok" : "sunucuda değil" });
+      removed.push({ discord_id: did, name: nameOf(u) || did, why: m ? `${R.min} rolü yok` : "sunucuda değil", source: "sweep" });
     }
-    return json({ ok: true, dry, members: members.size, removed });
+    if (!dry) {
+      await logRemovals(removed);
+      await setStatus("sweep", { ok: true, members: members.size, users: users.length, removed: removed.length });
+    }
+    return json({ ok: true, dry, members: members.size, removed: removed.map(({ name, why }) => ({ name, why })) });
   } catch (e) {
+    if (!dry) await setStatus("sweep", { ok: false, error: String(e.message || e) });
     return json({ ok: false, error: String(e.message || e) }, 500);
   }
 }

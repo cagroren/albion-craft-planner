@@ -1,6 +1,6 @@
 // /api/access: giriş yapan kişi Kal Vas Flam Discord'unda izinli bir role sahip mi?
 // Sayfa her açılışta Supabase oturum token'ıyla çağırır. Kesin "hayır" ise hesap ve bütün verisi silinir.
-import { SB, ANON, allowedRoles, memberAllowed, discordIdOf, profileOf, setMember, deleteUser, json } from "./_guild.js";
+import { SB, ANON, allowedRoles, memberAllowed, discordIdOf, profileOf, setMember, deleteUser, logRemovals, nameOf, json } from "./_guild.js";
 
 export async function GET(req) {
   const tok = (req.headers.get("authorization") || "").replace(/^Bearer\s+/i, "");
@@ -20,6 +20,7 @@ export async function GET(req) {
     const R = await allowedRoles(), m = await memberAllowed(did, R);
     if (m.ok) { await setMember(u.id, did, true); return json({ allowed: true, first }); }
     await deleteUser(u.id);
+    await logRemovals([{ discord_id: did, name: nameOf(u) || did, why: m.why, source: "access" }]);
     return json({ allowed: false, why: m.why, deleted: true });
   } catch (e) {
     // Discord ya da ayar hatası: kimse silinmez, sayfa son bilinen duruma göre karar verir

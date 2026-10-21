@@ -289,3 +289,94 @@ select cron.schedule('kvf-sweep', '* * * * *', $$
     headers := jsonb_build_object('x-sweep-key', (select value from public.app_secrets where name = 'sweep')),
     timeout_milliseconds := 30000)
 $$);
+
+-- PANEL (yeni eklendi): silinenler geçmişi, canlı kontrol durumu, kullanım istatistikleri, admin yapma.
+-- Silinen hesapların kaydı (hesap silindiği için auth.users'a bağlı değil). Sadece sunucu yazar, adminler okur.
+create table if not exists public.removals (
+  id bigserial primary key,
+  discord_id text,
+  name text,
+  why text,
+  source text not null,          -- 'sweep' (dakikalık), 'access' (girişte), 'manual' (panelden)
+  by_admin uuid,
+  created_at timestamptz not null default now()
+);
+alter table public.removals enable row level security;
+drop policy if exists "silinenler okuma" on public.removals;
+create policy "silinenler okuma" on public.removals for select using (public.is_admin());
+
+-- Dakikalık temizliğin son durumu (sunucu yazar)
+create table if not exists public.app_status (key text primary key, data jsonb not null, updated_at timestamptz not null default now());
+alter table public.app_status enable row level security;
+drop policy if exists "durum okuma" on public.app_status;
+create policy "durum okuma" on public.app_status for select using (public.is_admin());
+
+create or replace function public.admin_sweep_status() returns jsonb
+language plpgsql stable security definer set search_path = public, cron as $$
+begin
+  if not public.is_admin() then raise exception 'Yetki yok'; end if;
+  return jsonb_build_object(
+    'job', (select jsonb_build_object('active', active, 'schedule', schedule) from cron.job where jobname = 'kvf-sweep'),
+    'last', (select jsonb_build_object('data', data, 'at', updated_at) from public.app_status where key = 'sweep'));
+end $$;
+
+-- Sayfa açılışları: gün, sayfa ve kullanıcı başına sayaç. Doğrudan erişim yok, sadece track() ve admin_stats().
+create table if not exists public.page_views (
+  day date not null default current_date,
+  page text not null,
+  user_id uuid not null references auth.users on delete cascade,
+  n int not null default 1,
+  primary key (day, page, user_id)
+);
+alter table public.page_views enable row level security;
+
+create or replace function public.track(p text) returns void
+language sql security definer set search_path = public as $$
+  insert into public.page_views (page, user_id) select left(p, 40), auth.uid() where auth.uid() is not null and public.is_member()
+  on conflict (day, page, user_id) do update set n = page_views.n + 1
+$$;
+
+create or replace function public.admin_stats(days int default 30) returns jsonb
+language plpgsql stable security definer set search_path = public as $$
+begin
+  if not public.is_admin() then raise exception 'Yetki yok'; end if;
+  return jsonb_build_object(
+    'daily', (select coalesce(jsonb_agg(x order by x.day), '[]') from (
+        select d::date as day,
+               (select count(distinct user_id) from public.page_views v where v.day = d::date) as users,
+               (select coalesce(sum(n), 0) from public.page_views v where v.day = d::date) as views,
+               (select count(*) from public.profiles p where p.created_at::date = d::date) as signups
+        from generate_series(current_date - (days - 1), current_date, interval '1 day') d) x),
+    'pages', (select coalesce(jsonb_agg(x order by x.views desc), '[]') from (
+        select page, sum(n)::int as views, count(distinct user_id)::int as users
+        from public.page_views where day > current_date - days group by page) x));
+end $$;
+
+-- Kullanıcı listesi: Discord bilgisi ve kullanım (build, destiny) ile. Dönüş tipi değiştiği için önce silinir.
+drop function if exists public.admin_users();
+create or replace function public.admin_users()
+returns table (id uuid, name text, avatar text, banned boolean, is_admin boolean, created_at timestamptz,
+               last_seen timestamptz, keys int, bytes int, discord_id text, member boolean,
+               member_checked_at timestamptz, builds int, groups int, boards int, has_plan boolean)
+language sql stable security definer set search_path = public as $$
+  select p.id, p.name, p.avatar, p.banned, p.is_admin, p.created_at, p.last_seen,
+         (select count(*) from public.user_data d where d.user_id = p.id)::int,
+         (select coalesce(sum(length(d.value)), 0) from public.user_data d where d.user_id = p.id)::int,
+         p.discord_id, p.member, p.member_checked_at,
+         (select count(*) from public.builds b where b.owner = p.id)::int,
+         (select count(*) from public.group_builds g where g.owner = p.id)::int,
+         (select count(*) from public.destiny_boards s where s.owner = p.id)::int,
+         exists (select 1 from public.destiny_plans l where l.owner = p.id)
+  from public.profiles p
+  where public.is_admin()
+  order by p.created_at desc
+$$;
+
+-- Admin yap / adminliği al (kendini alamazsın)
+create or replace function public.admin_set_admin(uid uuid, a boolean) returns void
+language plpgsql security definer set search_path = public as $$
+begin
+  if not public.is_admin() then raise exception 'Yetki yok'; end if;
+  if uid = auth.uid() and not a then raise exception 'Kendi adminliğini alamazsın'; end if;
+  update public.profiles set is_admin = a where id = uid;
+end $$;

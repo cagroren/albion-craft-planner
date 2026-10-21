@@ -155,6 +155,9 @@
       if(prof.banned)st("Hesabın engellendi, misafir olarak devam edebilirsin");
       else{
         sb.rpc("touch").then(()=>{},()=>{});
+        // Panel istatistikleri için sayfa açılışı (ana sayfada sekme: #craft, #farm...)
+        const pg=location.pathname.replace(/^\/|\.html$/g,"").replace(/^index$/,"")||"#"+(location.hash.slice(1).split(/[=&]/)[0]||"alchemy");
+        sb.rpc("track",{p:pg}).then(()=>{},()=>{});
         canSync=true;
         if(await pull())reload=true;
         else st("Bulut kayıt açık",true);

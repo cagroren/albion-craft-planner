@@ -50,6 +50,25 @@ th{color:var(--mut);font-weight:700;font-size:11px;letter-spacing:.08em;text-tra
 .dbc{display:inline-flex;align-items:center;gap:8px;border:1px solid rgba(63,185,80,.4);background:rgba(63,185,80,.08);border-radius:9px;padding:4px 4px 4px 10px;font-size:13px;font-weight:700;margin:0 8px 8px 0}
 .dbc b{color:var(--good)}
 .dbc button{padding:2px 8px}
+.rl{display:inline-flex;align-items:center;gap:5px;font-size:12px;color:#c3cad4;border:1px solid var(--line2);border-radius:20px;padding:0 8px;margin:0 4px 4px 0;white-space:nowrap}
+.rl i{width:8px;height:8px;border-radius:50%;background:var(--mut);flex:none}
+.sm{color:var(--mut);font-size:12px}
+td .acts{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}
+td .acts button{padding:5px 10px;font-size:13px}
+.sw{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px}
+.ch{position:relative;display:flex;align-items:flex-end;gap:2px;height:160px;border-bottom:1px solid var(--line2);padding-top:18px}
+.ch .b{flex:1;min-width:0;height:100%;display:flex;align-items:flex-end;cursor:default}
+.ch .b i{display:block;width:100%;background:var(--acc);border-radius:4px 4px 0 0;min-height:1px}
+.ch .b:hover i{background:#ffa463}
+.ch .mx{position:absolute;top:0;left:0;font-size:11px;color:var(--mut)}
+.cx{display:flex;justify-content:space-between;font-size:11px;color:var(--mut);margin-top:4px}
+.tip{position:fixed;pointer-events:none;background:var(--card2);border:1px solid var(--line2);border-radius:8px;padding:6px 10px;font-size:12px;color:var(--ink);z-index:9;white-space:nowrap}
+.hb{display:grid;grid-template-columns:minmax(90px,140px) 1fr auto;gap:6px 10px;align-items:center;font-size:13px}
+.hb .bar{height:10px;background:var(--line);border-radius:0 4px 4px 0;overflow:hidden}
+.hb .bar i{display:block;height:100%;background:var(--acc);border-radius:0 4px 4px 0}
+.hb .v{color:#c3cad4;font-variant-numeric:tabular-nums;text-align:right}
+.g2{display:grid;grid-template-columns:2fr 1fr;gap:16px}
+@media(max-width:800px){.g2{grid-template-columns:1fr}}
 </style>
 </head>
 <body>
@@ -58,6 +77,15 @@ th{color:var(--mut);font-weight:700;font-size:11px;letter-spacing:.08em;text-tra
 <div class="st" id="gate">Yükleniyor...</div>
 <div id="app" hidden>
 <div class="r" id="stats"></div>
+<section>
+<h2>Canlı üye kontrolü</h2>
+<div class="sw" id="swBox"><div class="st">Yükleniyor...</div></div>
+</section>
+<section>
+<div class="hd" style="margin-bottom:10px"><h2 style="margin:0">Site kullanımı</h2><select id="stDays" aria-label="Dönem" style="margin-left:auto"><option value="7">Son 7 gün</option><option value="30" selected>Son 30 gün</option><option value="90">Son 90 gün</option></select></div>
+<div class="g2"><div><div class="sm" style="margin-bottom:6px">Günlük aktif kullanıcı</div><div id="stDaily"><div class="st">Yükleniyor...</div></div></div>
+<div><div class="sm" style="margin-bottom:8px">En çok açılan sayfalar</div><div id="stPages"></div></div></div>
+</section>
 <section>
 <h2>Günlük bonuslar</h2>
 <div class="st" style="margin-bottom:4px">Oyunda gördüğün günün bonuslarını gir, sitede herkese "Günlük bonuslar" kutusunda görünür. Türü Potion ya da Yemek seçersen o sekmede günlük bonus yüzdesi otomatik bu değer olur. Craft sekmesi için kategori adını oyundaki gibi yaz (örn. Fire Staff, Plate Armor, Sword) ve türü Diğer seç, o kategorideki eşyalara otomatik uygulanır.</div>
@@ -74,8 +102,14 @@ th{color:var(--mut);font-weight:700;font-size:11px;letter-spacing:.08em;text-tra
 <section>
 <h2>Kullanıcılar</h2>
 <div class="row" style="margin:0 0 10px"><input id="uQ" placeholder="İsimle ara" style="min-width:220px"><button class="l" id="uRef">Yenile</button><span class="st" id="uSt"></span></div>
-<div class="t"><table><thead><tr><th>Kullanıcı</th><th>Kayıt</th><th>Son görülme</th><th>Bulut verisi</th><th>Durum</th><th></th></tr></thead><tbody id="uRows"></tbody></table></div>
+<div class="t"><table style="min-width:900px"><thead><tr><th>Kullanıcı</th><th>Discord rolleri</th><th>Kullanım</th><th>Son görülme</th><th>Kayıt</th><th>Durum</th><th></th></tr></thead><tbody id="uRows"></tbody></table></div>
 </section>
+<section>
+<h2>Silinenler geçmişi</h2>
+<div class="sm" style="margin-bottom:8px">Discord'dan çıkan, Üye rolü alınan ya da panelden silinen hesaplar. Hesap ve bütün verisi silinmiştir; tekrar girerse sıfırdan başlar.</div>
+<div class="t"><table><thead><tr><th>Kişi</th><th>Sebep</th><th>Nasıl</th><th>Tarih</th></tr></thead><tbody id="rmRows"></tbody></table></div>
+</section>
+<div class="tip" id="tip" hidden></div>
 </div>
 </main>
 <script>
@@ -86,7 +120,10 @@ if(!C.url||/XXX/.test(C.url)||!window.supabase){$("gate").textContent="Supabase 
 const sb=window.supabase.createClient(C.url,C.key,{auth:{flowType:"pkce",detectSessionInUrl:true,persistSession:true}});
 const dt=s=>s?new Date(s).toLocaleString("tr-TR",{day:"2-digit",month:"2-digit",year:"numeric",hour:"2-digit",minute:"2-digit"}):"-";
 const ago=s=>{if(!s)return "hiç";const m=(Date.now()-Date.parse(s))/6e4;return m<60?Math.max(1,Math.round(m))+" dk önce":m<1440?Math.round(m/60)+" sa önce":Math.round(m/1440)+" gün önce"};
-let users=[],myId=null;
+let users=[],myId=null,token="",DC=null,dcErr="";
+const SRC={sweep:"Dakikalık kontrol",access:"Girişte",manual:"Panelden"};
+const PAGE={"#craft":"Craft","#alchemy":"Alchemy","#food":"Cooking","#enchant":"Enchant Yükseltme","#farm":"Farming","#refine":"Refining","#bm":"Black Market","#db":"Item Database",builds:"Builds",destiny:"Destiny Board",dps:"DPS Meter"};
+const num=n=>Number(n||0).toLocaleString("tr-TR");
 
 async function start(){
   const {data:{session}}=await sb.auth.getSession();
@@ -102,7 +139,9 @@ async function start(){
   $("out").onclick=async()=>{await sb.auth.signOut();location.reload()};
   if(!p||!p.is_admin){$("gate").textContent="Bu sayfa için yetkin yok.";return}
   $("gate").hidden=true;$("app").hidden=false;
-  loadUsers();loadAnn();initDb();
+  token=session.access_token;
+  loadUsers();loadAnn();initDb();loadSweep();loadStats();loadRemovals();loadDiscord();
+  setInterval(loadSweep,30e3);
 }
 
 async function loadUsers(){
@@ -111,15 +150,38 @@ async function loadUsers(){
   if(error){$("uSt").textContent="Liste alınamadı: "+error.message;return}
   users=data||[];$("uSt").textContent="";
   const wk=Date.now()-7*864e5;
-  $("stats").innerHTML=[["Toplam kullanıcı",users.length],["Son 7 günde aktif",users.filter(u=>u.last_seen&&Date.parse(u.last_seen)>wk).length],["Son 7 günde kayıt",users.filter(u=>Date.parse(u.created_at)>wk).length],["Engelli",users.filter(u=>u.banned).length]]
+  $("stats").innerHTML=[["Toplam kullanıcı",users.length],["Son 7 günde aktif",users.filter(u=>u.last_seen&&Date.parse(u.last_seen)>wk).length],["Son 7 günde kayıt",users.filter(u=>Date.parse(u.created_at)>wk).length],["Engelli",users.filter(u=>u.banned).length],["Admin",users.filter(u=>u.is_admin).length]]
     .map(([a,b])=>`<div class="k"><div>${a}</div><b>${b}</b></div>`).join("");
   renderUsers();
 }
 
 function renderUsers(){
   const q=$("uQ").value.trim().toLowerCase();
-  const list=users.filter(u=>!q||(u.name||"").toLowerCase().includes(q));
-  $("uRows").innerHTML=list.map(u=>`<tr><td>${u.avatar?`<img class="av" src="${esc(u.avatar)}" alt="">`:'<span class="av" style="display:inline-block"></span>'}${esc(u.name||"-")}${u.is_admin?' <span class="bd bd-g">admin</span>':""}</td><td>${dt(u.created_at)}</td><td>${ago(u.last_seen)}</td><td>${u.keys} kayıt, ${(u.bytes/1024).toFixed(1)} KB</td><td>${u.banned?'<span class="bd bd-r">Engelli</span>':'<span class="bd bd-g">Aktif</span>'}</td><td>${u.id===myId?"":`<button class="${u.banned?"l":"bad"}" data-ban="${u.id}" data-b="${u.banned?0:1}">${u.banned?"Engeli kaldır":"Engelle"}</button>`}</td></tr>`).join("")||`<tr><td colspan="6">${users.length?"Eşleşen kullanıcı yok.":"Henüz kullanıcı yok."}</td></tr>`;
+  const list=users.filter(u=>{if(!q)return true;const d=DC&&DC[u.discord_id];return [u.name,d&&d.name,d&&d.user].some(x=>(x||"").toLowerCase().includes(q))});
+  $("uRows").innerHTML=list.map(u=>{
+    const d=DC&&u.discord_id?DC[u.discord_id]:null;
+    const roles=!u.discord_id?'<span class="sm">henüz kontrol edilmedi</span>':!DC?`<span class="sm">${dcErr?esc(dcErr):"yükleniyor…"}</span>`:!d||d.gone?'<span class="bd bd-r">sunucuda değil</span>':d.roles.map(r=>`<span class="rl"><i${r.color?` style="background:${esc(r.color)}"`:""}></i>${esc(r.name)}</span>`).join("")||'<span class="sm">rolü yok</span>';
+    const use=[u.builds&&`${u.builds} build`,u.groups&&`${u.groups} grup`,u.boards&&`${u.boards} board`,u.has_plan&&"destiny planı",u.keys&&`${u.keys} bulut kaydı`].filter(Boolean).join(" · ")||'<span class="sm">yok</span>';
+    const st=[u.is_admin&&'<span class="bd bd-g">admin</span>',u.banned?'<span class="bd bd-r">engelli</span>':u.member?'<span class="bd bd-g">üye</span>':'<span class="bd bd-n">onay bekliyor</span>'].filter(Boolean).join(" ");
+    const acts=u.id===myId?"":`<div class="acts"><button class="l" data-adm="${u.id}" data-a="${u.is_admin?0:1}">${u.is_admin?"Adminliği al":"Admin yap"}</button><button class="${u.banned?"l":"bad"}" data-ban="${u.id}" data-b="${u.banned?0:1}">${u.banned?"Engeli kaldır":"Engelle"}</button><button class="bad" data-del="${u.id}">Sil</button></div>`;
+    return `<tr><td>${u.avatar?`<img class="av" src="${esc(u.avatar)}" alt="">`:'<span class="av" style="display:inline-block"></span>'}<b>${esc(u.name||"-")}</b>${d&&!d.gone?`<br><span class="sm" style="margin-left:36px">${esc(d.name)} · @${esc(d.user)}</span>`:""}</td><td style="max-width:260px">${roles}</td><td>${use}</td><td>${ago(u.last_seen)}</td><td>${dt(u.created_at)}</td><td>${st}</td><td>${acts}</td></tr>`;
+  }).join("")||`<tr><td colspan="7">${users.length?"Eşleşen kullanıcı yok.":"Henüz kullanıcı yok."}</td></tr>`;
+  $("uRows").querySelectorAll("[data-adm]").forEach(b=>b.onclick=async()=>{
+    const u=users.find(x=>x.id===b.dataset.adm),a=b.dataset.a==="1";
+    if(!confirm(a?`${u.name} admin yapılsın mı? Paneli görür, kullanıcıları silebilir. Adminler Discord rolü kontrolüne takılmaz.`:`${u.name} kişisinin adminliği alınsın mı? Discord'da Üye rolü yoksa en geç 1 dakika içinde hesabı silinir.`))return;
+    b.disabled=true;
+    const {error}=await sb.rpc("admin_set_admin",{uid:u.id,a});
+    if(error){alert("İşlem yapılamadı: "+error.message);b.disabled=false;return}
+    loadUsers();
+  });
+  $("uRows").querySelectorAll("[data-del]").forEach(b=>b.onclick=async()=>{
+    const u=users.find(x=>x.id===b.dataset.del);
+    if(!confirm(`${u.name} kişisinin hesabı ve bütün verisi (build'ler, Destiny, bulut kaydı) kalıcı olarak silinsin mi? Bu geri alınamaz.`))return;
+    b.disabled=true;
+    const r=await fetch("/api/admin?op=delete",{method:"POST",headers:{Authorization:"Bearer "+token,"Content-Type":"application/json"},body:JSON.stringify({uid:u.id})}).then(r=>r.json()).catch(e=>({error:e.message}));
+    if(r.error){alert("Silinemedi: "+r.error);b.disabled=false;return}
+    loadUsers();loadRemovals();
+  });
   $("uRows").querySelectorAll("[data-ban]").forEach(b=>b.onclick=async()=>{
     const u=users.find(x=>x.id===b.dataset.ban),ban=b.dataset.b==="1";
     if(ban&&!confirm(`${u.name} engellensin mi? Siteyi misafir olarak kullanmaya devam edebilir ama bulut kaydı kapanır.`))return;
@@ -165,8 +227,42 @@ $("dbAdd").onclick=async()=>{
   if(error){$("dbSt").textContent="Eklenemedi: "+error.message;return}
   $("dbName").value="";$("dbSt").textContent="Eklendi.";loadDb();
 };
+async function loadDiscord(){
+  try{const r=await fetch("/api/admin?op=discord",{headers:{Authorization:"Bearer "+token}});const j=await r.json();if(j.error)throw new Error(j.error);DC=j.members}
+  catch(e){dcErr="Discord bilgisi alınamadı: "+e.message}
+  renderUsers();
+}
+async function loadSweep(){
+  const {data,error}=await sb.rpc("admin_sweep_status");
+  if(error){$("swBox").innerHTML=`<div class="st">Durum alınamadı: ${esc(error.message)}</div>`;return}
+  const j=data&&data.job,l=data&&data.last,d=l&&l.data||{},late=l&&Date.now()-Date.parse(l.at)>5*6e4;
+  const state=!j?'<span class="bd bd-r">kurulu değil</span>':!j.active?'<span class="bd bd-r">durduruldu</span>':!l?'<span class="bd bd-n">ilk çalışma bekleniyor</span>':!d.ok?'<span class="bd bd-r">hata</span>':late?'<span class="bd bd-r">gecikiyor</span>':'<span class="bd bd-g">çalışıyor</span>';
+  $("swBox").innerHTML=[["Durum",state],["Son çalışma",l?ago(l.at):"-"],["Discord üyesi",d.members!=null?num(d.members):"-"],["Site hesabı",d.users!=null?num(d.users):"-"],["Son çalışmada silinen",d.removed!=null?num(d.removed):"-"]]
+    .map(([a,b])=>`<div class="k"><div>${a}</div><b style="font-size:18px">${b}</b></div>`).join("")+(d.error?`<div class="st" style="grid-column:1/-1;color:var(--bad)">${esc(d.error)}</div>`:"");
+}
+async function loadRemovals(){
+  const {data,error}=await sb.from("removals").select("*").order("created_at",{ascending:false}).limit(100);
+  if(error){$("rmRows").innerHTML=`<tr><td colspan="4">Alınamadı: ${esc(error.message)}</td></tr>`;return}
+  $("rmRows").innerHTML=(data||[]).map(r=>`<tr><td><b>${esc(r.name||"-")}</b></td><td>${esc(r.why||"-")}</td><td>${esc(SRC[r.source]||r.source)}</td><td>${dt(r.created_at)}</td></tr>`).join("")||'<tr><td colspan="4" class="sm">Henüz kimse silinmedi.</td></tr>';
+}
+async function loadStats(){
+  const days=+$("stDays").value;
+  const {data,error}=await sb.rpc("admin_stats",{days});
+  if(error){$("stDaily").innerHTML=`<div class="st">İstatistik alınamadı: ${esc(error.message)}</div>`;return}
+  const D=data.daily||[],mx=Math.max(1,...D.map(d=>d.users)),f=s=>new Date(s+"T00:00").toLocaleDateString("tr-TR",{day:"numeric",month:"short"});
+  $("stDaily").innerHTML=`<div class="ch" role="img" aria-label="Günlük aktif kullanıcı, en yüksek ${mx}"><span class="mx">${mx} kişi</span>${D.map((d,i)=>`<div class="b" data-i="${i}"><i style="height:${d.users/mx*100}%"></i></div>`).join("")}</div><div class="cx"><span>${D.length?f(D[0].day):""}</span><span>${D.length?f(D[D.length-1].day):""}</span></div>
+    <details style="margin-top:8px"><summary class="sm" style="cursor:pointer">Tablo olarak göster</summary><div class="t"><table style="min-width:0"><thead><tr><th>Gün</th><th>Aktif kişi</th><th>Sayfa açılışı</th><th>Yeni kayıt</th></tr></thead><tbody>${D.slice().reverse().map(d=>`<tr><td>${f(d.day)}</td><td>${d.users}</td><td>${d.views}</td><td>${d.signups}</td></tr>`).join("")}</tbody></table></div></details>`;
+  const tip=$("tip");
+  $("stDaily").querySelectorAll(".b").forEach(b=>{
+    b.onmousemove=e=>{const d=D[+b.dataset.i];tip.hidden=false;tip.innerHTML=`<b>${f(d.day)}</b><br>${d.users} aktif kişi · ${d.views} sayfa açılışı${d.signups?` · ${d.signups} yeni kayıt`:""}`;tip.style.left=Math.min(innerWidth-tip.offsetWidth-8,e.clientX+12)+"px";tip.style.top=(e.clientY-44)+"px"};
+    b.onmouseleave=()=>{tip.hidden=true};
+  });
+  const P=(data.pages||[]).slice(0,10),pm=Math.max(1,...P.map(p=>p.views));
+  $("stPages").innerHTML=P.length?`<div class="hb">${P.map(p=>`<span>${esc(PAGE[p.page]||p.page)}</span><span class="bar" title="${p.users} farklı kişi"><i style="width:${p.views/pm*100}%"></i></span><span class="v">${num(p.views)}</span>`).join("")}</div><div class="sm" style="margin-top:8px">Sayı: sayfa açılışı. Üzerine gelince kaç farklı kişi açtığı görünür.</div>`:'<div class="st">Henüz veri yok. Kullanıcılar siteyi açtıkça dolacak.</div>';
+}
+$("stDays").onchange=loadStats;
 $("uQ").oninput=renderUsers;
-$("uRef").onclick=loadUsers;
+$("uRef").onclick=()=>{loadUsers();loadDiscord()};
 start().catch(e=>{$("gate").textContent="Hata: "+(e.message||e)});
 </script>
 </body>
