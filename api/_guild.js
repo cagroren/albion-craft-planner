@@ -39,7 +39,13 @@ export async function allowedRoles() {
   const gid = env("DISCORD_GUILD_ID");
   if (!gid) throw new Error("DISCORD_GUILD_ID ayarlı değil");
   const r = await discord(`/guilds/${gid}/roles`);
-  if (!r.ok) throw new Error(`Discord rolleri okunamadı (${r.status})`);
+  if (!r.ok) {
+    const j = await r.json().catch(() => ({}));
+    const hint = r.status === 401 ? "DISCORD_BOT_TOKEN yanlış"
+      : j.code === 10004 ? `sunucu bulunamadı: DISCORD_GUILD_ID (${gid.slice(0, 4)}…, ${gid.length} hane) yanlış ya da bot sunucuda değil`
+      : j.code === 50001 ? "bot sunucuda değil" : (j.message || "");
+    throw new Error(`Discord rolleri okunamadı (${r.status}${j.code ? "/" + j.code : ""}): ${hint}`);
+  }
   const roles = await r.json(), want = low(env("DISCORD_MIN_ROLE") || "Üye");
   const min = roles.find(x => low(x.name) === want);
   if (!min) throw new Error(`Discord'da "${env("DISCORD_MIN_ROLE") || "Üye"}" rolü bulunamadı`);
