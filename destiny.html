@@ -151,6 +151,8 @@ function levelFame(n,i){const T=tpl(n);if(i<=T.lv.length)return T.lv[i-1][0]*n.f
 // Credit ile respec (oyundaki respec penceresiyle birebir): credit = fame × LP çarpanı × respec çarpanı (off-hand 0.2),
 // silver = credit × oran, sadece 100 üstü (elite) seviyelerde ödenir; 0-100 arası silver istemez. Oran altın fiyatıyla oynar; varsayılanı oyundan alınan görsellerden (0,38147).
 const SPC0=0.38147,spc=()=>+LS.spc>0?+LS.spc:SPC0;
+// Combat (silah/zırh) düğümlerinde 100 üstü seviyeler fame ile değil sadece credit ile alınır
+const fameNeed=(n,r,c,inl)=>Math.max(0,(n.rs==="combat"?r.fame:r.fame+r.efame)-(n.rs==="combat"&&c>=tpl(n).lv.length?0:inl));
 function between(n,from,to){
   const T=tpl(n),r={fame:0,lp:0,efame:0,cr:0,ecr:0},k=n.rs==="combat"?n.lm*(n.rm||1):0;
   for(let i=from+1;i<=to;i++){
@@ -270,12 +272,13 @@ function drawCalc(){
     if(!L.auto){LS.lv[sel]=c||undefined;LS.inl=LS.inl||{};LS.inl[sel]=inl||undefined}
     LS.tg[sel]=t;LS.fph=fph||undefined;saveLS();
     if(t<=c){$("cOut").innerHTML=`<div class="empty" style="padding:18px">${c>=M?"Bu düğüm en yüksek seviyede.":"Hedef seviye şu anki seviyeden yüksek olmalı."}</div>`;return}
-    const r=between(n,c,t),all=r.fame+r.efame,need=Math.max(0,all-inl),lpPerDay=D.lp.secPerPointPremium?86400/D.lp.secPerPointPremium:30;
+    const r=between(n,c,t),cb=n.rs==="combat",need=fameNeed(n,r,c,inl),ft=cb?Math.min(t,B):t,lpPerDay=D.lp.secPerPointPremium?86400/D.lp.secPerPointPremium:30;
     const lines=bonusLines(n,c,t),nextLv=levelFame(n,c+1);
     $("cOut").innerHTML=`<div class="kp">
-      <div class="k big">${c} → ${t} için gereken fame<b>${fmt(need)}</b>${inl?`<small>bu seviyede kazanılan ${fmt(inl)} / ${fmt(nextLv)} düşüldü</small>`:""}</div>
-      ${r.fame?`<div class="k">1-100 arası<b>${fmt(Math.max(0,r.fame-inl))}</b></div>`:""}
-      ${r.efame?`<div class="k">Elite (100 üstü)<b>${fmt(r.efame-(r.fame?0:inl))}</b><small>${t-Math.max(c,B)} elite seviye</small></div>`:""}
+      <div class="k big">${cb&&c>=B?"Fame ile":`${c} → ${ft} için gereken fame`}<b>${cb&&c>=B?"kasılamaz":fmt(need)}</b>${cb&&c>=B?"<small>100 üstü sadece credit ile alınır</small>":inl&&!(cb&&c>=B)?`<small>bu seviyede kazanılan ${fmt(inl)} / ${fmt(nextLv)} düşüldü</small>`:""}</div>
+      ${cb&&r.efame?`<div class="k">${Math.max(c,B)} → ${t} (elite)<b>${fmt(r.ecr)} credit</b><small>fame ile kasılamaz, sadece credit${r.silver?` + ${fmt(r.silver)} silver`:""}</small></div>`:""}
+      ${!cb&&r.fame&&r.efame?`<div class="k">1-100 arası<b>${fmt(Math.max(0,r.fame-inl))}</b></div>`:""}
+      ${!cb&&r.efame?`<div class="k">Elite (100 üstü)<b>${fmt(r.efame-(r.fame?0:inl))}</b><small>${t-Math.max(c,B)} elite seviye</small></div>`:""}
       ${r.cr+r.ecr?`<div class="k" style="grid-column:1/-1">Combat fame credit ile respec yaparsan<b>${fmt(r.cr+r.ecr)} credit${r.silver?` + ${fmt(r.silver)} silver`:""}</b><small>credit = fame × ${dec(n.lm*(n.rm||1),3)} (bu düğümün oranı)${r.silver?` · silver = 100 üstü credit × ${dec(spc(),4)}`:""}${r.cr?" · 100'e kadar silver gerekmez":""}</small></div>`:""}
       ${r.lp?`<div class="k">Learning Points ile<b>${fmt(r.lp)} LP</b><small>Premium'la ${dec(r.lp/lpPerDay,1)} gün</small></div>`:""}
       ${fph?`<div class="k">Tahmini süre<b>${dec(need/fph,1)} saat</b><small>saatte ${fmt(fph)} fame</small></div>`:""}
@@ -318,11 +321,11 @@ function drawPlan(){
   const lpDay=D.lp.secPerPointPremium?86400/D.lp.secPerPointPremium:30,fph=+LS.fph||0,T={fame:0,cr:0,silver:0,lp:0};
   const rows=P.map((p,i)=>{
     const n=D.nodes[p.id],L=levelOf(p.id),c=Math.min(maxLv(n),L.lv),t=Math.min(maxLv(n),p.to);
-    const r=t>c?between(n,c,t):{fame:0,efame:0,cr:0,ecr:0,silver:0,lp:0},inl=t>c&&L.pr&&L.pr[2]!=null?L.pr[2]:0,need=Math.max(0,r.fame+r.efame-inl);
+    const r=t>c?between(n,c,t):{fame:0,efame:0,cr:0,ecr:0,silver:0,lp:0},inl=t>c&&L.pr&&L.pr[2]!=null?L.pr[2]:0,need=fameNeed(n,r,c,inl);
     T.fame+=need;T.cr+=r.cr+r.ecr;T.silver+=r.silver;T.lp+=r.lp;
     return `<tr><td><span class="pn">${icon(n.icon)}<a href="#" data-go="${p.id}" style="color:var(--ink)">${esc(short(n.t))}</a></span><small class="st">${esc(n.sub||"")}</small></td>
       <td class="n">${c}${L.auto?' <small class="st">oyun</small>':""}</td><td class="n"><input type="number" min="1" max="${maxLv(n)}" value="${t}" data-pi="${i}" aria-label="Hedef seviye"></td>
-      <td class="n">${t>c?fmt(need):'<span class="pos" style="color:var(--good)">tamam</span>'}</td><td class="n">${r.cr+r.ecr?fmt(r.cr+r.ecr):"-"}</td><td class="n">${r.silver?fmt(r.silver):"-"}</td><td class="n">${r.lp?fmt(r.lp):"-"}</td>
+      <td class="n">${t>c?(need?fmt(need):'<span class="st">sadece credit</span>'):'<span class="pos" style="color:var(--good)">tamam</span>'}</td><td class="n">${r.cr+r.ecr?fmt(r.cr+r.ecr):"-"}</td><td class="n">${r.silver?fmt(r.silver):"-"}</td><td class="n">${r.lp?fmt(r.lp):"-"}</td>
       <td class="n"><button type="button" class="l" data-pd="${i}" aria-label="Plandan çıkar" style="padding:3px 9px">✕</button></td></tr>`}).join("");
   el.innerHTML=`<div class="plh"><h2>Plan · ${P.length} spec</h2><span class="st">Seviyeler oyundan gelir; hedefi buradan değiştirebilirsin. <span id="pSync">${esc(planSync||(sb&&!me?"Planın hesabına kaydedilsin diye Discord ile giriş yap":""))}</span></span><button type="button" class="l" id="pT" style="margin-left:auto;padding:4px 10px;font-size:12px">${LS.planOpen===false?"▾ Göster":"▴ Küçült"}</button><button type="button" class="l" id="pX" style="padding:4px 10px;font-size:12px">Planı temizle</button></div>
   <div class="kp" style="grid-template-columns:repeat(auto-fit,minmax(170px,1fr))"><div class="k big" style="grid-column:auto">Toplam fame<b>${fmt(T.fame)}</b>${fph?`<small>saatte ${fmt(fph)} ile ${dec(T.fame/fph,1)} saat</small>`:""}</div>
