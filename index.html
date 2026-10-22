@@ -100,6 +100,9 @@ button.tbig{padding:11px 20px;font-size:15px}
 #toolsApp .rrt small{overflow-wrap:anywhere}
 #toolsApp .pmi{flex-wrap:wrap}
 .tdet{margin-top:14px}
+.emx td{vertical-align:top}.emx td.ebest{background:rgba(63,185,80,.08)}
+.emiss summary{cursor:pointer;color:var(--warn,#e3b341);font-size:13px;font-weight:600;list-style:none}.emiss summary::-webkit-details-marker{display:none}.emiss summary::before{content:'✎ '}
+.emiss label{display:flex;flex-direction:column;gap:4px;margin-top:6px;font-size:12px;color:var(--mut)}
 .skg2{margin-top:14px}
 .skg2>b{font-size:13px;letter-spacing:.06em;text-transform:uppercase;color:var(--mut)}
 .tl{display:flex;justify-content:space-between;gap:10px;font-size:13px;padding:3px 0;color:var(--mut)}
@@ -1579,7 +1582,7 @@ function renderRR(){
 
 // ---------- ENCHANT YÜKSELTME
 const MATS=["RUNE","SOUL","RELIC"],MATN={RUNE:"Rune",SOUL:"Soul",RELIC:"Relic"};
-let eSel=null,UPN={};
+let eSel=null,UPN={};const eOpen=new Set();  // açık bırakılan "fiyat eksik" hücreleri (yeniden çizimde kapanmasın)
 const encIds=u=>[qk(u.id),qk(u.id+"@1"),qk(u.id+"@2"),qk(u.id+"@3"),...MATS.map(m=>`T${u.t}_${m}`)];
 let eQl=ST.encQ||1;
 const qk=id=>id+"|Q"+eQl;
@@ -1594,8 +1597,9 @@ function uiEnch(){
   <label>Ödediğim fiyat (boş bırakırsan pazar fiyatı kullanılır)<input id="ePaid" type="number" min="0" placeholder="örn. 150000"></label></div>
   <div id="eItem"></div></section>
   <section><h2>Yükseltirsem ne kazanırım?</h2>${fetchBar()}<div id="eSum"></div><div class="tans" id="eUp"></div>
-  <details class="tdet"><summary>Sıfırdan alacaksam: her enchant için en ucuz yol</summary><div class="tans" id="eAns" style="margin-top:10px"></div></details>
-  <details class="tdet"><summary>Bütün yolları ayrıntılı göster</summary><div class="t" style="margin-top:10px"><table><thead><tr><th>Yol</th><th>Toplam maliyet</th><th>Gerekenler</th><th>Yükseltip satarsan kâr</th></tr></thead><tbody id="eRows"></tbody></table></div></details>
+  <h3 style="margin:22px 0 4px">Sıfırdan alacaksam: hangi yol en ucuz?</h3>
+  <p class="s" style="margin:0 0 10px">Her satır bir hedef enchant. Hücreler o yoldan toplam maliyet; en ucuzu yeşil. Kâr, en ucuz yükseltme yoluyla yapıp pazarda satarsan (vergi sonrası). "Fiyat eksik"e tıklayıp eksik fiyatı oradan yazabilirsin.</p>
+  <div class="t"><table class="emx"><thead><tr><th>Hedef</th><th>Hazır al</th><th>.0'dan yükselt</th><th>.1'den yükselt</th><th>.2'den yükselt</th><th>Satış (vergi sonrası)</th><th>Yükseltip satarsan kâr</th></tr></thead><tbody id="eRows"></tbody></table></div>
   <details class="tdet" id="ePsD"><summary>Fiyatları elle düzelt</summary><div class="tps" id="ePs"></div></details></section>`;
   eSel=D.up.find(u=>u.id===ST.ench)||D.up.find(u=>u.id==="T6_2H_CLAYMORE")||D.up[0];
   $("eHave").value=String(ST.eHave||0);
@@ -1622,17 +1626,28 @@ function renderEnch(){
   const u=eSel,it=e=>qk(e?u.id+"@"+e:u.id),mat=k=>`T${u.t}_${MATS[k]}`;
   $("eQual").innerHTML=[1,2,3,4,5].map(q=>`<button class="chip2${q===eQl?" on":""}" data-q="${q}">${QN[q]}</button>`).join("");
   $("eQual").querySelectorAll("[data-q]").forEach(b=>b.onclick=()=>{eQl=+b.dataset.q;ST.encQ=eQl;LS.set("aotools1",ST);render()});
-  $("eItem").innerHTML=`<div class="row" style="margin-top:14px"><span style="display:inline-flex;align-items:center">${img(u.id)}<b style="font-size:18px">${esc(u.full)}</b><span class="bd bd-n" style="margin-left:8px">${QN[eQl]}</span>${typeof cpbN==="function"?cpbN(u.full):""}</span></div><div class="pm" style="margin-top:12px">${u.c.map((c,k)=>`<span class="pmi">${img(mat(k))}<b>${c}</b> ${MATN[MATS[k]]} <span class="st" style="margin:0">(.${k} → .${k+1})</span></span>`).join("")}</div>`;
-  let ans="",rows="";
+  $("eItem").innerHTML=`<div class="row" style="margin-top:14px"><span style="display:inline-flex;align-items:center">${img(u.id)}<b style="font-size:18px">${esc(u.full)}</b><span class="bd bd-n" style="margin-left:8px">${QN[eQl]}</span>${typeof cpbN==="function"?cpbN(u.full):""}</span></div><div class="pm" style="margin-top:12px">${u.c.map((c,k)=>`<span class="pmi">${img(mat(k))}<b>${c}</b> ${MATN[MATS[k]]} <span class="st" style="margin:0">(.${k} → .${k+1})</span>${cpb(mat(k))}</span>`).join("")}</div>`;
+  // Hedef × başlangıç tablosu: hücre = o yoldan toplam maliyet, eksik fiyatlar hücrenin içinden girilir
+  const T0=tax(),miss=(key,ids)=>`<details class="emiss"${eOpen.has(key)?" open":""} data-ek="${key}"><summary>fiyat eksik</summary>${ids.map(id=>`<label>${esc(lbl(id))}${manInput(id)}</label>`).join("")}</details>`;
+  let rows="";
   for(let e=1;e<=3;e++){
-    const direct=price(it(e)),paths=[{n:"Hazır al",c:direct,ok:direct>0,from:e}];
-    for(let s=0;s<e;s++){let c=price(it(s)),ok=c>0;for(let k=s;k<e;k++){c+=u.c[k]*price(mat(k));ok=ok&&price(mat(k))>0}paths.push({n:`.${s} al, .${e}'e yükselt`,c,ok,from:s})}
-    const v=paths.filter(p=>p.ok),best=v.length?v.reduce((a,b)=>b.c<a.c?b:a):null;
-    const need=p=>p.from===e?"":[...Array(e-p.from).keys()].map(i=>u.c[p.from+i]+" "+MATN[MATS[p.from+i]]).join(" + ");
-    ans+=`<div class="k ${best?"tbigk":""}">.${e} için en ucuz yol<b>${best?fmt(best.c)+" silver":"fiyat eksik"}</b><div class="tw">${best?(best.from===e?"Hazır almak":`.${best.from} al + ${need(best)}`):"Fiyatları çek ya da elle gir"}</div>${best&&direct>0&&best.from!==e?`<div class="pos" style="margin-top:4px">Hazır almaktan ${fmt(direct-best.c)} silver ucuz</div>`:best&&best.from===e?'<div style="margin-top:4px">Yükseltmek daha pahalı</div>':""}</div>`;
-    rows+=`<tr><td colspan="4" style="padding-top:14px"><b>.${e} hedefi</b></td></tr>`+paths.map(p=>`<tr${best&&p===best?' style="background:rgba(63,185,80,.07)"':""}><td>${p.n}${best&&p===best?' <span class="bd bd-g">en ucuz</span>':""}</td><td>${p.ok?fmt(p.c):'<span class="st">fiyat eksik</span>'}</td><td class="st">${need(p)}</td><td>${p.ok&&direct>0&&p.from!==e?`<span class="${direct*(1-tax()/100)-p.c>0?"pos":"neg"}">${fmt(direct*(1-tax()/100)-p.c)}</span>`:""}</td></tr>`).join("");
+    // 1. sütun hazır almak (s=e), sonrakiler .0/.1/.2'den yükseltmek; hedefe eşit ya da üstü başlangıç olmaz
+    const cells=[e,0,1,2].map((s,ci)=>{
+      if(ci>0&&s>=e)return null;
+      const ids=[it(s)];if(s<e)for(let k=s;k<e;k++)ids.push(mat(k));
+      const c=price(it(s))+(s<e?[...Array(e-s).keys()].reduce((a,i)=>a+u.c[s+i]*price(mat(s+i)),0):0);
+      return {s,c,ok:ids.every(id=>price(id)>0),missing:ids.filter(id=>!(price(id)>0)),need:s<e?[...Array(e-s).keys()].map(i=>"+"+u.c[s+i]+" "+MATN[MATS[s+i]]).join(" "):""};
+    });
+    const v=cells.filter(x=>x&&x.ok),best=v.length?v.reduce((a,b)=>b.c<a.c?b:a):null;
+    const up=v.filter(x=>x.s<e),bestUp=up.length?up.reduce((a,b)=>b.c<a.c?b:a):null;
+    const sell=price(it(e)),net=sell*(1-T0/100),pr=bestUp&&sell>0?net-bestUp.c:null;
+    rows+=`<tr><td><b>.${e}</b></td>`+cells.map(x=>!x?'<td class="st">—</td>':`<td${best&&x===best?' class="ebest"':""}>${x.ok?`<b>${fmt(x.c)}</b>${best&&x===best?' <span class="bd bd-g">en ucuz</span>':""}`:miss(e+"-"+x.s,x.missing)}${x.need?`<div class="st" style="margin:2px 0 0">${x.need}</div>`:""}</td>`).join("")
+      +`<td>${sell>0?`<b>${fmt(net)}</b><div class="st" style="margin:2px 0 0">pazar ${fmt(sell)}</div>`:miss(e+"-s",[it(e)])}</td>`
+      +`<td>${pr==null?'<span class="st">—</span>':`<b class="${pr>=0?"pos":"neg"}">${fmt(pr)}</b><div class="st" style="margin:2px 0 0">.${bestUp.s}'dan yükseltip</div>`}</td></tr>`;
   }
-  $("eAns").innerHTML=ans;$("eRows").innerHTML=rows;
+  $("eRows").innerHTML=rows;
+  $("eRows").querySelectorAll("[data-ek]").forEach(d=>d.ontoggle=()=>{d.open?eOpen.add(d.dataset.ek):eOpen.delete(d.dataset.ek)});
+  bindMan($("eRows"));
   // --- elimdeki eşyayı yükseltme dökümü
   const have=+$("eHave").value||0,paidIn=+$("ePaid").value||0,T=tax(),tn=e=>"T"+u.t+"."+e;
   const base=paidIn||price(it(have)),src=paidIn?"senin ödediğin":"pazar fiyatı";
