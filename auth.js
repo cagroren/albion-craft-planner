@@ -42,6 +42,9 @@
   const get=k=>{try{return LS.getItem(k)}catch(e){return null}};
   const orig=Storage.prototype.setItem;
   const put=(k,v)=>{try{orig.call(LS,k,v)}catch(e){}};
+  // Sayfa açıldığı andaki kayıtlar: bulut bundan sonra değişmediyse sayfanın kendi yaptığı değişiklik buluta gider,
+  // sayfa yenilenmez (yavaş bağlantıda Craft sekmesi açılışta kaydı değiştirince sonsuz yenileme oluyordu)
+  const SNAP={};KEYS.forEach(k=>SNAP[k]=get(k));
   let user=null,prof={},canSync=false,timer=null,box,ann;
   const dirty=new Set();
 
@@ -70,6 +73,7 @@
     KEYS.forEach(k=>{
       const l=get(k),c=cloud[k];
       if(c==null){if(l!=null)dirty.add(k);return}
+      if(c===SNAP[k]){if(l!==c)dirty.add(k);return}
       let v=c;
       if(first&&/^aoprofiles/.test(k)&&l){try{v=JSON.stringify(Object.assign({},JSON.parse(l),JSON.parse(c)));if(v!==c)dirty.add(k)}catch(e){}}
       if(v!==l){put(k,v);changed=true}
@@ -178,7 +182,7 @@
       const mine=c&&c.uid===user.id,age=mine?Date.now()-c.ts:Infinity;
       if(age<FRESH)unlock();else gate("check");
       const a=await access(session);
-      if(a.allowed===true){put(ACC,JSON.stringify({uid:user.id,ts:Date.now()}));if(a.first&&!sessionStorage.getItem("aoFirst")){sessionStorage.setItem("aoFirst","1");location.reload();return}unlock()}
+      if(a.allowed===true){put(ACC,JSON.stringify({uid:user.id,ts:Date.now()}));let fr=false;try{fr=a.first&&!sessionStorage.getItem("aoFirst");if(fr)sessionStorage.setItem("aoFirst","1")}catch(e){fr=false}if(fr){location.reload();return}unlock()}
       else if(a.allowed===false){await shut(a);return}
       else if(age<GRACE)unlock();
       else{render();gate("error",a.error);return}
@@ -208,7 +212,11 @@
         const pg=location.pathname.replace(/^\/|\.html$/g,"").replace(/^index$/,"")||"#"+(location.hash.slice(1).split(/[=&]/)[0]||"alchemy");
         sb.rpc("track",{p:pg}).then(()=>{},()=>{});
         canSync=true;
-        if(await pull())reload=true;
+        // Buluttan yeni veri geldiyse sayfa bir kere yenilenir; 20 saniye içinde ikinci kez yenilenmez (döngü koruması)
+        if(await pull()){
+          let last=0;try{last=+sessionStorage.getItem("aoPullRl")||0}catch(e){}
+          if(Date.now()-last>20e3){try{sessionStorage.setItem("aoPullRl",String(Date.now()))}catch(e){}reload=true}
+        }
         else st("Bulut kayıt açık",true);
       }
     }else render();
