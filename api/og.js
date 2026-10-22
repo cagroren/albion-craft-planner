@@ -1,6 +1,6 @@
 // /api/og?b=<id> ya da ?g=<id>: Discord önizlemesi için 1200x630 build görseli
 import { ImageResponse } from "@vercel/og";
-import { getBuild, getGroup, game, iconId, itemName, iconUrl } from "./_build.js";
+import { getBuild, getGroup, game, iconId, itemName, iconUrl, SWP } from "./_build.js";
 
 // Node ortamında çalışır: edge'de @vercel/og yazı tipini yükleyemeyip boş görsel döndürüyordu
 
@@ -11,7 +11,7 @@ const img = (src, size) => ({ type: "img", props: { src, width: size, height: si
 
 function slotBox(G, gear, sl, size, label) {
   const v = gear[sl], id = iconId(G, sl, v);
-  const sw = sl === "w" && gear.x ? iconId(G, "x", gear.x) : "";
+  const sw = SWP[sl] && gear[SWP[sl]] ? iconId(G, SWP[sl], gear[SWP[sl]]) : "";
   return h("div", { flexDirection: "column", alignItems: "center", gap: 6 }, [
     h("div", { position: "relative", width: size, height: size, borderRadius: 16, background: C.card2, border: `2px solid ${id ? C.line : C.card2}`, alignItems: "center", justifyContent: "center" }, [
       id ? img(iconUrl(id, 128), size - 8) : h("div", {}, ""),

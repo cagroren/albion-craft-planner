@@ -1,6 +1,6 @@
 // /b/<id> ve /g/<id>: Discord/sosyal medya botlarına başlık, açıklama ve görsel verir,
 // insanları build sayfasına yönlendirir (botlar JavaScript çalıştırmaz, #... kısmını da görmez).
-import { getBuild, getGroup, game, itemName } from "./_build.js";
+import { getBuild, getGroup, game, itemName, SWP } from "./_build.js";
 
 export const config = { runtime: "edge" };
 
@@ -19,7 +19,7 @@ export default async function handler(req) {
       if (x) {
         title = x.title;
         const items = ["w", "o", "h", "a", "s", "c"].map(k => itemName(G, k, (x.gear || {})[k])).filter(Boolean);
-        const sw = (x.gear || {}).x && itemName(G, "x", x.gear.x);
+        const sw = Object.values(SWP).map(k => itemName(G, k, (x.gear || {})[k])).filter(Boolean).join(", ");
         desc = [[x.content, x.role, x.owner_name].filter(Boolean).join(" · "), items.join(", ") + (sw ? ` · Swap: ${sw}` : "")].filter(Boolean).join("\n");
         img = `${origin}/api/og?b=${x.id}`;
       }

@@ -69,7 +69,8 @@ button.sl:hover{border-color:var(--acc);background:var(--card2)}
 .sl.off{opacity:.35}
 .swp{position:absolute;right:-8px;bottom:-8px;width:38px;height:38px;border-radius:9px;background:var(--card);border:1px solid #b8602a;padding:0;display:flex;align-items:center;justify-content:center;z-index:1}
 .swp img{width:34px;height:34px}
-button.swp.add{width:30px;height:30px;font-size:14px;color:var(--accT);background:var(--acc2)}
+button.swp.add{width:auto;height:24px;padding:0 8px;right:-6px;bottom:-6px;font:800 11px/1 Inter,system-ui,sans-serif;letter-spacing:.02em;color:var(--accT);background:var(--acc2);border-radius:12px;white-space:nowrap;box-shadow:0 2px 8px rgba(0,0,0,.4)}
+button.swp.add:hover{background:#8f4a1b;border-color:var(--acc)}
 .rmx{position:absolute;top:-8px;right:-8px;width:24px;height:24px;border-radius:50%;padding:0;font-size:11px;line-height:1;background:var(--card);color:var(--mut);border:1px solid var(--line2)}
 .rmx:hover{color:var(--bad);border-color:var(--bad);background:var(--card)}
 .blank{visibility:hidden}
@@ -172,18 +173,20 @@ const saveLS=()=>{try{localStorage.setItem("aobuilds1",JSON.stringify(LS))}catch
 const CONTENT=["ZvZ","Small Scale","Gank","Solo PvP","Corrupted Dungeon","Hellgate","Crystal Arena","Group PvE","Solo PvE","Avalon Roads","Mists","Faction Warfare","Gathering"];
 const ROLES=["Tank","Healer","Support","Melee DPS","Ranged DPS","Battlemount","Utility"];
 const SLOTS=[["b","Çanta"],["h","Kafa"],["c","Pelerin"],["w","Silah"],["a","Zırh"],["o","Yan el"],["p","İksir"],["s","Ayakkabı"],["f","Yemek"],["",""],["m","Binek"],["",""]];
-const SN=Object.assign(Object.fromEntries(SLOTS.filter(s=>s[0])),{x:"Swap silah"});
+// Swap: silah, kafa, zırh, ayakkabı ve iksir için isteğe bağlı ikinci seçenek (kutunun sağ altında küçük görünür)
+const SWP={w:"x",h:"xh",a:"xa",s:"xs",p:"xp"},BASE={x:"w",xh:"h",xa:"a",xs:"s",xp:"p"};
+const SN=Object.assign(Object.fromEntries(SLOTS.filter(s=>s[0])),{x:"Swap silah",xh:"Swap kafa",xa:"Swap zırh",xs:"Swap ayakkabı",xp:"Swap iksir"});
 // p2: Plate zırhların ikinci (PvE) pasif slotu
-const KEYL={w:{q:"Q",w:"W",e:"E",p:"Pasif"},x:{q:"Q",w:"W",e:"E",p:"Pasif"},h:{a:"D",p:"Pasif"},a:{a:"R",p:"Pasif 1",p2:"Pasif 2"},s:{a:"F",p:"Pasif"}};
+const KEYL={w:{q:"Q",w:"W",e:"E",p:"Pasif"},h:{a:"D",p:"Pasif"},a:{a:"R",p:"Pasif 1",p2:"Pasif 2"},s:{a:"F",p:"Pasif"}};
+Object.entries(BASE).forEach(([x,b])=>KEYL[x]=KEYL[b]);
 const isPas=k=>k==="p"||k==="p2";
 const keyL=(sl,k)=>(KEYL[sl]||{})[k]||(isPas(k)?"Pasif":"Aktif");
-// x: isteğe bağlı swap silahı (ana silah kutusunun sağ altında küçük görünür)
-const ORDER=["w","o","h","a","s","c","b","m","f","p","x"];
+const ORDER=["w","o","h","a","s","c","b","m","f","p","x","xh","xa","xs","xp"];
 let G=null,sb=null,me=null,isAdmin=false,B=[],GB=[],loaded=false,loadErr="",F=null,GF=null;
 
 // ---------- yardımcılar
-const iconId=(sl,v)=>{if(!v||!v.i)return "";if(sl==="m"||sl==="f"||sl==="p")return v.i;const it=G.items[v.i];if(!it)return "";const t=it.t.includes(8)?8:Math.max(...it.t);return `T${t}_${v.i}`};
-const itemName=(sl,v)=>{if(!v||!v.i)return "";if(sl==="m")return (G.mounts.find(x=>x[0]===v.i)||[,v.i])[1];if(sl==="f"||sl==="p")return (G.cons.find(x=>x[0]===v.i)||[,v.i])[1];return (G.items[v.i]||{}).n||v.i};
+const iconId=(sl,v)=>{if(!v||!v.i)return "";sl=BASE[sl]||sl;if(sl==="m"||sl==="f"||sl==="p")return v.i;const it=G.items[v.i];if(!it)return "";const t=it.t.includes(8)?8:Math.max(...it.t);return `T${t}_${v.i}`};
+const itemName=(sl,v)=>{if(!v||!v.i)return "";sl=BASE[sl]||sl;if(sl==="m")return (G.mounts.find(x=>x[0]===v.i)||[,v.i])[1];if(sl==="f"||sl==="p")return (G.cons.find(x=>x[0]===v.i)||[,v.i])[1];return (G.items[v.i]||{}).n||v.i};
 const iImg=(id,sz,cls)=>id?`<img${cls?` class="${cls}"`:""} loading="lazy" src="${R}item/${encodeURIComponent(id)}.png?size=${sz||80}" alt="" onerror="this.style.visibility='hidden'">`:"";
 const spN=n=>(G.spells[n]||[n])[0];
 window.__spE=im=>{const a=im.dataset.alt;if(a){im.dataset.alt="";im.src=R+"spell/"+encodeURIComponent(a)+".png?size=64"}else{im.onerror=null;im.replaceWith(Object.assign(document.createElement("span"),{textContent:spN(im.dataset.n||"").slice(0,12)}))}};
@@ -261,9 +264,9 @@ function doll(gear,edit){
     if(!k)return '<div class="sl blank"></div>';
     const v=gear[k],id=iconId(k,v),off=k==="o"&&two;
     const tt=id?esc(itemName(k,v)):n;
-    const xid=k==="w"?iconId("x",gear.x):"",xn=xid?esc(itemName("x",gear.x)):"";
+    const xk=SWP[k],xid=xk?iconId(xk,gear[xk]):"",xn=xid?esc(itemName(xk,gear[xk])):"";
     if(!edit)return `<div class="sl${id?" has":""}${off?" off":""}" title="${tt}">${off&&!id?iImg(id||iconId("w",gear.w),80):iImg(id,80)}<small>${n}</small>${xid?`<span class="swp" title="Swap: ${xn}">${iImg(xid,64)}</span>`:""}</div>`;
-    const swp=k==="w"&&id?`<button type="button" class="swp${xid?"":" add"}" data-sl="x" title="${xid?"Swap: "+xn+" (değiştir)":"Swap silah ekle (isteğe bağlı)"}" aria-label="${xid?"Swap silah: "+xn:"Swap silah ekle"}">${xid?iImg(xid,64):"⇄"}</button>`:"";
+    const swp=xk&&id?`<button type="button" class="swp${xid?"":" add"}" data-sl="${xk}" title="${xid?SN[xk]+": "+xn+" (değiştir)":SN[xk]+" ekle (isteğe bağlı)"}" aria-label="${xid?SN[xk]+": "+xn:SN[xk]+" ekle"}">${xid?iImg(xid,64):"+ Swap"}</button>`:"";
     return `<div style="position:relative"><button type="button" class="sl${id?" has":""}${off?" off":""}" data-sl="${k}" title="${off?"Çift elli silah seçili":tt}" aria-label="${n}${id?": "+tt:""}"${off?" disabled":""}>${iImg(id,80)}<small>${n}</small></button>${id?`<button type="button" class="rmx" data-rm="${k}" aria-label="${n} kaldır" title="Kaldır">✕</button>`:""}${swp}</div>`;
   }).join("")}</div>`;
 }
@@ -318,7 +321,7 @@ function confirm2(b,label,fn){
 const PC={};
 function costIds(gear,t,e){
   return ORDER.map(sl=>{const v=gear[sl];if(!v||!v.i)return null;
-    if(sl==="m"||sl==="f"||sl==="p")return [sl,v.i];
+    if(sl==="m"||sl==="f"||sl==="p"||sl==="xp")return [sl,v.i];
     const it=G.items[v.i];if(!it)return null;
     const tt=it.t.includes(t)?t:it.t.filter(x=>x<=t).pop()||it.t[0];
     return [sl,`T${tt}_${v.i}${e>0&&tt>=4?"@"+e:""}`];
@@ -402,12 +405,12 @@ function vSlotEdit(i){
 function drawForm(){
   const g=F.gear;
   if(g.w&&G.items[g.w.i]&&G.items[g.w.i].h)delete g.o;
-  if(!g.w)delete g.x;
+  Object.entries(SWP).forEach(([b,x])=>{if(!g[b])delete g[x]});
   $("fDoll").innerHTML=doll(g,true);
   $("fDoll").querySelectorAll("[data-sl]").forEach(b=>b.onclick=()=>pickItem(b.dataset.sl));
   $("fDoll").querySelectorAll("[data-rm]").forEach(b=>b.onclick=()=>{delete g[b.dataset.rm];drawForm()});
   const parts=ORDER.map(sl=>{const v=g[sl];if(!v||!v.i)return "";const it=G.items[v.i];if(!it||!it.k)return "";
-    return `<div class="skg"><div class="h">${iImg(iconId(sl,v),64)}<span>${esc(it.n)}<br><small class="st" style="font-weight:600">${SN[sl]}</small></span>${sl==="x"?`<button type="button" class="l" data-rm="x" style="margin-left:auto;padding:5px 10px;font-size:13px">Swap'ı kaldır</button>`:""}</div>${Object.entries(it.k).map(([k,l])=>{
+    return `<div class="skg"><div class="h">${iImg(iconId(sl,v),64)}<span>${esc(it.n)}<br><small class="st" style="font-weight:600">${SN[sl]}</small></span>${BASE[sl]?`<button type="button" class="l" data-rm="${sl}" style="margin-left:auto;padding:5px 10px;font-size:13px">Swap'ı kaldır</button>`:""}</div>${Object.entries(it.k).map(([k,l])=>{
       if(l.length===1&&!v[k])v[k]=l[0];
       return `<div class="skr"><span class="k">${keyL(sl,k)}</span><div class="o">${l.map(n=>`<button type="button" class="sp${v[k]===n?" on":""}" data-s="${sl}" data-k="${k}" data-n="${esc(n)}" title="${esc(spN(n))}" aria-label="${esc(spN(n))}" aria-pressed="${v[k]===n}">${sImg(n)}</button>`).join("")}</div></div><div class="skn">${v[k]?esc(spN(v[k])):'<span style="color:#5f6976">Seçilmedi</span>'}</div>`}).join("")}</div>`}).join("");
   $("fSk").innerHTML=parts||'<div class="st">Önce silah ya da zırh seç.</div>';
@@ -436,8 +439,8 @@ const catName=c=>({cloth_armor:"Cloth",leather_armor:"Leather",plate_armor:"Plat
 function pickItem(sl){
   let L;
   if(sl==="m")L=G.mounts.map(([id,n,c])=>({v:id,n,img:id,c:catName(c)}));
-  else if(sl==="f"||sl==="p")L=G.cons.filter(c=>c[2]===sl).map(([id,n])=>({v:id,n:n+" (T"+id[1]+")",img:id,c:""}));
-  else L=Object.entries(G.items).filter(([,it])=>it.s===(sl==="x"?"w":sl)).map(([b,it])=>({v:b,n:it.n,img:`T${it.t.includes(8)?8:Math.max(...it.t)}_${b}`,c:catName(it.c)}));
+  else if(sl==="f"||sl==="p"||sl==="xp")L=G.cons.filter(c=>c[2]===(BASE[sl]||sl)).map(([id,n])=>({v:id,n:n+" (T"+id[1]+")",img:id,c:""}));
+  else L=Object.entries(G.items).filter(([,it])=>it.s===(BASE[sl]||sl)).map(([b,it])=>({v:b,n:it.n,img:`T${it.t.includes(8)?8:Math.max(...it.t)}_${b}`,c:catName(it.c)}));
   L.sort((a,b)=>a.c.localeCompare(b.c)||a.n.localeCompare(b.n));
   const cats=[...new Set(L.map(x=>x.c).filter(Boolean))];
   let cat="";

@@ -45,8 +45,13 @@ export async function getGroup(id) {
 }
 
 // builds.html'deki iconId ile aynı: binek/yemek/iksir ID'si doğrudan, diğerleri en yüksek tier
+// Swap slotları (x: silah, xh: kafa, xa: zırh, xs: ayakkabı, xp: iksir) asıl slotun eşyasıdır
+export const SWP = { w: "x", h: "xh", a: "xa", s: "xs", p: "xp" };
+const BASE = { x: "w", xh: "h", xa: "a", xs: "s", xp: "p" };
+
 export function iconId(G, sl, v) {
   if (!v || !v.i) return "";
+  sl = BASE[sl] || sl;
   if (sl === "m" || sl === "f" || sl === "p") return v.i;
   const it = G.items[v.i];
   if (!it) return "";
@@ -56,6 +61,7 @@ export function iconId(G, sl, v) {
 
 export function itemName(G, sl, v) {
   if (!v || !v.i) return "";
+  sl = BASE[sl] || sl;
   if (sl === "m") return ((G.mounts || []).find(x => x[0] === v.i) || [, v.i])[1];
   if (sl === "f" || sl === "p") return ((G.cons || []).find(x => x[0] === v.i) || [, v.i])[1];
   return (G.items[v.i] || {}).n || v.i;
