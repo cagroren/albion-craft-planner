@@ -117,6 +117,46 @@
     a.session?gate("login"):gate("denied",a.why);
   }
 
+  // Sağ altta geri bildirim balonu: başlık + açıklama, sadece site sahibi panelde görür
+  function feedbackUI(){
+    if(document.getElementById("fbBtn"))return;
+    const s=document.createElement("style");
+    s.textContent="#fbBtn{position:fixed;right:16px;bottom:16px;z-index:50;display:flex;align-items:center;gap:8px;padding:10px 16px;border-radius:22px 22px 6px 22px;border:1px solid #b8602a;background:var(--acc2,#7a3e16);color:var(--accT,#ffd6b3);font:700 14px/1 Inter,system-ui,sans-serif;cursor:pointer;box-shadow:0 6px 20px rgba(0,0,0,.35)}"
+      +"#fbBtn:hover{background:#8f4a1b;border-color:var(--acc,#f0883e)}#fbBtn svg{width:18px;height:18px}"
+      +"#fbBox{position:fixed;right:16px;bottom:72px;z-index:51;width:min(380px,calc(100vw - 32px));background:var(--card,#11161d);border:1px solid var(--line2,#323c49);border-radius:14px;padding:16px;box-shadow:0 12px 32px rgba(0,0,0,.45);font:14px/1.5 Inter,system-ui,sans-serif;color:var(--ink,#e6e9ee)}"
+      +"#fbBox h3{margin:0 0 4px;font-size:16px}#fbBox p{margin:0 0 12px;color:var(--mut,#8b95a3);font-size:13px}"
+      +"#fbBox label{display:block;font-size:12px;font-weight:600;color:#c3cad4;margin:10px 0 4px}"
+      +"#fbBox input,#fbBox textarea{width:100%;box-sizing:border-box;font:inherit;padding:9px 12px;border:1px solid var(--line2,#323c49);border-radius:9px;background:var(--in,#0d1218);color:var(--ink,#e6e9ee)}#fbBox textarea{resize:vertical;min-height:110px}"
+      +"#fbBox .r{display:flex;gap:8px;align-items:center;margin-top:12px}#fbBox .r span{flex:1;font-size:13px;color:var(--mut,#8b95a3)}"
+      +"#fbBox button{font:inherit;font-weight:700;padding:8px 14px;border-radius:9px;border:1px solid #b8602a;background:var(--acc2,#7a3e16);color:var(--accT,#ffd6b3);cursor:pointer}#fbBox button.l{background:transparent;color:var(--acc,#f0883e);border-color:#5a3a24}"
+      +"@media print{#fbBtn,#fbBox{display:none}}";
+    document.head.appendChild(s);
+    const b=document.createElement("button");b.id="fbBtn";b.type="button";b.setAttribute("aria-expanded","false");
+    b.innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12z"/></svg>Feedback';
+    document.body.appendChild(b);
+    let box=null;
+    const close=()=>{if(box){box.remove();box=null}b.setAttribute("aria-expanded","false")};
+    b.onclick=()=>{
+      if(box)return close();
+      box=document.createElement("div");box.id="fbBox";box.setAttribute("role","dialog");box.setAttribute("aria-label","Geri bildirim");
+      box.innerHTML='<h3>Geri bildirim gönder</h3><p>Hata, öneri ya da istek yaz; doğrudan site sahibine gider.</p><label for="fbT">Başlık</label><input id="fbT" maxlength="100" placeholder="Kısaca konu"><label for="fbD">Açıklama</label><textarea id="fbD" maxlength="2000" placeholder="Ne oldu, ne istiyorsun? Hangi sekmede?"></textarea><div class="r"><span id="fbS"></span><button type="button" class="l" id="fbX">Vazgeç</button><button type="button" id="fbGo">Gönder</button></div>';
+      document.body.appendChild(box);b.setAttribute("aria-expanded","true");
+      document.getElementById("fbT").focus();
+      document.getElementById("fbX").onclick=close;
+      box.addEventListener("keydown",e=>{if(e.key==="Escape"){close();b.focus()}});
+      document.getElementById("fbGo").onclick=async()=>{
+        const t=document.getElementById("fbT").value.trim(),d=document.getElementById("fbD").value.trim(),S=document.getElementById("fbS"),g=document.getElementById("fbGo");
+        if(!t){S.textContent="Önce bir başlık yaz.";document.getElementById("fbT").focus();return}
+        g.disabled=true;S.textContent="Gönderiliyor…";
+        const {error}=await sb.from("feedback").insert({title:t,body:d||null,page:(window.aoNav&&window.aoNav.page)||location.pathname});
+        g.disabled=false;
+        if(error){S.textContent="Gönderilemedi: "+error.message;return}
+        box.innerHTML='<h3>Teşekkürler!</h3><p style="margin:0">Geri bildirimin site sahibine ulaştı.</p>';
+        setTimeout(close,2500);
+      };
+    };
+  }
+
   async function start(){
     // Giriş kutusu ortak üst menünün sağında durur (nav.js); menüsüz sayfada ilk satıra
     const row=document.getElementById("topnav")||document.querySelector("main>.row");
@@ -163,6 +203,7 @@
       if(prof.banned)st("Hesabın engellendi, misafir olarak devam edebilirsin");
       else{
         sb.rpc("touch").then(()=>{},()=>{});
+        feedbackUI();
         // Panel istatistikleri için sayfa açılışı (ana sayfada sekme: #craft, #farm...)
         const pg=location.pathname.replace(/^\/|\.html$/g,"").replace(/^index$/,"")||"#"+(location.hash.slice(1).split(/[=&]/)[0]||"alchemy");
         sb.rpc("track",{p:pg}).then(()=>{},()=>{});

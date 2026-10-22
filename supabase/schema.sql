@@ -489,3 +489,47 @@ drop policy if exists "build admin" on public.builds;
 create policy "build admin" on public.builds for update using (public.is_admin()) with check (public.is_admin());
 drop policy if exists "grup admin" on public.group_builds;
 create policy "grup admin" on public.group_builds for update using (public.is_admin()) with check (public.is_admin());
+
+-- GERİ BİLDİRİM (yeni eklendi): üyeler sağ alttaki balondan gönderir; sadece site sahibi (is_owner) okur, adminler göremez.
+alter table public.profiles add column if not exists is_owner boolean not null default false;
+update public.profiles set is_owner = true where id = '2cd3a1fe-6dba-4128-8a10-5e5fad5bd4c5';
+
+create or replace function public.is_owner() returns boolean
+language sql stable security definer set search_path = public as $$
+  select coalesce((select is_owner from public.profiles where id = auth.uid()), false)
+$$;
+
+create table if not exists public.feedback (
+  id bigserial primary key,
+  user_id uuid default auth.uid() references auth.users on delete set null,
+  name text,
+  page text check (length(page) <= 60),
+  title text not null check (length(title) between 1 and 100),
+  body text check (length(body) <= 2000),
+  done boolean not null default false,
+  created_at timestamptz not null default now()
+);
+alter table public.feedback enable row level security;
+drop policy if exists "geri bildirim gönderme" on public.feedback;
+create policy "geri bildirim gönderme" on public.feedback for insert with check (user_id = auth.uid() and public.is_member());
+drop policy if exists "geri bildirim okuma" on public.feedback;
+create policy "geri bildirim okuma" on public.feedback for select using (public.is_owner());
+drop policy if exists "geri bildirim güncelleme" on public.feedback;
+create policy "geri bildirim güncelleme" on public.feedback for update using (public.is_owner()) with check (public.is_owner());
+drop policy if exists "geri bildirim silme" on public.feedback;
+create policy "geri bildirim silme" on public.feedback for delete using (public.is_owner());
+
+-- Gönderenin adı profilden gelir (elle yazılamaz); kişi başı dakikada en fazla 3 gönderim
+create or replace function public.feedback_stamp() returns trigger
+language plpgsql security definer set search_path = public as $$
+begin
+  if (select count(*) from public.feedback where user_id = auth.uid() and created_at > now() - interval '1 minute') >= 3 then
+    raise exception 'Çok hızlı gönderiyorsun, biraz bekle';
+  end if;
+  new.name := (select name from public.profiles where id = auth.uid());
+  new.done := false;
+  new.created_at := now();
+  return new;
+end $$;
+drop trigger if exists feedback_stamp on public.feedback;
+create trigger feedback_stamp before insert on public.feedback for each row execute function public.feedback_stamp();

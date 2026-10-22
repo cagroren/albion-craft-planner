@@ -50,6 +50,14 @@ th{color:var(--mut);font-weight:700;font-size:11px;letter-spacing:.08em;text-tra
 .rl{display:inline-flex;align-items:center;gap:5px;font-size:12px;color:#c3cad4;border:1px solid var(--line2);border-radius:20px;padding:0 8px;margin:0 4px 4px 0;white-space:nowrap}
 .rl i{width:8px;height:8px;border-radius:50%;background:var(--mut);flex:none}
 .sm{color:var(--mut);font-size:12px}
+.fb{border-top:1px solid var(--line);padding:12px 0;display:flex;gap:12px;align-items:start}
+.fb:first-child{border-top:0}
+.fb .tx{flex:1;min-width:0}
+.fb .tx b{font-size:15px}
+.fb .tx p{margin:4px 0 6px;white-space:pre-wrap;overflow-wrap:anywhere;color:#c3cad4}
+.fb.dn .tx b,.fb.dn .tx p{color:var(--mut)}
+.fb .acts{display:flex;gap:6px;flex-wrap:wrap}
+.fb .acts button{padding:5px 10px;font-size:13px}
 .bd-y{color:#f2cc60;border-color:rgba(227,179,65,.6);background:rgba(227,179,65,.1)}
 .tgs{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:8px}
 .tg{flex-direction:row;align-items:center;gap:10px;font-size:14px;color:var(--ink);background:var(--card2);border:1px solid var(--line);border-radius:10px;padding:10px 12px;cursor:pointer}
@@ -78,6 +86,11 @@ td .acts button{padding:5px 10px;font-size:13px}
 <div class="st" id="gate">Yükleniyor...</div>
 <div id="app" hidden>
 <div class="r" id="stats"></div>
+<section id="fbSec" hidden>
+<div class="hd" style="margin-bottom:6px"><h2 style="margin:0">Geri bildirimler</h2><span class="bd bd-n" id="fbCnt"></span><label class="tg" style="margin-left:auto;padding:6px 10px;flex-direction:row;align-items:center;gap:8px"><input type="checkbox" id="fbAll"> Okunanları da göster</label></div>
+<div class="sm" style="margin-bottom:6px">Kullanıcıların sağ alttaki balondan gönderdikleri. Bunu sadece sen görürsün, diğer adminler görmez.</div>
+<div id="fbList"><div class="st">Yükleniyor...</div></div>
+</section>
 <section>
 <h2>Canlı üye kontrolü</h2>
 <div class="sw" id="swBox"><div class="st">Yükleniyor...</div></div>
@@ -145,12 +158,13 @@ async function start(){
     return;
   }
   myId=session.user.id;
-  const {data:p}=await sb.from("profiles").select("name,avatar,is_admin").eq("id",myId).maybeSingle();
+  const {data:p}=await sb.from("profiles").select("name,avatar,is_admin,is_owner").eq("id",myId).maybeSingle();
   $("me").innerHTML=`${p&&p.avatar?`<img class="av" src="${esc(p.avatar)}" alt="">`:""}<b>${esc(p&&p.name)}</b><button class="l" id="out">Çıkış</button>`;
   $("out").onclick=async()=>{await sb.auth.signOut();location.reload()};
   if(!p||!p.is_admin){$("gate").textContent="Bu sayfa için yetkin yok.";return}
   $("gate").hidden=true;$("app").hidden=false;
   token=session.access_token;
+  if(p.is_owner){$("fbSec").hidden=false;loadFeedback()}
   loadUsers();loadAnn();loadSweep();loadStats();loadRemovals();loadDiscord();loadBuilds();loadTabs();loadLog();
   setInterval(loadSweep,30e3);
 }
@@ -308,6 +322,33 @@ async function loadLog(){
   if(error){$("lRows").innerHTML=`<tr><td colspan="4">Alınamadı: ${esc(error.message)}</td></tr>`;return}
   $("lRows").innerHTML=(data||[]).map(r=>`<tr><td><b>${esc(r.admin_name||"-")}</b></td><td>${esc(r.action)}</td><td style="max-width:420px;overflow-wrap:anywhere">${esc(r.target||"")}</td><td>${dt(r.created_at)}</td></tr>`).join("")||'<tr><td colspan="4" class="sm">Henüz kayıt yok.</td></tr>';
 }
+// ---------- geri bildirimler (sadece site sahibi)
+let FB=[];
+const PAGEN=k=>PAGE[k]||PAGE["#"+k]||k||"-";
+async function loadFeedback(){
+  const {data,error}=await sb.from("feedback").select("*").order("created_at",{ascending:false}).limit(300);
+  if(error){$("fbList").innerHTML=`<div class="st">Alınamadı: ${esc(error.message)}</div>`;return}
+  FB=data||[];renderFeedback();
+}
+function renderFeedback(){
+  const all=$("fbAll").checked,open=FB.filter(f=>!f.done).length,L=FB.filter(f=>all||!f.done);
+  $("fbCnt").textContent=open?`${open} yeni`:"yeni yok";
+  $("fbList").innerHTML=L.map(f=>`<div class="fb${f.done?" dn":""}"><div class="tx"><b>${esc(f.title)}</b>${f.body?`<p>${esc(f.body)}</p>`:""}<div class="sm">${esc(f.name||"?")} · ${esc(PAGEN(f.page))} · ${dt(f.created_at)}</div></div><div class="acts"><button class="l" data-fd="${f.id}" data-v="${f.done?0:1}">${f.done?"Yeniye al":"Okundu"}</button><button class="bad" data-fx="${f.id}">Sil</button></div></div>`).join("")||`<div class="st">${FB.length?"Okunmamış geri bildirim yok.":"Henüz geri bildirim gelmedi."}</div>`;
+  $("fbList").querySelectorAll("[data-fd]").forEach(b=>b.onclick=async()=>{
+    b.disabled=true;const v=b.dataset.v==="1";
+    const {error}=await sb.from("feedback").update({done:v}).eq("id",b.dataset.fd);
+    if(error){alert("Yapılamadı: "+error.message);b.disabled=false;return}
+    FB.find(f=>String(f.id)===b.dataset.fd).done=v;renderFeedback();
+  });
+  $("fbList").querySelectorAll("[data-fx]").forEach(b=>b.onclick=async()=>{
+    if(!confirm("Bu geri bildirim silinsin mi?"))return;
+    b.disabled=true;
+    const {error}=await sb.from("feedback").delete().eq("id",b.dataset.fx);
+    if(error){alert("Silinemedi: "+error.message);b.disabled=false;return}
+    FB=FB.filter(f=>String(f.id)!==b.dataset.fx);renderFeedback();
+  });
+}
+$("fbAll").onchange=renderFeedback;
 $("stDays").onchange=loadStats;
 $("uQ").oninput=renderUsers;
 $("uRef").onclick=()=>{loadUsers();loadDiscord()};
