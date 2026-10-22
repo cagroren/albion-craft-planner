@@ -320,7 +320,7 @@ section{padding:16px;border-radius:14px}
 </section>
 
 <section><h2>Toplam</h2><div class="r" id="out"></div></section>
-<section><h2>Alışveriş listesi</h2><div class="t"><table><thead><tr><th>Malzeme</th><th>Ad (kopyala)</th><th>Brüt adet (craft için gerekli)</th><th>Net adet (return sonrası, return olmayanlar brüt)</th><th>Birim fiyat</th></tr></thead><tbody id="shop"></tbody></table></div></section>
+<section><h2>Alışveriş listesi</h2><div class="t"><table><thead><tr><th>Malzeme</th><th>Brüt adet (craft için gerekli)</th><th>Net adet (return sonrası, return olmayanlar brüt)</th><th>Birim fiyat</th></tr></thead><tbody id="shop"></tbody></table></div></section>
 <section id="bmApp" style="display:none">
 <h2>Black Market flip</h2>
 <p class="s" style="margin-bottom:8px">Şehir marketinden hazır eşya al, Caerleon'daki Black Market'in alış emrine sat. Kâr = Black Market fiyatı − satış vergisi − alış fiyatı. Fiyatlar Albion Data Project'ten gelir; veriyi oyuncular besler, yaşı eski olanlar güvenilmez.</p>
@@ -932,7 +932,7 @@ function calc(){
    .map(([a,b])=>`<div class="k"><div>${a}</div><b>${b}</b></div>`).join("")
    +(jrOn()&&jRows.length?`<div class="k jrk"><div>Journal: dolu satış ${fmt(jRev)} · boş alış ${fmt(jCost)}</div><b class="${jRev-jCost>=0?"pos":"neg"}">${fmt(jRev-jCost)}</b>${jRows.join("")}</div>`:"")
    +`<div class="k"><div>Kâr</div><b class="${profit>=0?"pos":"neg"}">${fmt(profit)}</b><div>Marj: ${cost?(profit/cost*100).toFixed(1)+"%":"-"}</div>${focus?`<div>Focus başına: ${fmt(profit/focus)}</div>`:""}</div>`+($("foc").checked?`<div class="k"><div>Kalan focus</div><b class="${left>=0?"pos":"neg"}">${fmt(left)}</b>${left<0?"<div>Havuz yetmiyor</div>":""}</div>`:"");
-  $("shop").innerHTML=Object.entries(shop).map(([m,q])=>`<tr><td>${img(m)}${esc(label(m))}${cpb(m)}</td><td><input readonly class="cp" value="${esc(nm0(m)||m)}" onclick="cpy(this)"></td><td><input readonly class="cp" style="width:100px" value="${Math.round(q)}" onclick="cpy(this)"></td><td><input readonly class="cp" style="width:100px" value="${nrs[m]?Math.round(q):Math.ceil(shopN[m]-1e-9)}" onclick="cpy(this)"></td><td><input type="text" inputmode="decimal" data-k="m:${m}" data-m="${m}" value="${m in man.mats?man.mats[m]:""}" placeholder="${fmt((px.mats[m]&&px.mats[m].sell)||0)}" style="width:100px"><br>${tag(pinfo(true,m))}</td></tr>`).join("")||'<tr><td colspan="5">Liste boş.</td></tr>';
+  $("shop").innerHTML=Object.entries(shop).map(([m,q])=>`<tr><td>${img(m)}${esc(label(m))}${cpb(m)}</td><td><input readonly class="cp" style="width:100px" value="${Math.round(q)}" onclick="cpy(this)"></td><td><input readonly class="cp" style="width:100px" value="${nrs[m]?Math.round(q):Math.ceil(shopN[m]-1e-9)}" onclick="cpy(this)"></td><td><input type="text" inputmode="decimal" data-k="m:${m}" data-m="${m}" value="${m in man.mats?man.mats[m]:""}" placeholder="${fmt((px.mats[m]&&px.mats[m].sell)||0)}" style="width:100px"><br>${tag(pinfo(true,m))}</td></tr>`).join("")||'<tr><td colspan="4">Liste boş.</td></tr>';
   document.querySelectorAll("#plan button[data-i]").forEach(b=>b.onclick=()=>{plan.splice(+b.dataset.i,1);calc()});
   document.querySelectorAll("#plan .tg").forEach(b=>b.onclick=()=>{const id=b.dataset.t;if(openRows.has(id))openRows.delete(id);else openRows.add(id);calc()});
   document.querySelectorAll("[data-n]").forEach(e=>e.oninput=()=>{plan[+e.dataset.n].n=pf(e.value)||0;calc()});
