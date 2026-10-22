@@ -23,7 +23,7 @@ import webbrowser
 import zlib
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-VERSION = 9                  # GitHub'daki dps-vN sürümüyle aynı olmalı (güncelleme kontrolü bunu karşılaştırır)
+VERSION = 10                 # GitHub'daki dps-vN sürümüyle aynı olmalı (güncelleme kontrolü bunu karşılaştırır)
 PORT = int(os.environ.get("ALBION_DPS_PORT") or 47700)
 COMBAT_GAP_SECONDS = 5       # vuruşlar arası bundan uzun boşluk "savaş süresi"ne sayılmaz
 FP = 10000.0                 # oyunun sabit noktalı sayı çarpanı
@@ -744,6 +744,7 @@ class Tracker:
         self.fame_total = None   # oyunun bildirdiği toplam fame (fark = kazanılan)
         self.credits_total = None  # karakterdeki toplam combat fame credit
         self.respec_boost = None   # ReSpec boost açık mı (bilinmiyorsa None)
+        self.silver_tax = 0.0      # son kendi silver'ındaki vergi oranı; parti payına uygulanır
         self.paused = False        # paneldeki 'Duraklat': hasar/heal/kazanç sayılmaz, süre işlemez
         self.board = DestinyBoard()  # Destiny Board seviyeleri (panelin Destiny Board sekmesi /destiny'den okur)
         self.live_dirty = False
@@ -902,10 +903,18 @@ class Tracker:
                         # Auto-respec durumu sadece buradan anlaşılır: kredi kazanılırken silver kesildiyse açık
                         self.respec_boost = paid > 0
             elif code == EV["TakeSilver"]:
-                oid = to_int(p.get(0))
-                if oid is not None and oid == self.local_id:
-                    tax = sum((to_int(p.get(k)) or 0) for k in (4, 5, 6))
-                    self.gain("silver", max(0, (to_int(p.get(3)) or 0) - tax) / FP)
+                # 0: alan, 2: mobu kesen, 3: vergi öncesi silver, 4/5/6: şehir vergisi, guild vergisi, ittifak kesintisi
+                oid, target, pre = to_int(p.get(0)), to_int(p.get(2)), to_int(p.get(3)) or 0
+                if oid is not None and pre > 0:
+                    if oid == self.local_id:
+                        tax = sum((to_int(p.get(k)) or 0) for k in (4, 5, 6))
+                        if target != oid:
+                            self.silver_tax = min(1.0, tax / pre)
+                        self.gain("silver", max(0, pre - tax) / FP)
+                    elif oid != target and self.in_party(oid):
+                        # Partide son vuruşu arkadaşın yaptıysa sana düşen pay onun adıyla gelir ve vergisi yazmaz;
+                        # senin son silver'ındaki vergi oranı uygulanır (StatisticsAnalysis ile aynı yöntem)
+                        self.gain("silver", pre * (1 - self.silver_tax) / FP)
             elif code == EV["MightAndFavorReceivedEvent"]:
                 self.gain("might", (to_int(p.get(1)) or 0) / FP)
                 self.gain("favor", (to_int(p.get(4)) or 0) / FP)
