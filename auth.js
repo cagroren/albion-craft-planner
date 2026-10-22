@@ -161,6 +161,66 @@
     };
   }
 
+  // Bilgi penceresi: fiyat sekmelerinde Albion Data Client, DPS Meter/Destiny'de toplayıcı yoksa nasıl kurulacağı.
+  // Oturum başına en fazla bir kez; "Bir daha gösterme" kalıcı.
+  const DL_DATA="https://github.com/ao-data/albiondata-client/releases/latest/download/albiondata-client-amd64-installer.exe";
+  const DL_DPS="https://github.com/cagroren/albion-craft-planner/releases/latest/download/AlbionDPSMeter.exe";
+  const appFlag=()=>{try{return !!JSON.parse(get("aodps1")||"{}").app}catch(e){return false}};
+  async function collector(){
+    try{const c=new AbortController();setTimeout(()=>c.abort(),2500);const r=await fetch("http://127.0.0.1:47700/status",{signal:c.signal,cache:"no-store"});return r.ok?await r.json():null}catch(e){return null}
+  }
+  async function infoPopup(){
+    const page=window.aoNav&&window.aoNav.page;if(!page||page==="builds")return;
+    const kind=page==="dps"||page==="destiny"?"dps":"data";
+    try{if(LS.getItem("aoPopNo_"+kind)||sessionStorage.getItem("aoPop_"+kind))return}catch(e){return}
+    let st=null;
+    if(kind==="dps"){
+      // Bu sayfalar toplayıcıyı zaten yokluyor; kurulu (daha önce bağlanmış) ise sayfa onu kendisi açar
+      if(appFlag())return;
+      st=await collector();if(st)return;
+    }else if(appFlag()){
+      // DPS Meter kurulu: Data Client'ı o açıyor. Açık ve Data Client çalışıyorsa sorun yok
+      st=await collector();
+      if(st&&/çalışıyor|zaten açık/.test(st.dataClient||""))return;
+    }
+    try{sessionStorage.setItem("aoPop_"+kind,"1")}catch(e){}
+    showInfo(kind,st);
+  }
+  function showInfo(kind,st){
+    if(document.getElementById("aoInfo"))return;
+    const s=document.createElement("style");
+    s.textContent="#aoInfo{position:fixed;inset:0;z-index:60;background:rgba(0,0,0,.55);display:flex;align-items:center;justify-content:center;padding:16px}"
+      +"#aoInfo .ic{max-width:480px;width:100%;max-height:calc(100vh - 32px);overflow:auto;background:var(--card,#11161d);border:1px solid var(--line2,#323c49);border-radius:16px;padding:22px;color:var(--ink,#e6e9ee);font:15px/1.55 Inter,system-ui,sans-serif;box-shadow:0 16px 40px rgba(0,0,0,.5);position:relative}"
+      +"#aoInfo h3{margin:0 0 8px;font:800 19px/1.3 Inter,system-ui,sans-serif;letter-spacing:0;text-transform:none;color:var(--ink,#e6e9ee);padding-right:28px}#aoInfo p{margin:0 0 12px;color:#c3cad4}#aoInfo ul{margin:0 0 14px;padding-left:20px;color:#c3cad4}#aoInfo li{margin:4px 0}"
+      +"#aoInfo .bt{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:6px}"
+      +"#aoInfo .pr{display:inline-flex;align-items:center;gap:8px;padding:11px 18px;border-radius:10px;border:1px solid #b8602a;background:var(--acc2,#7a3e16);color:var(--accT,#ffd6b3);font-weight:800;text-decoration:none}#aoInfo .pr:hover{background:#8f4a1b}"
+      +"#aoInfo button,#aoInfo .sc{font:inherit;font-size:14px;font-weight:700;padding:10px 14px;border-radius:10px;border:1px solid #5a3a24;background:transparent;color:var(--acc,#f0883e);cursor:pointer;text-decoration:none}"
+      +"#aoInfo .x{position:absolute;top:12px;right:12px;padding:4px 10px}#aoInfo small{color:var(--mut,#8b95a3)}#aoInfo a.in{color:var(--acc,#f0883e)}";
+    document.head.appendChild(s);
+    const npcap='<a class="in" href="https://npcap.com/#download" target="_blank" rel="noopener">Npcap</a>';
+    const dl=(href,t)=>`<a class="pr" href="${href}" rel="noopener"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12m0 0l-5-5m5 5l5-5M5 21h14"/></svg>${t}</a>`;
+    const body=kind==="data"?`<h3>Fiyatlar güncel kalsın: Albion Data Client</h3>
+      <p>Bu sitedeki pazar fiyatları <b>Albion Data Project</b>'ten gelir. Oyunda pazarı açtıkça <b>Albion Data Client</b> gördüğün fiyatları herkes için günceller. Kimse çalıştırmazsa fiyatlar eskir ya da "fiyat yok" görürsün.</p>
+      ${st&&st.dataClient?`<p><small>DPS Meter açık ama Data Client başlatılamadı: ${esc(st.dataClient)}</small></p>`:""}
+      <ul><li>${npcap} kurulu olmalı (DPS Meter kullanıyorsan zaten kurulu).</li><li>Aşağıdan indir, kur. Oyunla birlikte açık kalsın; arka planda çalışır.</li><li>Oyunu ya da hesabını etkilemez, sadece pazar ekranlarını okur.</li></ul>
+      <div class="bt">${dl(DL_DATA,"Tek tıkla indir")}${appFlag()?'<a class="sc" href="albiondps://start">DPS Meter\'ı başlat</a>':""}</div>
+      <p style="margin:12px 0 0"><small>DPS Meter toplayıcısını kullanıyorsan Data Client'ı o kendisi açar, ayrıca kurmana gerek yok.</small></p>`
+    :`<h3>DPS Meter toplayıcısı bulunamadı</h3>
+      <p>DPS Meter ve Destiny Board verileri oyundan, bilgisayarında çalışan küçük bir programla okunur. Bu bilgisayarda henüz çalışmıyor.</p>
+      <ul><li>${npcap} kurulu olmalı (bir kere, varsayılan ayarlarla).</li><li>Aşağıdan indir ve <b>bir kere</b> çift tıkla. Sonra bu sekmelere girince kendisi açılır.</li><li>Yeni sürüm çıkınca DPS Meter sayfasından tek tuşla güncellenir.</li><li>Albion Data Client'ı da birlikte başlatır, fiyatlar güncel kalır.</li></ul>
+      <div class="bt">${dl(DL_DPS,"Tek tıkla indir (24 MB)")}</div>
+      <p style="margin:12px 0 0"><small>Windows "bilgisayarınız korundu" derse Ek bilgi → Yine de çalıştır (program imzasız olduğu için).</small></p>`;
+    const o=document.createElement("div");o.id="aoInfo";o.setAttribute("role","dialog");o.setAttribute("aria-modal","true");
+    o.innerHTML=`<div class="ic"><button type="button" class="x" aria-label="Kapat">✕</button>${body}<div class="bt" style="margin-top:14px;justify-content:flex-end"><button type="button" data-no>Bir daha gösterme</button><button type="button" data-later>Sonra</button></div></div>`;
+    document.body.appendChild(o);
+    const close=()=>o.remove();
+    o.querySelector(".x").onclick=close;o.querySelector("[data-later]").onclick=close;
+    o.querySelector("[data-no]").onclick=()=>{try{LS.setItem("aoPopNo_"+kind,"1")}catch(e){}close()};
+    o.addEventListener("click",e=>{if(e.target===o)close()});
+    o.addEventListener("keydown",e=>{if(e.key==="Escape")close()});
+    o.querySelector(".pr").focus();
+  }
+
   async function start(){
     // Giriş kutusu ortak üst menünün sağında durur (nav.js); menüsüz sayfada ilk satıra
     const row=document.getElementById("topnav")||document.querySelector("main>.row");
@@ -208,6 +268,7 @@
       else{
         sb.rpc("touch").then(()=>{},()=>{});
         feedbackUI();
+        setTimeout(()=>infoPopup().catch(()=>{}),2000);
         // Panel istatistikleri için sayfa açılışı (ana sayfada sekme: #craft, #farm...)
         const pg=location.pathname.replace(/^\/|\.html$/g,"").replace(/^index$/,"")||"#"+(location.hash.slice(1).split(/[=&]/)[0]||"alchemy");
         sb.rpc("track",{p:pg}).then(()=>{},()=>{});
