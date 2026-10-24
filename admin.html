@@ -299,7 +299,7 @@ document.querySelectorAll("[data-bk]").forEach(b=>b.onclick=()=>{bKind=b.dataset
 $("bQ").oninput=renderBuilds;$("bOff").onchange=renderBuilds;
 
 // ---------- sekmeleri aç / kapat
-const TABS=[["craft","Craft"],["alchemy","Alchemy"],["food","Cooking"],["enchant","Enchant Yükseltme"],["farm","Farming"],["refine","Refining"],["bm","Black Market Flips"],["db","Item Database"],["builds","Builds"],["destiny","Destiny Board"],["dps","DPS Meter"],["party","Parti Set"]];
+const TABS=[["craft","Craft"],["alchemy","Alchemy"],["food","Cooking"],["enchant","Enchant Yükseltme"],["farm","Farming"],["refine","Refining"],["bm","Black Market Flips"],["db","Item Database"],["builds","Builds"],["destiny","Destiny Board"],["dps","DPS Meter"]];
 async function loadTabs(){
   const {data,error}=await sb.from("site_settings").select("value").eq("key","tabs_off").maybeSingle();
   if(error){$("tSt").textContent="Alınamadı: "+error.message;return}

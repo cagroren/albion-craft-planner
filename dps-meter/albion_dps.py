@@ -23,7 +23,7 @@ import webbrowser
 import zlib
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-VERSION = 11                 # GitHub'daki dps-vN sürümüyle aynı olmalı (güncelleme kontrolü bunu karşılaştırır)
+VERSION = 12                 # GitHub'daki dps-vN sürümüyle aynı olmalı (güncelleme kontrolü bunu karşılaştırır)
 PORT = int(os.environ.get("ALBION_DPS_PORT") or 47700)
 COMBAT_GAP_SECONDS = 5       # vuruşlar arası bundan uzun boşluk "savaş süresi"ne sayılmaz
 FP = 10000.0                 # oyunun sabit noktalı sayı çarpanı
@@ -31,6 +31,7 @@ FP = 10000.0                 # oyunun sabit noktalı sayı çarpanı
 # olarak ayrı bir mesajla bildirir). respecSilver = ReSpec boost açıkken bu krediler için ödenen silver.
 GAINS = ("fame", "credits", "silver", "might", "favor", "faction", "respecSilver")
 MAX_FIGHTS_IN_MEMORY = 300
+RELOGIN_GAP = 60             # bu kadar saniye oyun trafiği gelmezse sonraki giriş yeni oturum sayılır
 MAX_OBJECTS = 5000           # hatırlanan karakter sayısı (en eskiler silinir)
 JOIN_KEEP_SECONDS = 15       # bölge değişince bundan daha yeni görülen karakterler tutulur
 PHOTON_PORTS = (5055, 5056, 5058)
@@ -754,6 +755,7 @@ class Tracker:
         self.packets = 0
         self.events = 0
         self.last_packet = 0
+        self.relogin = False       # oyun bir süre sessiz kaldı (kapandı/çıkış yapıldı): sonraki girişte parti sıfırlanır
         self.started = time.time()
         self.load_saved()
         self.load_live()
@@ -942,6 +944,7 @@ class Tracker:
                     gl = [guid_key(g) for g in guids]
                 self.party = {g: str(n) for g, n in zip(gl, names) if g and n}
                 self.party_known = True
+                self.relogin = False  # girişteki parti bilgisi Join'den önce geldiyse silinmesin
                 log("Partiye katıldın:", ", ".join(sorted(self.party.values())))
             elif code == EV["PartyPlayerJoined"]:
                 g, n = guid_key(p.get(1)), p.get(2)
@@ -989,6 +992,14 @@ class Tracker:
                 if oid is not None and isinstance(name, str):
                     if name != self.local_name:
                         self.fame_total = None  # başka karakter: toplam fame farkı geçersiz
+                    # Oyun kapatılıp açıldıysa ya da karakter değiştiyse eski parti listesi geçersiz;
+                    # hâlâ partideysen oyun girişte parti bilgisini (PartyJoined) yeniden gönderir
+                    if self.relogin or (self.local_name and name != self.local_name):
+                        if self.party:
+                            log("Yeniden giriş: eski parti listesi silindi.")
+                        self.party = {}
+                        self.party_known = False
+                    self.relogin = False
                     self.local_id, self.local_name = oid, name
                     self.objects[oid] = {"name": name, "t": time.time()}
                 self.zone = str(p.get(8)) if p.get(8) is not None else None
@@ -996,6 +1007,12 @@ class Tracker:
                 if isinstance(rs, (list, tuple)) and len(rs) > 1:
                     self.credits_total = (to_int(rs[1]) or 0) / FP
                 log(f"Bölgeye girildi. Karakter: {self.local_name}")
+
+    def mark_packet(self):
+        now = time.time()
+        if self.last_packet and now - self.last_packet > RELOGIN_GAP:
+            self.relogin = True
+        self.last_packet = now
 
     def is_local(self, oid):
         oid = to_int(oid)
@@ -1245,7 +1262,7 @@ def make_packet_handler(tracker, parser):
         if sp not in PHOTON_PORTS and dp not in PHOTON_PORTS:
             return
         tracker.packets += 1
-        tracker.last_packet = time.time()
+        tracker.mark_packet()
         parser.receive(raw_udp[8:])
 
     def on_pkt(pkt):
@@ -1255,7 +1272,7 @@ def make_packet_handler(tracker, parser):
                     u = pkt[UDP]
                     if u.sport in PHOTON_PORTS or u.dport in PHOTON_PORTS:
                         tracker.packets += 1
-                        tracker.last_packet = time.time()
+                        tracker.mark_packet()
                         parser.receive(bytes(u.payload))
                 return
             ip = pkt[IP]

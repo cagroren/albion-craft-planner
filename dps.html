@@ -74,15 +74,51 @@ tr.me .pn{color:var(--accT)}
 .g b{display:block;font-size:22px;font-weight:800;color:var(--ink);letter-spacing:0;text-transform:none;font-variant-numeric:tabular-nums}
 .g small{display:block;font-size:12px;font-weight:600;letter-spacing:0;text-transform:none}
 .g-credits{border-left-color:var(--bad)}.g-respecSilver{border-left-color:#8b95a3}.g-silver{border-left-color:#c9d1d9}.g-might{border-left-color:#a371f7}.g-favor{border-left-color:var(--warn)}.g-faction{border-left-color:var(--good)}
-#hist{display:flex;flex-direction:column;gap:6px}
-.hi{background:var(--card2);border:1px solid var(--line);border-radius:12px}
+#hist{display:flex;flex-direction:column;gap:4px;margin-top:12px}
+.hi{background:var(--card2);border:1px solid var(--line);border-radius:10px}
 .hi.on{border-color:var(--acc)}
-.hr{width:100%;display:flex;align-items:center;gap:18px;background:transparent;border:0;color:var(--ink);font-weight:500;text-align:left;padding:10px 14px;border-radius:12px}
+.hr{width:100%;display:flex;align-items:center;gap:16px;background:transparent;border:0;color:var(--ink);font-weight:500;text-align:left;padding:6px 12px;border-radius:10px}
 .hr:hover{background:rgba(255,255,255,.02)}
-.hc{display:flex;flex-direction:column;min-width:70px;font-variant-numeric:tabular-nums}
-.hc:first-child{min-width:120px}
-.hc small{color:var(--mut);font-size:12px}
-.hc b{font-size:14px;font-weight:800}
+.hc{display:flex;align-items:baseline;gap:6px;min-width:90px;font-variant-numeric:tabular-nums}
+.hc:first-child{min-width:150px}
+.hc small{color:var(--mut);font-size:11px}
+.hc b{font-size:13px;font-weight:700}
+.tgl{display:flex;align-items:center;gap:10px;width:100%;background:transparent;border:0;padding:0;color:inherit;text-align:left;font-weight:500}
+.tgl:hover{background:transparent}
+.tgl h2{margin:0}
+.tgl .chev{margin-left:0}
+#histSec.cl{padding:14px 20px}
+.opts{display:flex;gap:8px 16px;flex-wrap:wrap;align-items:center;font-size:13px;color:var(--mut)}
+.opts label{display:inline-flex;align-items:center;gap:6px}
+.opts select{padding:4px 8px;font-size:13px}
+.opts input{accent-color:var(--acc);width:15px;height:15px}
+details.so{margin:-4px 0 12px}
+details.so summary{cursor:pointer;color:var(--mut);font-size:13px;width:fit-content}
+details.so[open] summary{margin-bottom:8px}
+.sum{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:10px}
+.chip b{font-weight:800;margin-left:5px}
+.chip.bad{border-color:rgba(248,81,73,.55);color:#ffb3ad;background:rgba(248,81,73,.08)}
+.chip.ok{border-color:rgba(63,185,80,.5);color:#a6e3b0;background:rgba(63,185,80,.08)}
+.pcl{display:flex;flex-direction:column;gap:6px}
+.pc{background:var(--card2);border:1px solid var(--line);border-left:3px solid var(--good);border-radius:10px;padding:8px 12px;display:grid;grid-template-columns:180px 1fr;gap:4px 14px;align-items:center}
+.pc.bad{border-left-color:var(--bad)}
+.pc.unk{border-left-color:var(--line2)}
+.nm{display:flex;flex-direction:column;gap:3px;min-width:0}
+.nm b{font-weight:800;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.nm b.me{color:var(--accT)}
+.nm select{padding:2px 6px;font-size:12px;width:fit-content}
+.nm small{color:var(--mut);font-size:12px}
+.eq{display:flex;gap:5px;flex-wrap:wrap}
+.sl{position:relative;width:46px;height:46px;border-radius:8px;background:var(--in);border:1px solid var(--line);display:flex;align-items:center;justify-content:center}
+.sl img{width:44px;height:44px}
+.sl.x{border-color:var(--bad);box-shadow:inset 0 0 0 1px var(--bad)}
+.sl.e{border-style:dashed}
+.sl.e::after{content:attr(data-l);font-size:8px;font-weight:700;color:var(--mut);text-transform:uppercase;text-align:center}
+.sl.e.x::after{color:#ffb3ad}
+.sl i{position:absolute;right:-4px;bottom:-4px;font:800 10px/1 "Inter",sans-serif;font-style:normal;background:var(--in);color:var(--ink);border:1px solid var(--line2);border-radius:5px;padding:2px 3px}
+.sl.x i{border-color:var(--bad);color:#ffb3ad}
+.ws{grid-column:2;font-size:13px;color:#ffb3ad}
+@media(max-width:700px){.pc{grid-template-columns:1fr}.ws{grid-column:1}.sl{width:40px;height:40px}.sl img{width:38px;height:38px}}
 .chev{margin-left:auto;color:var(--mut);font-size:11px}
 .hd{padding:4px 14px 14px;border-top:1px solid var(--line)}
 .hd .gn{margin-top:12px}
@@ -143,18 +179,26 @@ tr.spr>td{background:var(--in);padding:4px 8px 10px}
   <div id="live"></div>
 </section>
 
-<section id="histSec" hidden>
-  <div class="dh"><h2>Geçmiş oturumlar</h2><span class="sp"></span><button class="l" id="clearAll" style="padding:5px 10px;font-size:12px">Tümünü sil</button></div>
-  <div id="hist"></div>
+<section id="setSec" hidden>
+  <div class="dh"><h2>Parti setleri</h2><span class="st" id="setInfo"></span></div>
+  <details class="so" id="setOpts"><summary>Kontrol ayarları</summary>
+    <div class="opts">
+      <label>Minimum tier <select id="oT"></select></label>
+      <label title="Tier + enchant (ör. 7.1 = 8, 8.3 = 11)">Minimum eşdeğer <select id="oE"></select></label>
+      <label title="Pelerin ve çanta da tier/eşdeğer sınırına uysun"><input type="checkbox" id="oCB"> Pelerin/çanta da</label>
+    </div>
+    <div class="opts" style="margin-top:8px"><span>Boş olmasın:</span>
+      <label><input type="checkbox" data-req="f"> Yemek</label><label><input type="checkbox" data-req="p"> İksir</label><label><input type="checkbox" data-req="m"> Binek</label><label><input type="checkbox" data-req="c"> Pelerin</label><label><input type="checkbox" data-req="b"> Çanta</label>
+    </div>
+  </details>
+  <div id="setBody"></div>
 </section>
 
-<section id="avgSec" hidden>
-  <div class="dh"><h2>Oyuncu ortalamaları</h2><span class="sp"></span>
-    <div class="seg" id="avgN"><button data-n="10" class="on">Son 10 oturum</button><button data-n="30">Son 30</button><button data-n="0">Tümü</button></div>
-  </div>
-  <div class="t"><table><thead><tr><th>Oyuncu</th><th class="n">Oturum</th><th class="n">Ort. DPS</th><th class="n">En iyi DPS</th><th class="n">Toplam hasar</th><th class="n">Ort. HPS</th><th class="n">Toplam heal</th></tr></thead><tbody id="avg"></tbody></table></div>
+<section id="histSec" hidden>
+  <div class="dh" style="margin:0"><button class="tgl" id="histTgl" aria-expanded="false"><h2>Geçmiş oturumlar</h2><span class="st" id="histCnt"></span><span class="chev" id="histChev">▼</span></button><button class="l" id="clearAll" style="padding:4px 10px;font-size:12px" hidden>Tümünü sil</button></div>
+  <div id="hist" hidden></div>
 </section>
-<p class="st">Veriler sadece senin bilgisayarında tutulur (dps-meter/kayitlar klasörü). Toplayıcı oyuna hiçbir şey göndermez, sadece okur. Fame, combat fame credit, silver, might, favor ve faction puanı sadece senin karakterin için sayılır; geçmişte kendi adına tıklayınca görürsün.</p>
+<p class="st">Veriler sadece senin bilgisayarında tutulur (dps-meter/kayitlar klasörü). Toplayıcı oyuna hiçbir şey göndermez, sadece okur. Fame, combat fame credit, silver, might, favor ve faction puanı sadece senin karakterin için sayılır; geçmişte kendi adına tıklayınca görürsün. Parti setleri oyuncu yakınına geldiğinde ya da ekipman değiştirdiğinde okunur; oyun eşya kalitesini göndermez, kendi setin bir eşyanı çıkarıp takınca görünür. Rol silahtan tahmin edilir, yanlışsa oyuncunun altındaki listeden değiştir.</p>
 </main>
 <script>
 const API="http://127.0.0.1:47700";
@@ -173,7 +217,7 @@ const saveLS=()=>{try{localStorage.setItem("aodps1",JSON.stringify(LS))}catch(e)
 
 document.querySelectorAll("[data-go]").forEach(b=>b.onclick=()=>{location.href=b.dataset.go});
 
-let launched=false,fights=[],status=null,open=null,sortBy=LS.sort||"damage",lastCount=-1,connected=false,avgN=LS.avgN??10;
+let launched=false,fights=[],status=null,open=null,sortBy=LS.sort||"damage",lastCount=-1,connected=false,party=null;
 
 async function api(path,opt){const r=await fetch(API+path,{cache:"no-store",...opt});if(!r.ok)throw new Error(r.status);return r.json()}
 
@@ -183,8 +227,9 @@ async function poll(){
     if(!connected||status.fightCount!==lastCount){fights=await api("/fights");lastCount=status.fightCount;if(open&&!fights.some(f=>f.id===open))open=null;renderHist()}
     connected=true;
     if(status.version>=9&&!LS.app){LS.app=1;saveLS()}
+    party=status.version>=SET_NEED?await api("/party").catch(()=>null):null;
   }catch(e){
-    connected=false;status=null;
+    connected=false;status=null;party=null;
     // Toplayıcı bu bilgisayarda bir kere açıldıysa albiondps:// ile kendisi başlatılır (tarayıcı ilk seferde izin sorar)
     if(LS.app&&!launched){launched=true;location.href="albiondps://start"}
   }
@@ -205,7 +250,7 @@ function updateHtml(){
 }
 function render(){
   const cs=$("cState");
-  $("setup").hidden=connected;$("main").hidden=!connected;$("histSec").hidden=!connected||!fights.length;$("avgSec").hidden=!connected||!fights.length;
+  $("setup").hidden=connected;$("main").hidden=!connected;$("histSec").hidden=!connected||!fights.length;$("setSec").hidden=!connected;
   if(!connected){cs.className="live";cs.textContent="Bağlı değil";$("cInfo").textContent=LS.app?"DPS Meter başlatılıyor… Tarayıcı \"AlbionDPSMeter açılsın mı?\" diye sorarsa \"Her zaman izin ver\"i işaretleyip Aç'a bas.":"Toplayıcı çalışmıyor ya da tarayıcı bağlantıya izin vermedi.";$("startBtn").hidden=false;$("party").hidden=true;return}
   const cap=status.capturing;
   cs.className="live "+(cap?"on":"wait");cs.textContent=cap?"Oyun verisi geliyor":"Bağlı, oyun bekleniyor";
@@ -214,7 +259,7 @@ function render(){
   const pt=status.party||[];
   $("party").hidden=!pt.length;
   $("party").innerHTML=pt.length?`<span class="st" style="align-self:center">Takip edilen:</span>`+pt.map(n=>`<span class="chip${n===status.character?" me":""}">${esc(n)}</span>`).join(""):"";
-  renderLive();renderAvg();
+  renderLive();renderSets();
 }
 
 function gainsHTML(f,g){
@@ -291,20 +336,86 @@ function renderHist(){
       <span class="chev">${on?"▲":"▼"}</span></button>
       ${on?`<div class="hd">${detailHTML(f)}<div class="row" style="justify-content:flex-end"><button class="l" data-del="${esc(f.id)}" style="padding:6px 10px;font-size:12px">Bu oturumu sil</button></div></div>`:""}</div>`;
   }
-  $("hist").innerHTML=h;
+  const ho=!!LS.histOpen;
+  $("hist").hidden=!ho;$("clearAll").hidden=!ho;$("histSec").classList.toggle("cl",!ho);
+  $("histTgl").setAttribute("aria-expanded",ho);$("histChev").textContent=ho?"▲":"▼";
+  $("histCnt").textContent=fights.length?fights.length+" oturum":"";
+  $("hist").innerHTML=ho?h:"";
   $("hist").querySelectorAll("[data-id]").forEach(b=>b.onclick=()=>{open=open===b.dataset.id?null:b.dataset.id;renderHist()});
   $("hist").querySelectorAll("[data-del]").forEach(b=>b.onclick=async()=>{const id=b.dataset.del;try{await api("/fights/"+encodeURIComponent(id),{method:"DELETE"});fights=fights.filter(x=>x.id!==id);open=null;renderHist();render()}catch(e){}});
   bindSort($("hist"));
 }
 
-function renderAvg(){
-  const src=avgN?fights.slice(0,avgN):fights,m={};
-  for(const f of src)for(const p of f.players){const a=m[p.name]||(m[p.name]={n:0,dps:0,best:0,dmg:0,hps:0,heal:0,w:p.weapon,me:p.me});a.n++;a.dps+=p.dps;a.best=Math.max(a.best,p.dps);a.dmg+=p.damage;a.hps+=p.hps;a.heal+=p.heal;if(!a.w)a.w=p.weapon;a.me=a.me||p.me}
-  const rows=Object.entries(m).sort((a,b)=>b[1].dps/b[1].n-a[1].dps/a[1].n);
-  $("avg").innerHTML=rows.map(([n,a])=>`<tr class="${a.me?"me":""}"><td><span class="pn">${icon(a.w)}${esc(n)}</span></td><td class="n">${a.n}</td><td class="n"><b>${fmt(a.dps/a.n)}</b></td><td class="n">${fmt(a.best)}</td><td class="n">${fmt(a.dmg)}</td><td class="n">${fmt(a.hps/a.n)}</td><td class="n">${fmt(a.heal)}</td></tr>`).join("");
-  $("avgN").querySelectorAll("button").forEach(b=>b.classList.toggle("on",+b.dataset.n===avgN));
+$("histTgl").onclick=()=>{LS.histOpen=!LS.histOpen;saveLS();renderHist()};
+
+// ---- Parti setleri (toplayıcı v11+: /party) ----
+const SET_NEED=11;
+const SLOTS=[["w","Silah"],["o","Yan el"],["h","Kafa"],["a","Zırh"],["s","Ayakkabı"],["c","Pelerin"],["b","Çanta"],["m","Binek"],["p","İksir"],["f","Yemek"]];
+const SLN=Object.fromEntries(SLOTS);
+const ROLES=["Tank","Healer","Support","Melee DPS","Ranged DPS"];
+// Silah türüne göre tahmini rol; listede olmayanlar Melee DPS sayılır
+const ROLE_CAT={hammer:"Tank",mace:"Tank",holystaff:"Healer",naturestaff:"Healer",arcanestaff:"Support",bow:"Ranged DPS",crossbow:"Ranged DPS",firestaff:"Ranged DPS",froststaff:"Ranged DPS",cursestaff:"Ranged DPS"};
+// Ayarlar eski Parti Set sekmesinin anahtarında kalır
+let PS={};try{PS=JSON.parse(localStorage.getItem("aoparty1")||"{}")}catch(e){}
+PS.req=PS.req||{f:1,p:1,m:1,c:1,b:0};PS.roles=PS.roles||{};
+const savePS=()=>{try{localStorage.setItem("aoparty1",JSON.stringify(PS))}catch(e){}};
+let BD={items:{},cons:{},mounts:{}};
+fetch("data/builds.json").then(r=>r.json()).then(j=>{BD.items=j.items||{};(j.cons||[]).forEach(c=>BD.cons[c[0]]=c[1]);(j.mounts||[]).forEach(m=>BD.mounts[m[0]]=m[1]);renderSets()}).catch(()=>{});
+const ibase=id=>id.replace(/^T\d+_/,"").replace(/@\d+$/,"");
+const tierOf=id=>{const m=/^T(\d+)_/.exec(id);return m?+m[1]:0};
+const enchOf=id=>{const m=/@(\d+)$/.exec(id);return m?+m[1]:0};
+const itemName=id=>{const it=BD.items[ibase(id)],t=tierOf(id);const n=it?it.n:BD.cons[id.replace(/@\d+$/,"")]||BD.mounts[id]||ibase(id);return n+(t&&!BD.mounts[id]?` (${t}.${enchOf(id)})`:"")};
+function roleOf(m){
+  if(PS.roles[m.name])return PS.roles[m.name];
+  const w=m.eq&&m.eq.w;if(!w)return "";
+  const it=BD.items[ibase(w)];return it?ROLE_CAT[it.c]||"Melee DPS":"";
 }
-$("avgN").querySelectorAll("button").forEach(b=>b.onclick=()=>{avgN=LS.avgN=+b.dataset.n;saveLS();renderAvg()});
+// Bir oyuncunun sorunları: [slot, açıklama]
+function issues(m){
+  const eq=m.eq||{},out=[],minT=+PS.minT||0,minE=+PS.minE||0;
+  for(const k of ["w","o","h","a","s"].concat(PS.cb?["c","b"]:[])){const id=eq[k];if(!id)continue;const t=tierOf(id),e=enchOf(id);
+    if(minT&&t<minT)out.push([k,`${SLN[k]} T${t} (en az T${minT})`]);
+    else if(minE&&t+e<minE)out.push([k,`${SLN[k]} ${t}.${e} = ${t+e} eşdeğer (en az ${minE})`])}
+  if(!eq.w)out.push(["w","Silah yok"]);
+  else if(/^MAIN_/.test(ibase(eq.w))&&!eq.o)out.push(["o","Tek el silah ama yan el boş"]);
+  for(const k of ["h","a","s"])if(!eq[k])out.push([k,SLN[k]+" boş"]);
+  for(const k of ["f","p","m","c","b"])if(PS.req[k]&&!eq[k])out.push([k,SLN[k]+" yok"]);
+  return out;
+}
+const ago=s=>s<60?"az önce":s<3600?Math.floor(s/60)+" dk önce":Math.floor(s/3600)+" sa önce";
+function slotHTML(k,id,bad){
+  if(!id)return `<span class="sl e${bad?" x":""}" data-l="${SLN[k]}" title="${SLN[k]}: boş"></span>`;
+  const t=tierOf(id),tag=t&&k!=="m"?`<i>${t}.${enchOf(id)}</i>`:"";
+  return `<span class="sl${bad?" x":""}" title="${esc(SLN[k]+": "+itemName(id))}"><img src="https://render.albiononline.com/v1/item/${encodeURIComponent(id)}.png?size=64" alt="" loading="lazy">${tag}</span>`;
+}
+function renderSets(){
+  const body=$("setBody");if(!body||!connected)return;
+  if(document.activeElement&&document.activeElement.matches("#setBody select"))return; // rol seçerken liste yenilenmesin
+  if(!party){$("setInfo").textContent="";$("setOpts").hidden=true;
+    body.innerHTML=`<div class="st">Parti setlerini görmek için toplayıcının v${SET_NEED} ya da üstü olması gerekiyor (sende v${status.version}). Yukarıdaki <b>Güncelle</b> düğmesini kullan.</div>`;return}
+  $("setOpts").hidden=false;
+  const now=party.now||Date.now()/1000,ms=party.members||[];
+  const rc={},R=ms.map(m=>{const seen=!!m.eq,is=seen?issues(m):[],r=seen?roleOf(m):"";if(r)rc[r]=(rc[r]||0)+1;return {m,seen,is,r}});
+  const bad=R.filter(x=>x.is.length).length,unseen=R.filter(x=>!x.seen).length;
+  $("setInfo").textContent=party.partyKnown?"":"parti bilgisi henüz gelmedi";
+  body.innerHTML=`<div class="sum"><span class="chip">Oyuncu<b>${ms.length}</b></span>${ROLES.filter(r=>rc[r]).map(r=>`<span class="chip">${r}<b>${rc[r]}</b></span>`).join("")}`
+    +(bad?`<span class="chip bad">Eksik<b>${bad}</b></span>`:R.length>unseen?'<span class="chip ok">Görülen setler tamam</span>':"")
+    +(unseen?`<span class="chip">Seti görülmedi<b>${unseen}</b></span>`:"")+`</div>`
+    +`<div class="pcl">${R.map(({m,seen,is,r})=>{const bs=new Set(is.map(x=>x[0]));
+    return `<div class="pc${!seen?" unk":is.length?" bad":""}"><div class="nm"><b class="${m.me?"me":""}">${esc(m.name)}</b>
+      ${seen?`<select data-role="${esc(m.name)}" aria-label="Rol"><option value="">${PS.roles[m.name]?"Silahtan tahmin et":esc(r||"Rol?")+" (tahmin)"}</option>${ROLES.map(x=>`<option${PS.roles[m.name]===x?" selected":""}>${x}</option>`).join("")}</select>`:""}
+      <small>${seen?ago(now-m.t)+" görüldü":m.me?"Bir eşyanı çıkarıp tak, setin görünsün":"Yakınına gelince görünür"}</small></div>
+      <div class="eq">${seen?SLOTS.map(([k])=>slotHTML(k,m.eq[k],bs.has(k))).join(""):'<span class="st">Seti henüz görülmedi.</span>'}</div>
+      ${is.length?`<div class="ws">${is.map(x=>esc(x[1])).join(" · ")}</div>`:""}</div>`}).join("")}</div>`;
+  body.querySelectorAll("[data-role]").forEach(s=>{s.onchange=()=>{const n=s.dataset.role;if(s.value)PS.roles[n]=s.value;else delete PS.roles[n];savePS();s.blur();renderSets()}});
+}
+$("oT").innerHTML='<option value="0">Yok</option>'+[4,5,6,7,8].map(t=>`<option value="${t}">T${t}</option>`).join("");
+$("oE").innerHTML='<option value="0">Yok</option>'+[4,5,6,7,8,9,10,11,12].map(t=>`<option value="${t}">${t}</option>`).join("");
+$("oT").value=PS.minT||0;$("oE").value=PS.minE||0;$("oCB").checked=!!PS.cb;
+$("oT").onchange=e=>{PS.minT=+e.target.value;savePS();renderSets()};
+$("oE").onchange=e=>{PS.minE=+e.target.value;savePS();renderSets()};
+$("oCB").onchange=e=>{PS.cb=e.target.checked;savePS();renderSets()};
+document.querySelectorAll("[data-req]").forEach(c=>{c.checked=!!PS.req[c.dataset.req];c.onchange=()=>{PS.req[c.dataset.req]=c.checked?1:0;savePS();renderSets()}});
 
 function confirm2(b,label,fn){
   let armed=false,tmr=0;
