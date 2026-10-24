@@ -171,7 +171,7 @@
   }
   async function infoPopup(){
     const page=window.aoNav&&window.aoNav.page;if(!page||page==="builds")return;
-    const kind=page==="dps"||page==="destiny"?"dps":"data";
+    const kind=page==="dps"||page==="destiny"||page==="party"?"dps":"data";
     try{if(LS.getItem("aoPopNo_"+kind)||sessionStorage.getItem("aoPop_"+kind))return}catch(e){return}
     let st=null;
     if(kind==="dps"){

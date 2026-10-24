@@ -23,7 +23,7 @@ import webbrowser
 import zlib
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-VERSION = 10                 # GitHub'daki dps-vN sürümüyle aynı olmalı (güncelleme kontrolü bunu karşılaştırır)
+VERSION = 11                 # GitHub'daki dps-vN sürümüyle aynı olmalı (güncelleme kontrolü bunu karşılaştırır)
 PORT = int(os.environ.get("ALBION_DPS_PORT") or 47700)
 COMBAT_GAP_SECONDS = 5       # vuruşlar arası bundan uzun boşluk "savaş süresi"ne sayılmaz
 FP = 10000.0                 # oyunun sabit noktalı sayı çarpanı
@@ -69,6 +69,8 @@ DESTINY_EV = {83: "UpdateLearningPoints", 84: "UpdateReSpecPoints", 150: "FullAc
 DESTINY_OP = {147: "ReSpecAchievement", 311: "TrackAchievements", 312: "SetAchievementsAutoLearn"}
 
 CODES_URL = "https://raw.githubusercontent.com/Triky313/AlbionOnline-StatisticsAnalysis/main/src/StatisticsAnalysisTool/Network/{}.cs"
+# Ekipman dizisindeki sıra; anahtarlar sitedeki build slotlarıyla aynı (w o h a s c b m f p)
+GEAR_SLOTS = ("w", "o", "h", "a", "s", "b", "c", "m", "p", "f")
 ITEMS_URL = "https://raw.githubusercontent.com/ao-data/ao-bin-dumps/master/formatted/items.txt"
 SPELLS_URL = "https://raw.githubusercontent.com/ao-data/ao-bin-dumps/master/spells.xml"
 MAX_SPELLS_PER_PLAYER = 30
@@ -739,6 +741,7 @@ class Tracker:
         self.party_known = False
         self.last_health = {}    # objectId -> son can değeri
         self.weapons = {}        # oyuncu adı -> silah unique name
+        self.gear = {}           # oyuncu adı -> {"eq": {slot: unique name}, "t": son görülme} (Parti Set sekmesi)
         self.fight = None
         self.fights = []
         self.fame_total = None   # oyunun bildirdiği toplam fame (fark = kazanılan)
@@ -870,12 +873,15 @@ class Tracker:
                                 del self.objects[k]
                     if w:
                         self.weapons[self.name_of(oid)] = w
+                    self.set_gear(oid, p.get(40))
             elif code == EV["CharacterEquipmentChanged"]:
                 oid = to_int(p.get(0))
                 o = self.objects.get(oid)
                 w = self.weapon_from(p.get(2))
                 if o and w:
                     self.weapons[self.name_of(oid)] = w
+                if o:
+                    self.set_gear(oid, p.get(2))
             elif code == EV["UpdateFame"]:
                 if self.is_local(p.get(0)):
                     # Kazanılan fame = oyunun gönderdiği toplam fame'in (1) bir önceki mesaja göre farkı.
@@ -1010,6 +1016,28 @@ class Tracker:
         if not idx or idx <= 0:
             return None
         return ITEM_NAMES.get(idx)
+
+    def set_gear(self, oid, eq):
+        """Ekipman dizisi: silah, yan el, kafa, zırh, ayakkabı, çanta, pelerin, binek, iksir, yemek (eşya numaraları)."""
+        eq = as_list(eq)
+        if len(eq) < 8:
+            return
+        g = {}
+        for k, v in zip(GEAR_SLOTS, eq):
+            i = to_int(v)
+            if i and i > 0 and ITEM_NAMES.get(i):
+                g[k] = ITEM_NAMES[i]
+        name = self.name_of(oid)
+        self.gear.pop(name, None)  # sona eklenir: sözlüğün başı en eski görülenler
+        self.gear[name] = {"eq": g, "t": time.time()}
+        for k in list(self.gear)[:max(0, len(self.gear) - 500)]:
+            del self.gear[k]
+
+    def party_gear(self):
+        with self.lock:
+            return {"character": self.local_name, "partyKnown": self.party_known, "now": time.time(),
+                    "members": [{"name": n, "me": n == self.local_name, **(self.gear.get(n) or {})}
+                                for n in sorted(self.party_names())]}
 
     def health(self, aff, change, new_health, causer, has_new, spell=None):
         if aff is None:
@@ -1316,6 +1344,8 @@ def make_handler(tracker):
             elif path == "/destiny":
                 with tracker.lock:
                     self.send_json(dict(tracker.board.data))
+            elif path == "/party":
+                self.send_json(tracker.party_gear())
             else:
                 self.send_json({"error": "bulunamadı"}, 404)
 

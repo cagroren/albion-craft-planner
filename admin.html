@@ -146,7 +146,7 @@ const dt=s=>s?new Date(s).toLocaleString("tr-TR",{day:"2-digit",month:"2-digit",
 const ago=s=>{if(!s)return "hiç";const m=(Date.now()-Date.parse(s))/6e4;return m<60?Math.max(1,Math.round(m))+" dk önce":m<1440?Math.round(m/60)+" sa önce":Math.round(m/1440)+" gün önce"};
 let users=[],myId=null,token="",DC=null,dcErr="";
 const SRC={sweep:"Dakikalık kontrol",access:"Girişte",manual:"Panelden"};
-const PAGE={"#craft":"Craft","#alchemy":"Alchemy","#food":"Cooking","#enchant":"Enchant Yükseltme","#farm":"Farming","#refine":"Refining","#bm":"Black Market","#db":"Item Database",builds:"Builds",destiny:"Destiny Board",dps:"DPS Meter"};
+const PAGE={"#craft":"Craft","#alchemy":"Alchemy","#food":"Cooking","#enchant":"Enchant Yükseltme","#farm":"Farming","#refine":"Refining","#bm":"Black Market","#db":"Item Database",builds:"Builds",destiny:"Destiny Board",dps:"DPS Meter",party:"Parti Set"};
 const num=n=>Number(n||0).toLocaleString("tr-TR");
 
 async function start(){
@@ -299,7 +299,7 @@ document.querySelectorAll("[data-bk]").forEach(b=>b.onclick=()=>{bKind=b.dataset
 $("bQ").oninput=renderBuilds;$("bOff").onchange=renderBuilds;
 
 // ---------- sekmeleri aç / kapat
-const TABS=[["craft","Craft"],["alchemy","Alchemy"],["food","Cooking"],["enchant","Enchant Yükseltme"],["farm","Farming"],["refine","Refining"],["bm","Black Market Flips"],["db","Item Database"],["builds","Builds"],["destiny","Destiny Board"],["dps","DPS Meter"]];
+const TABS=[["craft","Craft"],["alchemy","Alchemy"],["food","Cooking"],["enchant","Enchant Yükseltme"],["farm","Farming"],["refine","Refining"],["bm","Black Market Flips"],["db","Item Database"],["builds","Builds"],["destiny","Destiny Board"],["dps","DPS Meter"],["party","Parti Set"]];
 async function loadTabs(){
   const {data,error}=await sb.from("site_settings").select("value").eq("key","tabs_off").maybeSingle();
   if(error){$("tSt").textContent="Alınamadı: "+error.message;return}
