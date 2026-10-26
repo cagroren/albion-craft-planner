@@ -170,7 +170,7 @@
     try{const c=new AbortController();setTimeout(()=>c.abort(),2500);const r=await fetch("http://127.0.0.1:47700/status",{signal:c.signal,cache:"no-store"});return r.ok?await r.json():null}catch(e){return null}
   }
   async function infoPopup(){
-    const page=window.aoNav&&window.aoNav.page;if(!page||page==="builds")return;
+    const page=window.aoNav&&window.aoNav.page;if(!page||page==="builds"||page==="maps")return;
     const kind=page==="dps"||page==="destiny"?"dps":"data";
     try{if(LS.getItem("aoPopNo_"+kind)||sessionStorage.getItem("aoPop_"+kind))return}catch(e){return}
     let st=null;

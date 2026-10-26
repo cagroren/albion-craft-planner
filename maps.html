@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Albion Avalon Maps</title><link rel="manifest" href="manifest.webmanifest"><link rel="icon" href="icon-192.png"><meta name="theme-color" content="#0b0f14"><link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap">
+<script src="config.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<script src="auth.js"></script>
+<style>
+:root{--bg:#0b0f14;--card:#11161d;--card2:#151b23;--in:#0d1218;--ink:#e6e9ee;--mut:#8b95a3;--line:#252d38;--line2:#323c49;--acc:#f0883e;--acc2:#7a3e16;--accT:#ffd6b3;--good:#3fb950;--bad:#f85149;--warn:#e3b341;color-scheme:dark}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 "Inter",system-ui,-apple-system,"Segoe UI",sans-serif;padding:20px 16px;-webkit-font-smoothing:antialiased}
+main{max-width:1240px;margin:auto}
+h1{font:800 30px/1.2 "Inter",system-ui,sans-serif;letter-spacing:-.01em;margin:0}
+h2{font:700 12px/1.4 "Inter",system-ui,sans-serif;letter-spacing:.12em;text-transform:uppercase;color:var(--acc);margin:0 0 12px}
+h3{font:800 24px/1.25 "Inter",sans-serif;margin:0}
+section{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:20px;margin-bottom:16px}
+button,select,input{font:inherit;padding:9px 12px;border:1px solid var(--line2);border-radius:9px;background:var(--in);color:var(--ink);min-width:0}
+input::placeholder{color:#5f6976}
+button{background:transparent;color:var(--acc);border-color:#5a3a24;cursor:pointer;font-weight:700}
+button:hover{background:rgba(240,136,62,.08);border-color:var(--acc)}
+button:focus-visible,select:focus-visible,input:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
+.st{color:var(--mut);font-size:13px}
+.srch{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.ac{position:relative;flex:1;min-width:240px}
+.ac input{width:100%;font-size:17px;padding:12px 14px}
+.dd{position:absolute;z-index:20;left:0;right:0;top:calc(100% + 4px);background:var(--card2);border:1px solid var(--line2);border-radius:12px;padding:4px;max-height:360px;overflow:auto;box-shadow:0 12px 30px rgba(0,0,0,.45)}
+.dd div{display:flex;gap:10px;align-items:center;padding:8px 10px;border-radius:8px;cursor:pointer}
+.dd div.on,.dd div:hover{background:var(--acc2);color:var(--accT)}
+.dd b{font-weight:700}.dd .sp{flex:1}
+.dd small{color:var(--mut);font-size:12px}.dd div.on small{color:var(--accT)}
+.rec{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}
+.rec button{padding:4px 10px;font-size:13px;font-weight:600;color:var(--mut);border-color:var(--line2)}
+.tb{display:inline-block;font:800 12px/1 Inter,sans-serif;padding:4px 7px;border-radius:6px;background:#2a3340;color:#e6e9ee;min-width:26px;text-align:center}
+.t4{background:#2f5d8a}.t5{background:#9c2f2f}.t6{background:#b0611c}.t7{background:#b59a1f;color:#1b1500}.t8{background:#d8d8d8;color:#111}
+.off{color:var(--bad);font-weight:700}
+.head{display:flex;gap:14px;align-items:center;flex-wrap:wrap}
+.head .tb{font-size:16px;padding:7px 10px}
+.pill{display:inline-block;padding:4px 10px;border-radius:20px;border:1px solid var(--line2);color:var(--mut);font-size:13px;font-weight:600}
+.lay{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.15fr);gap:16px;align-items:start}
+@media(max-width:900px){.lay{grid-template-columns:1fr}}
+.kv{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px;margin-bottom:6px}
+.kv>div{background:var(--card2);border:1px solid var(--line);border-radius:12px;padding:10px 12px}
+.kv span{display:block;color:var(--mut);font-size:12px}.kv b{font-size:18px}
+table{width:100%;border-collapse:collapse}
+td{padding:7px 4px;border-top:1px solid var(--line);vertical-align:middle}
+tr:first-child td{border-top:0}
+td.nm{display:flex;align-items:center;gap:8px;font-weight:600;white-space:nowrap}
+td.nm img{width:32px;height:32px}
+.ch{display:flex;gap:6px;flex-wrap:wrap}
+.ch>span{display:inline-flex;align-items:center;gap:5px;background:var(--card2);border:1px solid var(--line);border-radius:8px;padding:2px 8px 2px 3px;font-size:13px;font-weight:700}
+.empty{color:var(--mut);padding:6px 0}
+.mapw{position:relative;background:#0a0e12;border:1px solid var(--line);border-radius:12px;overflow:hidden}
+.mapw svg{display:block;width:100%;height:auto;max-height:640px}
+.mtools{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:10px}
+.mtools label{display:inline-flex;align-items:center;gap:5px;font-size:13px;color:var(--mut);cursor:pointer;border:1px solid var(--line);border-radius:8px;padding:3px 8px}
+.mtools label i{width:10px;height:10px;border-radius:50%;display:inline-block}
+.tip{position:absolute;pointer-events:none;background:var(--card2);border:1px solid var(--line2);border-radius:8px;padding:4px 8px;font-size:12px;white-space:nowrap;z-index:5}
+.src{font-size:12px;color:var(--mut);margin-top:16px}
+.src a{color:var(--mut)}
+</style>
+</head>
+<body>
+<main>
+<nav id="topnav"></nav><script src="nav.js"></script>
+<div style="display:flex;align-items:center;gap:12px;margin:14px 0 16px"><img src="logo.png" alt="KVF" width="48" height="48"><h1>Avalon Maps</h1></div>
+<section>
+  <div class="srch">
+    <div class="ac"><input id="q" type="search" placeholder="Harita adı yaz (örn. Qiitun-Et-Vynsom)" aria-label="Harita adı" autocomplete="off" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="dd"><div class="dd" id="dd" role="listbox" hidden></div></div>
+    <label class="st" style="display:flex;align-items:center;gap:8px">Sunucu<select id="srv" aria-label="Sunucu"><option value="europe">Europe</option><option value="west">Americas (West)</option><option value="east">Asia (East)</option></select></label>
+  </div>
+  <div class="rec" id="rec"></div>
+  <div class="st" id="info" style="margin-top:8px">Yükleniyor...</div>
+</section>
+<div id="out"></div>
+<div class="src">Veri: oyunun açık dökümleri, <a href="https://github.com/ao-data/ao-bin-dumps" target="_blank" rel="noopener">ao-data/ao-bin-dumps</a> (world, cluster ve template dosyaları). Kaynak sayıları oyunun kendi hesabıdır (düğüm + kaynak yaratıkları); sandık/boss/dungeon yerleri şablonlardan çıkarılır, sandık rengi şablondaki nadirlik katmanıdır (Very Common / Uncommon / Epic), çizim şematiktir.</div>
+</main>
+<script>
+(function(){
+const $=id=>document.getElementById(id);
+const esc=t=>String(t==null?"":t).replace(/&/g,"&amp;").replace(/"/g,"&quot;").replace(/</g,"&lt;");
+const norm=s=>String(s||"").toLowerCase().replace(/[^a-z0-9]/g,"");
+const LS=(()=>{try{return JSON.parse(localStorage.getItem("aomaps1")||"{}")}catch(e){return {}}})();
+LS.rec=LS.rec||[];
+const saveLS=()=>{try{localStorage.setItem("aomaps1",JSON.stringify(LS))}catch(e){}};
+const SRV={europe:"Europe",west:"Americas",east:"Asia"};
+const TYPE={
+  TUNNEL_ROYAL:["Royal bağlantılı","Royal kıtaya portal açılabilir"],
+  TUNNEL_ROYAL_RED:["Royal (kırmızı) bağlantılı","Royal kırmızı bölgelere portal açılabilir"],
+  TUNNEL_BLACK_LOW:["Black Zone bağlantılı (dış)","Outlands'in dış bölgelerine portal açılabilir"],
+  TUNNEL_BLACK_MEDIUM:["Black Zone bağlantılı (orta)","Outlands'in orta bölgelerine portal açılabilir"],
+  TUNNEL_BLACK_HIGH:["Black Zone bağlantılı (derin)","Outlands'in derin bölgelerine portal açılabilir"],
+  TUNNEL_HIDEOUT:["Hideout kurulabilir","Yol haritası, hideout alanı var"],
+  TUNNEL_HIDEOUT_DEEP:["Hideout kurulabilir (derin)","Derin yol, hideout alanı var"],
+  TUNNEL_DEEP:["Derin yol","Avalon yollarının iç kısmı"],
+  TUNNEL_DEEP_RAID:["Derin yol (raid)","İç kısım, raid içerikli"],
+  TUNNEL_LOW:["Yol (düşük)",""],TUNNEL_MEDIUM:["Yol (orta)",""],TUNNEL_HIGH:["Yol (yüksek)",""]
+};
+const RES=[["WOOD","Odun","#b5835a"],["ROCK","Taş","#a3acb8"],["ORE","Cevher","#6f8fd0"],["FIBER","Lif","#7fc35a"],["HIDE","Deri","#d39b5c"]];
+const RESN=Object.fromEntries(RES.map(r=>[r[0],r]));
+const LV={solo:"Solo",group:"Grup",raid:"Raid"};
+const FAC={KPR:"Keeper",HER:"Heretic",MOR:"Morgana",UND:"Undead",AVA:"Avalon"};
+const KIND={r:["Kaynak","#7fc35a"],c:["Sandık","#e3b341"],b:["Boss","#f85149"],d:["Dungeon","#b77cff"],p:["Portal","#39c5cf"]};
+const tb=t=>`<span class="tb t${t}">T${t}</span>`;
+// Sandık/boss katmanları T4/T6/T8 diye adlandırılmış ama şablonda "Very Common / Uncommon / Epic" yazıyor: nadirlik seviyesi
+const RAR={4:["Yeşil","#3fb950","yaygın"],6:["Mavi","#4c8dff","nadir"],8:["Altın","#e3b341","epik"]};
+const rb=t=>{const x=RAR[t];return x?`<span class="tb" style="background:${x[1]};color:#0b0f14" title="${x[2]} (içerik seviyesi T${t})">${x[0]}</span>`:tb(t)};
+const icon=(id,s)=>`<img loading="lazy" src="https://render.albiononline.com/v1/item/${id}.png?size=${s||64}" alt="" onerror="this.style.visibility='hidden'">`;
+
+let D=null,rows=[],cur=null,hl=-1,list=[];
+const srvSel=$("srv");srvSel.value=SRV[LS.srv]?LS.srv:"europe";
+LS.hide=LS.hide||{};LS.rot=LS.rot||0;
+
+function index(){
+  rows=D.S[srvSel.value].map(r=>({id:r[0],n:r[1],k:r[2],ty:r[3],pt:r[4],on:!!r[5],nn:norm(r[1]),L:D.L[r[2]]}));
+  const open=rows.filter(r=>r.on).length;
+  $("info").textContent=`${SRV[srvSel.value]} sunucusunda ${open} açık Avalon yolu${open<rows.length?` (${rows.length-open} tanesi bu sunucuda kapalı)`:""}. Yazmaya başla, listeden seç.`;
+}
+function find(q){
+  const n=norm(q);if(!n)return [];
+  const a=[],b=[];
+  rows.forEach(r=>{const i=r.nn.indexOf(n);if(i===0)a.push(r);else if(i>0)b.push(r)});
+  const s=(x,y)=>(y.on-x.on)||x.n.localeCompare(y.n);
+  return a.sort(s).concat(b.sort(s)).slice(0,15);
+}
+function drop(){
+  list=find($("q").value);hl=list.length?0:-1;
+  const dd=$("dd");
+  if(!list.length){dd.hidden=true;$("q").setAttribute("aria-expanded","false");if(norm($("q").value))dd.hidden=false,dd.innerHTML='<div class="st" style="cursor:default">Eşleşen harita yok</div>';return}
+  dd.innerHTML=list.map((r,i)=>`<div role="option" data-i="${i}" class="${i===hl?"on":""}">${tb(r.L.t)}<b>${esc(r.n)}</b><span class="sp"></span><small>${esc((TYPE[r.ty]||[r.ty])[0])}${r.on?"":" · kapalı"}</small></div>`).join("");
+  dd.hidden=false;$("q").setAttribute("aria-expanded","true");
+}
+function mark(){$("dd").querySelectorAll("[data-i]").forEach(d=>d.classList.toggle("on",+d.dataset.i===hl));const o=$("dd").querySelector(".on");if(o)o.scrollIntoView({block:"nearest"})}
+function pick(r){
+  $("dd").hidden=true;$("q").setAttribute("aria-expanded","false");$("q").value=r.n;
+  LS.rec=[r.n].concat(LS.rec.filter(x=>x!==r.n)).slice(0,8);saveLS();recent();
+  history.replaceState(null,"","#"+encodeURIComponent(r.n));
+  show(r);
+}
+function recent(){$("rec").innerHTML=LS.rec.length?'<span class="st" style="align-self:center">Son bakılanlar:</span>'+LS.rec.map(n=>`<button type="button" data-n="${esc(n)}">${esc(n)}</button>`).join(""):""}
+
+function chips(o,fn){return Object.keys(o).sort((a,b)=>a-b).map(t=>fn(t,o[t])).join("")}
+function show(r){
+  cur=r;const L=r.L,s=L.s,ty=TYPE[r.ty]||[r.ty,""];
+  const other=Object.keys(SRV).filter(k=>k!==srvSel.value).map(k=>{const x=D.S[k].find(y=>y[1]===r.n);return x?`${SRV[k]}: ${x[5]?"T"+D.L[x[2]].t:"kapalı"}`:""}).filter(Boolean).join(" · ");
+  const total=o=>Object.values(o||{}).reduce((a,v)=>a+Object.values(v).reduce((x,y)=>x+y,0),0);
+  const res=s.r?RES.filter(x=>s.r[x[0]]).map(([k,n])=>`<tr><td class="nm">${icon("T"+Math.max(...Object.keys(s.r[k]))+"_"+k,64)}${n}</td><td><div class="ch">${chips(s.r[k],(t,c)=>`<span>${tb(t)}×${c}</span>`)}</div></td></tr>`).join(""):"";
+  const grp=(o,lab,bf)=>Object.keys(o||{}).sort((a,b)=>Object.keys(LV).indexOf(a.split(":")[0])-Object.keys(LV).indexOf(b.split(":")[0])).map(k=>`<tr><td class="nm">${lab(k)}</td><td><div class="ch">${chips(o[k],(t,c)=>`<span>${(bf||tb)(t)}×${c}</span>`)}</div></td></tr>`).join("");
+  const dg=grp(s.d,k=>{const [lv,f]=k.split(":");return f==="AVA"?"Avalon Raid Dungeon":`${LV[lv]} dungeon <span class="st">· ${FAC[f]||f}</span>`});
+  $("out").innerHTML=`<section>
+    <div class="head">${tb(L.t)}<h3>${esc(r.n)}</h3><span class="pill">${esc(ty[0])}</span>${r.on?"":`<span class="pill off">Bu sunucuda kapalı</span>`}</div>
+    <div class="st" style="margin-top:6px">${esc(ty[1])}${ty[1]?" · ":""}${esc(r.id)} · ${esc(r.ty)}${other?" · Diğer sunucular: "+esc(other):""}</div>
+  </section>
+  <div class="lay"><div>
+    <section><div class="kv">
+      <div><span>Tier</span><b>T${L.t}</b></div>
+      <div><span>Kaynak noktası</span><b>${total(s.r)}</b></div>
+      <div><span>Sandık</span><b>${total(s.c)}</b></div>
+      <div><span>Dungeon girişi</span><b>${total(s.d)}</b></div>
+      <div><span>Portal çıkışı</span><b>${r.pt.length}</b></div>
+      ${L.h?`<div><span>Hideout alanı</span><b>${L.h}</b></div>`:""}
+    </div></section>
+    <section><h2>Kaynaklar</h2>${res?`<table>${res}</table>`:'<div class="empty">Bu haritada toplanabilir kaynak yok.</div>'}</section>
+    <section><h2>Sandıklar ve boss'lar</h2>${s.c||s.b?`<table>${grp(s.c,k=>LV[k]+" sandığı",rb)}${grp(s.b,k=>LV[k]+" boss",rb)}</table>`:'<div class="empty">Sandık yok.</div>'}</section>
+    <section><h2>Dungeon'lar</h2>${dg?`<table>${dg}</table>`:'<div class="empty">Dungeon girişi yok.</div>'}</section>
+  </div>
+  <section><h2>Şematik harita</h2>
+    <div class="mtools" id="mt">${Object.entries(KIND).map(([k,[n,c]])=>`<label><input type="checkbox" data-k="${k}"${LS.hide[k]?"":" checked"}><i style="background:${c}"></i>${n}</label>`).join("")}<span style="flex:1"></span><button type="button" id="rot" title="Haritayı 45° döndür">Döndür ↻</button></div>
+    <div class="mapw" id="mw"></div>
+    <div class="st" style="margin-top:8px">Noktaların üzerine gel: tür ve tier görünür. Çizim oyunun koordinatlarından üretilir; yönü oyundaki minimapla aynı değilse Döndür ile çevir.</div>
+  </section></div>`;
+  draw();
+}
+function draw(){
+  const r=cur,L=r.L,[x0,z0,x1,z1]=L.bb,cx=(x0+x1)/2,cz=(z0+z1)/2;
+  const a=LS.rot*Math.PI/180,ca=Math.cos(a),sa=Math.sin(a);
+  // oyunda z kuzey: ekranda yukarı
+  const P=(x,z)=>{const dx=x-cx,dz=-(z-cz);return [dx*ca-dz*sa,dx*sa+dz*ca]};
+  const corners=[[x0,z0],[x1,z0],[x1,z1],[x0,z1]].map(c=>P(...c));
+  const xs=corners.map(c=>c[0]),ys=corners.map(c=>c[1]),pad=30;
+  const vb=[Math.min(...xs)-pad,Math.min(...ys)-pad,Math.max(...xs)-Math.min(...xs)+pad*2,Math.max(...ys)-Math.min(...ys)+pad*2];
+  const u=Math.max(vb[2],vb[3])/100;
+  const lab=p=>{const [k,sub,t]=p;return k==="r"?`${RESN[sub][1]} T${t}`:k==="c"?`${LV[sub]} sandığı (${(RAR[t]||["T"+t])[0]})`:k==="b"?`${LV[sub]} boss (${(RAR[t]||["T"+t])[0]})`:k==="d"?(sub.endsWith("AVA")?"Avalon Raid Dungeon":`${LV[sub.split(":")[0]]} dungeon (${FAC[sub.split(":")[1]]||""}) T${t}`):"Portal"};
+  const col=p=>p[0]==="r"?RESN[p[1]][2]:p[0]==="c"&&RAR[p[2]]?RAR[p[2]][1]:KIND[p[0]][1];
+  const pts=L.p.concat(r.pt.map(q=>["p","",0,q[0],q[1]])).filter(p=>!LS.hide[p[0]]);
+  const order={r:0,b:1,c:2,d:3,p:4};pts.sort((p,q)=>order[p[0]]-order[q[0]]);
+  const shape=p=>{const [X,Y]=P(p[3],p[4]),c=col(p),t=esc(lab(p));
+    if(p[0]==="r")return `<circle cx="${X}" cy="${Y}" r="${u*.9}" fill="${c}" stroke="#0a0e12" stroke-width="${u*.25}" data-t="${t}"/>`;
+    if(p[0]==="c")return `<rect x="${X-u*1.4}" y="${Y-u*1.1}" width="${u*2.8}" height="${u*2.2}" rx="${u*.4}" fill="${c}" stroke="#0a0e12" stroke-width="${u*.3}" data-t="${t}"/>`;
+    if(p[0]==="b")return `<path d="M${X} ${Y-u*1.8}L${X+u*1.6} ${Y+u*1.2}L${X-u*1.6} ${Y+u*1.2}Z" fill="${c}" stroke="#0a0e12" stroke-width="${u*.3}" data-t="${t}"/>`;
+    if(p[0]==="d")return `<path d="M${X} ${Y-u*2.2}L${X+u*2.2} ${Y}L${X} ${Y+u*2.2}L${X-u*2.2} ${Y}Z" fill="${c}" stroke="#0a0e12" stroke-width="${u*.3}" data-t="${t}"/>`;
+    return `<circle cx="${X}" cy="${Y}" r="${u*2}" fill="none" stroke="${c}" stroke-width="${u*.8}" data-t="${t}"/><circle cx="${X}" cy="${Y}" r="${u*.7}" fill="${c}" data-t="${t}"/>`};
+  const tiles=L.p.map(p=>P(p[3],p[4]));
+  $("mw").innerHTML=`<svg viewBox="${vb.join(" ")}" role="img" aria-label="${esc(r.n)} şematik harita">
+    <polygon points="${corners.map(c=>c.join(",")).join(" ")}" fill="#0f151c" stroke="#252d38" stroke-width="${u*.3}"/>
+    ${tiles.map(([X,Y])=>`<circle cx="${X}" cy="${Y}" r="${u*6}" fill="#16202a"/>`).join("")}
+    ${pts.map(shape).join("")}</svg><div class="tip" id="tip" hidden></div>`;
+}
+
+document.addEventListener("click",e=>{
+  const o=e.target.closest("#dd [data-i]");if(o){pick(list[+o.dataset.i]);return}
+  const b=e.target.closest("#rec [data-n]");if(b){const r=rows.find(x=>x.n===b.dataset.n);if(r)pick(r);return}
+  if(e.target.id==="rot"){LS.rot=(LS.rot+45)%360;saveLS();draw();return}
+  if(!e.target.closest(".ac"))$("dd").hidden=true;
+});
+document.addEventListener("change",e=>{const k=e.target.dataset&&e.target.dataset.k;if(k&&e.target.closest("#mt")){LS.hide[k]=!e.target.checked;saveLS();draw()}});
+document.addEventListener("mousemove",e=>{
+  const tip=$("tip");if(!tip)return;const t=e.target.getAttribute&&e.target.getAttribute("data-t");
+  if(!t){tip.hidden=true;return}
+  const w=$("mw").getBoundingClientRect();tip.textContent=t;tip.hidden=false;
+  tip.style.left=Math.min(e.clientX-w.left+12,w.width-tip.offsetWidth-4)+"px";tip.style.top=(e.clientY-w.top+12)+"px";
+});
+$("q").addEventListener("input",drop);
+$("q").addEventListener("focus",()=>{if(norm($("q").value)&&(!cur||$("q").value!==cur.n))drop()});
+$("q").addEventListener("keydown",e=>{
+  if($("dd").hidden&&e.key!=="Enter")return;
+  if(e.key==="ArrowDown"){e.preventDefault();hl=Math.min(hl+1,list.length-1);mark()}
+  else if(e.key==="ArrowUp"){e.preventDefault();hl=Math.max(hl-1,0);mark()}
+  else if(e.key==="Enter"){e.preventDefault();if(!list.length)list=find($("q").value),hl=0;if(list[hl])pick(list[hl])}
+  else if(e.key==="Escape")$("dd").hidden=true;
+});
+srvSel.addEventListener("change",()=>{LS.srv=srvSel.value;saveLS();index();const n=cur&&cur.n;cur=null;$("out").innerHTML="";const r=n&&rows.find(x=>x.n===n);if(r)show(r)});
+
+recent();
+fetch("data/maps.json").then(r=>r.json()).then(j=>{
+  D=j;index();
+  const h=decodeURIComponent(location.hash.slice(1));const r=h&&rows.find(x=>x.nn===norm(h));
+  if(r){$("q").value=r.n;show(r)}
+}).catch(e=>{$("info").textContent="Harita verisi yüklenemedi: "+e.message});
+})();
+</script>
+</body>
+</html>
