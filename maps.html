@@ -75,7 +75,7 @@ td.nm img{width:32px;height:32px}
   <div class="st" id="info" style="margin-top:8px">Yükleniyor...</div>
 </section>
 <div id="out"></div>
-<div class="src">Veri: oyunun açık dökümleri, <a href="https://github.com/ao-data/ao-bin-dumps" target="_blank" rel="noopener">ao-data/ao-bin-dumps</a> (world, cluster ve template dosyaları). Kaynak sayıları oyunun kendi hesabıdır (düğüm + kaynak yaratıkları); sandık/boss/dungeon yerleri şablonlardan çıkarılır, sandık renk oranları lootchests.xml'den, çizim şematiktir.</div>
+<div class="src">Veri: oyunun açık dökümleri, <a href="https://github.com/ao-data/ao-bin-dumps" target="_blank" rel="noopener">ao-data/ao-bin-dumps</a> (world, cluster ve template dosyaları). Kaynak sayıları oyunun kendi hesabıdır (düğüm + kaynak yaratıkları); sandık/boss/dungeon yerleri şablonlardan çıkarılır, sandık renkleri lootchests.xml'deki minimap işaretinden, çizim şematiktir.</div>
 </main>
 <script>
 (function(){
@@ -104,9 +104,9 @@ const LV={solo:"Solo",group:"Grup",raid:"Raid"};
 const FAC={KPR:"Keeper",HER:"Heretic",MOR:"Morgana",UND:"Undead",AVA:"Avalon"};
 const KIND={r:["Kaynak","#7fc35a"],c:["Sandık","#e3b341"],b:["Boss","#f85149"],d:["Dungeon","#b77cff"],p:["Portal","#39c5cf"]};
 const tb=t=>`<span class="tb t${t}">T${t}</span>`;
-// Yol sandıklarının rengi sabit değil: lootchests.xml'de her doğuşta ağırlıkla seçilir (BASE 6 / CHAMPION 3 / BOSS 1)
-const RAR=[["Yeşil","#3fb950",60],["Mavi","#4c8dff",30],["Altın","#e3b341",10]];
-const rar=`<div class="ch" style="margin-top:12px">${RAR.map(([n,c,w])=>`<span><span class="tb" style="background:${c};color:#0b0f14">${n}</span>%${w}</span>`).join("")}</div><div class="st" style="margin-top:6px">Sandık rengi haritaya bağlı değil: sandık her doğduğunda oyun rengini yukarıdaki oranlarla rastgele seçer, boss da sandığın rengine göre güçlenir. Açılan sandık 2-4 dk sonra yeniden doğar, renk de yeniden seçilir.</div>`;
+// Sandık rengi türüne göre sabit (lootchests.xml minimap işareti): solo yeşil, grup mavi, raid (elite) altın
+const CH={solo:["Yeşil sandık","#3fb950","solo"],group:["Mavi sandık","#4c8dff","grup"],raid:["Altın sandık","#e3b341","raid / elite"]};
+const chb=k=>`<span class="tb" style="background:${CH[k][1]};color:#0b0f14">${CH[k][0]}</span> <span class="st">${CH[k][2]}</span>`;
 const icon=(id,s)=>`<img loading="lazy" src="https://render.albiononline.com/v1/item/${id}.png?size=${s||64}" alt="" onerror="this.style.visibility='hidden'">`;
 
 let D=null,rows=[],cur=null,hl=-1,list=[];
@@ -165,7 +165,7 @@ function show(r){
       ${L.h?`<div><span>Hideout alanı</span><b>${L.h}</b></div>`:""}
     </div></section>
     <section><h2>Kaynaklar</h2>${res?`<table>${res}</table>`:'<div class="empty">Bu haritada toplanabilir kaynak yok.</div>'}</section>
-    <section><h2>Sandıklar ve boss'lar</h2>${s.c||s.b?`<table>${cnt(s.c,k=>LV[k]+" sandığı")}${cnt(s.b,k=>LV[k]+" boss")}</table>${s.c?rar:""}`:'<div class="empty">Sandık yok.</div>'}</section>
+    <section><h2>Sandıklar ve boss'lar</h2>${s.c||s.b?`<table>${cnt(s.c,chb)}${cnt(s.b,k=>LV[k]+" boss")}</table>`:'<div class="empty">Sandık yok.</div>'}</section>
     <section><h2>Dungeon'lar</h2>${dg?`<table>${dg}</table>`:'<div class="empty">Dungeon girişi yok.</div>'}</section>
   </div>
   <section><h2>Şematik harita</h2>
@@ -184,8 +184,8 @@ function draw(){
   const xs=corners.map(c=>c[0]),ys=corners.map(c=>c[1]),pad=30;
   const vb=[Math.min(...xs)-pad,Math.min(...ys)-pad,Math.max(...xs)-Math.min(...xs)+pad*2,Math.max(...ys)-Math.min(...ys)+pad*2];
   const u=Math.max(vb[2],vb[3])/100;
-  const lab=p=>{const [k,sub,t]=p;return k==="r"?`${RESN[sub][1]} T${t}`:k==="c"?`${LV[sub]} sandığı`:k==="b"?`${LV[sub]} boss`:k==="d"?(sub.endsWith("AVA")?"Avalon Raid Dungeon":`${LV[sub.split(":")[0]]} dungeon (${FAC[sub.split(":")[1]]||""}) T${t}`):"Portal"};
-  const col=p=>p[0]==="r"?RESN[p[1]][2]:KIND[p[0]][1];
+  const lab=p=>{const [k,sub,t]=p;return k==="r"?`${RESN[sub][1]} T${t}`:k==="c"?`${CH[sub][0]} (${CH[sub][2]})`:k==="b"?`${LV[sub]} boss`:k==="d"?(sub.endsWith("AVA")?"Avalon Raid Dungeon":`${LV[sub.split(":")[0]]} dungeon (${FAC[sub.split(":")[1]]||""}) T${t}`):"Portal"};
+  const col=p=>p[0]==="r"?RESN[p[1]][2]:p[0]==="c"?CH[p[1]][1]:KIND[p[0]][1];
   const pts=L.p.concat(r.pt.map(q=>["p","",0,q[0],q[1]])).filter(p=>!LS.hide[p[0]]);
   const order={r:0,b:1,c:2,d:3,p:4};pts.sort((p,q)=>order[p[0]]-order[q[0]]);
   const shape=p=>{const [X,Y]=P(p[3],p[4]),c=col(p),t=esc(lab(p));
