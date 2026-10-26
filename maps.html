@@ -75,7 +75,7 @@ td.nm img{width:32px;height:32px}
   <div class="st" id="info" style="margin-top:8px">Yükleniyor...</div>
 </section>
 <div id="out"></div>
-<div class="src">Veri: oyunun açık dökümleri, <a href="https://github.com/ao-data/ao-bin-dumps" target="_blank" rel="noopener">ao-data/ao-bin-dumps</a> (world, cluster ve template dosyaları). Kaynak sayıları oyunun kendi hesabıdır (düğüm + kaynak yaratıkları); sandık/boss/dungeon yerleri şablonlardan çıkarılır, sandık rengi şablondaki nadirlik katmanıdır (Very Common / Uncommon / Epic), çizim şematiktir.</div>
+<div class="src">Veri: oyunun açık dökümleri, <a href="https://github.com/ao-data/ao-bin-dumps" target="_blank" rel="noopener">ao-data/ao-bin-dumps</a> (world, cluster ve template dosyaları). Kaynak sayıları oyunun kendi hesabıdır (düğüm + kaynak yaratıkları); sandık/boss/dungeon yerleri şablonlardan çıkarılır, sandık renk oranları lootchests.xml'den, çizim şematiktir.</div>
 </main>
 <script>
 (function(){
@@ -104,9 +104,9 @@ const LV={solo:"Solo",group:"Grup",raid:"Raid"};
 const FAC={KPR:"Keeper",HER:"Heretic",MOR:"Morgana",UND:"Undead",AVA:"Avalon"};
 const KIND={r:["Kaynak","#7fc35a"],c:["Sandık","#e3b341"],b:["Boss","#f85149"],d:["Dungeon","#b77cff"],p:["Portal","#39c5cf"]};
 const tb=t=>`<span class="tb t${t}">T${t}</span>`;
-// Sandık/boss katmanları T4/T6/T8 diye adlandırılmış ama şablonda "Very Common / Uncommon / Epic" yazıyor: nadirlik seviyesi
-const RAR={4:["Yeşil","#3fb950","yaygın"],6:["Mavi","#4c8dff","nadir"],8:["Altın","#e3b341","epik"]};
-const rb=t=>{const x=RAR[t];return x?`<span class="tb" style="background:${x[1]};color:#0b0f14" title="${x[2]} (içerik seviyesi T${t})">${x[0]}</span>`:tb(t)};
+// Yol sandıklarının rengi sabit değil: lootchests.xml'de her doğuşta ağırlıkla seçilir (BASE 6 / CHAMPION 3 / BOSS 1)
+const RAR=[["Yeşil","#3fb950",60],["Mavi","#4c8dff",30],["Altın","#e3b341",10]];
+const rar=`<div class="ch" style="margin-top:12px">${RAR.map(([n,c,w])=>`<span><span class="tb" style="background:${c};color:#0b0f14">${n}</span>%${w}</span>`).join("")}</div><div class="st" style="margin-top:6px">Sandık rengi haritaya bağlı değil: sandık her doğduğunda oyun rengini yukarıdaki oranlarla rastgele seçer, boss da sandığın rengine göre güçlenir. Açılan sandık 2-4 dk sonra yeniden doğar, renk de yeniden seçilir.</div>`;
 const icon=(id,s)=>`<img loading="lazy" src="https://render.albiononline.com/v1/item/${id}.png?size=${s||64}" alt="" onerror="this.style.visibility='hidden'">`;
 
 let D=null,rows=[],cur=null,hl=-1,list=[];
@@ -147,7 +147,9 @@ function show(r){
   const other=Object.keys(SRV).filter(k=>k!==srvSel.value).map(k=>{const x=D.S[k].find(y=>y[1]===r.n);return x?`${SRV[k]}: ${x[5]?"T"+D.L[x[2]].t:"kapalı"}`:""}).filter(Boolean).join(" · ");
   const total=o=>Object.values(o||{}).reduce((a,v)=>a+Object.values(v).reduce((x,y)=>x+y,0),0);
   const res=s.r?RES.filter(x=>s.r[x[0]]).map(([k,n])=>`<tr><td class="nm">${icon("T"+Math.max(...Object.keys(s.r[k]))+"_"+k,64)}${n}</td><td><div class="ch">${chips(s.r[k],(t,c)=>`<span>${tb(t)}×${c}</span>`)}</div></td></tr>`).join(""):"";
-  const grp=(o,lab,bf)=>Object.keys(o||{}).sort((a,b)=>Object.keys(LV).indexOf(a.split(":")[0])-Object.keys(LV).indexOf(b.split(":")[0])).map(k=>`<tr><td class="nm">${lab(k)}</td><td><div class="ch">${chips(o[k],(t,c)=>`<span>${(bf||tb)(t)}×${c}</span>`)}</div></td></tr>`).join("");
+  const lvs=o=>Object.keys(o||{}).sort((a,b)=>Object.keys(LV).indexOf(a.split(":")[0])-Object.keys(LV).indexOf(b.split(":")[0]));
+  const grp=(o,lab)=>lvs(o).map(k=>`<tr><td class="nm">${lab(k)}</td><td><div class="ch">${chips(o[k],(t,c)=>`<span>${tb(t)}×${c}</span>`)}</div></td></tr>`).join("");
+  const cnt=(o,lab)=>lvs(o).map(k=>`<tr><td class="nm">${lab(k)}</td><td><b>${Object.values(o[k]).reduce((a,b)=>a+b,0)}</b></td></tr>`).join("");
   const dg=grp(s.d,k=>{const [lv,f]=k.split(":");return f==="AVA"?"Avalon Raid Dungeon":`${LV[lv]} dungeon <span class="st">· ${FAC[f]||f}</span>`});
   $("out").innerHTML=`<section>
     <div class="head">${tb(L.t)}<h3>${esc(r.n)}</h3><span class="pill">${esc(ty[0])}</span>${r.on?"":`<span class="pill off">Bu sunucuda kapalı</span>`}</div>
@@ -163,7 +165,7 @@ function show(r){
       ${L.h?`<div><span>Hideout alanı</span><b>${L.h}</b></div>`:""}
     </div></section>
     <section><h2>Kaynaklar</h2>${res?`<table>${res}</table>`:'<div class="empty">Bu haritada toplanabilir kaynak yok.</div>'}</section>
-    <section><h2>Sandıklar ve boss'lar</h2>${s.c||s.b?`<table>${grp(s.c,k=>LV[k]+" sandığı",rb)}${grp(s.b,k=>LV[k]+" boss",rb)}</table>`:'<div class="empty">Sandık yok.</div>'}</section>
+    <section><h2>Sandıklar ve boss'lar</h2>${s.c||s.b?`<table>${cnt(s.c,k=>LV[k]+" sandığı")}${cnt(s.b,k=>LV[k]+" boss")}</table>${s.c?rar:""}`:'<div class="empty">Sandık yok.</div>'}</section>
     <section><h2>Dungeon'lar</h2>${dg?`<table>${dg}</table>`:'<div class="empty">Dungeon girişi yok.</div>'}</section>
   </div>
   <section><h2>Şematik harita</h2>
@@ -182,8 +184,8 @@ function draw(){
   const xs=corners.map(c=>c[0]),ys=corners.map(c=>c[1]),pad=30;
   const vb=[Math.min(...xs)-pad,Math.min(...ys)-pad,Math.max(...xs)-Math.min(...xs)+pad*2,Math.max(...ys)-Math.min(...ys)+pad*2];
   const u=Math.max(vb[2],vb[3])/100;
-  const lab=p=>{const [k,sub,t]=p;return k==="r"?`${RESN[sub][1]} T${t}`:k==="c"?`${LV[sub]} sandığı (${(RAR[t]||["T"+t])[0]})`:k==="b"?`${LV[sub]} boss (${(RAR[t]||["T"+t])[0]})`:k==="d"?(sub.endsWith("AVA")?"Avalon Raid Dungeon":`${LV[sub.split(":")[0]]} dungeon (${FAC[sub.split(":")[1]]||""}) T${t}`):"Portal"};
-  const col=p=>p[0]==="r"?RESN[p[1]][2]:p[0]==="c"&&RAR[p[2]]?RAR[p[2]][1]:KIND[p[0]][1];
+  const lab=p=>{const [k,sub,t]=p;return k==="r"?`${RESN[sub][1]} T${t}`:k==="c"?`${LV[sub]} sandığı`:k==="b"?`${LV[sub]} boss`:k==="d"?(sub.endsWith("AVA")?"Avalon Raid Dungeon":`${LV[sub.split(":")[0]]} dungeon (${FAC[sub.split(":")[1]]||""}) T${t}`):"Portal"};
+  const col=p=>p[0]==="r"?RESN[p[1]][2]:KIND[p[0]][1];
   const pts=L.p.concat(r.pt.map(q=>["p","",0,q[0],q[1]])).filter(p=>!LS.hide[p[0]]);
   const order={r:0,b:1,c:2,d:3,p:4};pts.sort((p,q)=>order[p[0]]-order[q[0]]);
   const shape=p=>{const [X,Y]=P(p[3],p[4]),c=col(p),t=esc(lab(p));
