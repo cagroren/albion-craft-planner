@@ -7,6 +7,7 @@
 <script src="config.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
 <script src="auth.js"></script>
+<script src="dspec.js"></script>
 <style>
 :root{--bg:#0b0f14;--card:#11161d;--card2:#151b23;--in:#0d1218;--ink:#e6e9ee;--mut:#8b95a3;--line:#252d38;--line2:#323c49;--acc:#f0883e;--acc2:#7a3e16;--accT:#ffd6b3;--good:#3fb950;--bad:#f85149;--warn:#e3b341;color-scheme:dark}
 *{box-sizing:border-box}
@@ -278,6 +279,7 @@ section{padding:16px;border-radius:14px}
 <div class="rrb" id="rr"></div>
 <details class="mst" id="mstBox"><summary>Mastery ağacı</summary>
 <p class="s" style="margin:10px 0 12px" id="mstNote">Focus maliyeti ağaç seviyelerine göre otomatik hesaplanır. Düşürdüğün seviyeler maliyete yansır.</p>
+<div class="dsbar st" style="margin:0 0 12px"></div>
 <div class="g"><label>Mastery seviyesi (0-100)<input type="number" id="mast" value="100" min="0" max="100"></label><label>Referans potion (tam ağaçla)<input id="rid" value="T6_POTION_HEAL@1"></label><label>Referans focus (oyunda, 1 craft)<input type="number" id="rf" value="107"></label><label>Nadir referans potion (tam ağaçla)<input id="rrid" value="T8_POTION_LAVA"></label><label>Nadir referans focus (oyunda, 1 run)<input type="number" id="rrf" value="281"></label></div>
 <div class="g" id="specs" style="margin-top:10px"><span class="st">Spec seviyeleri için önce tarifleri yükle.</span></div>
 </details>
@@ -474,7 +476,29 @@ const planBases=()=>[...new Set(plan.map(p=>sbase(base(p.id))))];
 const tierStrip=n=>n.replace(/^(Beginner'?s?|Novice'?s?|Journeyman'?s?|Adept'?s?|Expert'?s?|Master'?s?|Grandmaster'?s?|Elder'?s?|Minor|Major|Greater|Lesser|Superior|Fine|Excellent|Mighty)\s+/i,"");
 // Bir kategorideki bütün eşya türleri (ör. Sword: Broadsword, Claymore, Dual Swords...): hepsinin spec'i birbirine focus verimi verir
 const catBases=c=>[...new Set(Object.keys(baseCat).filter(b=>baseCat[b]===c).map(sbase))];
+// Destiny Board: seçili karakterin seviyeleri spec/mastery alanlarına bir kez yazılır, sonra elle değiştirilebilir
+let dsKey="";
+function dsSync(){
+  const A=window.aoSpec,k=A&&A.key();
+  if(!k||k===dsKey||!Object.keys(db).length||(CRAFT&&!Object.keys(baseCat).length))return false;
+  dsKey=k;
+  const put=(key,id)=>{const v=A.lv(id);if(v!=null)spec[key]=v};
+  if(CRAFT){
+    const M=A.iconMap(["CRAFT_SPEC","CRAFT_BASE"]),N=A.nodes();
+    Object.keys(baseCat).forEach(b0=>{const b=sbase(b0),id=M[b];if(!id)return;const n=N[id];
+      if(n.tpl==="CRAFT_SPEC")put(b,id);
+      const m=n.tpl==="CRAFT_BASE"?id:(n.p||[]).find(x=>N[x]&&N[x].tpl==="CRAFT_BASE");
+      if(m)put("M:"+baseCat[b0],m)});
+  }else{
+    const v=A.lv(FOOD?"FARM_COOK":"FARM_ALCHEMIST");if(v!=null)$("mast").value=v;
+    if(FOOD)FALL.forEach(t=>put("F:"+t,"FARM_COOK_"+t));
+    else{const M=A.iconMap(["FARM_SPEC"]);Object.keys(db).forEach(i=>{const t=base(i),id=M[t];if(id&&/^FARM_ALCHEMIST_/.test(id))put(t,id)})}
+  }
+  save();return true;
+}
+window.aoSpec&&aoSpec.on(()=>{if(Object.keys(db).length){renderSpecs();calc()}});
 function renderCraftSpecs(force){
+  if(dsSync())force=true;
   const bs=planBases(),cats=[...new Set(bs.map(b=>baseCat[b]))],key=cats.join("|")+"#"+bs.join("|");
   if(!force&&key===specKey)return;specKey=key;
   if(!bs.length){$("specs").innerHTML='<span class="st">Plana eşya ekleyince burada mastery ve spec seviyeleri çıkar.</span>';return}
@@ -483,6 +507,7 @@ function renderCraftSpecs(force){
   document.querySelectorAll("[data-sp]").forEach(e=>e.oninput=()=>{spec[e.dataset.sp]=Math.min(100,Math.max(0,pf(e.value)||0));save();calc()});
 }
 function renderSpecs(){
+  dsSync();
   if(CRAFT){renderCraftSpecs(true);return}
   if(FOOD){
     const ids=Object.keys(db).filter(i=>!i.includes("@"));
@@ -1069,7 +1094,7 @@ function snap(){
 function applyPf(d){
   SET.forEach(i=>{if(d.v&&i in d.v)$(i).value=d.v[i]});
   CHK.forEach(i=>{if(d.c&&i in d.c)$(i).checked=d.c[i]});
-  spec=Object.assign({},d.spec||{});
+  spec=Object.assign({},d.spec||{});dsKey="";
   man=d.man||{mats:{},outs:{}};
   if(d.plan){plan=d.plan.filter(p=>db[p.id]);pending=d.plan.filter(p=>!db[p.id])}
   save();
@@ -1681,19 +1706,36 @@ function uiRef(){
   <label>Tier<select id="rT"></select></label><label>Enchant<select id="rE"></select></label>
   <label>Refine adedi<input type="number" id="rN" value="100" min="1"></label>
   <label class="c tgc"><input type="checkbox" id="rDaily"> Günlük bonus (+%10)</label></div>
-  <div class="row" id="rBon"></div><div class="pm" id="rMats" style="margin-top:14px"></div></section>
+  <div class="row" id="rBon"></div><div class="pm" id="rMats" style="margin-top:14px"></div>
+  <details class="tdet" style="margin-top:14px"${Object.keys(RSP).length?"":" open"}><summary>Spec'ler (Destiny Board): refine focus'unu düşürür</summary><p class="st" style="margin:8px 0">Focus = taban × 0,5^((30 × o kaynağın T4-T8 seviyeleri toplamı + 250 × refine edilen tier'ın seviyesi) / 10000). T2-T3'e etkisi yok.</p><div class="dsbar st" style="margin:0 0 10px"></div><div class="tps" id="rSp"></div></details></section>
   <section><h2>Plan</h2>${fetchBar()}<div class="t"><table><thead><tr><th>Kalem</th><th>Adet</th><th>Birim fiyat</th><th>Tutar</th></tr></thead><tbody id="rPlan"></tbody></table></div>
   <h2 style="margin-top:20px">Toplam</h2><div class="r" id="rTot"></div>
   <h2 style="margin-top:22px">Hangi şehirde satmak daha kârlı?</h2><p class="s" style="margin-bottom:8px" id="rCityNote"></p><div class="t"><table><thead><tr><th>Satış şehri</th><th>Satış fiyatı</th><th>Kesinti sonrası</th><th>Kâr / adet</th><th>Toplam kâr</th><th>Fiyat yaşı</th></tr></thead><tbody id="rCity"></tbody></table></div></section>
   <section><h2>Bütün tier ve enchantlar (en kârlıdan)</h2><p class="s" style="margin-bottom:8px">Aynı kaynağın bütün tarifleri, çekilen fiyatlarla 1 adet için. Satıra tıklayınca yukarıda o tarif açılır.</p>
   <div class="t"><table><thead><tr><th>Ürün</th><th>Malzeme (net)</th><th>İstasyon</th><th>Satış</th><th>Kâr / adet</th><th>Kâr %</th></tr></thead><tbody id="rRows"></tbody></table></div></section>`;
   if(ST.rRes)$("rRes").value=ST.rRes;
-  fillRef();
+  fillRef();rDs();window.aoSpec&&aoSpec.draw();
   $("rRes").addEventListener("change",()=>{ST.rRes=$("rRes").value;LS.set("aotools1",ST);fillRef();render()});
   $("rT").addEventListener("change",()=>{fillE();render()});
   ["rE","rN","rDaily"].forEach(i=>$(i).addEventListener("input",render));
 }
-function fillRef(){const res=$("rRes").value,ts=[...new Set(refAll().filter(r=>r.res===res).map(r=>r.t))],ct=$("rT").value;$("rT").innerHTML=ts.map(t=>`<option value="${t}">T${t}</option>`).join("");$("rT").value=ct!==""&&ts.includes(+ct)?ct:"6";fillE()}
+// Refine spec'leri: CRAFT_REFINE_<KAYNAK>_T4..T8 (her seviye o kaynağın bütün T4+ refine'ına 30, kendi tier'ına ayrıca 250 focus verimi)
+const RSP=ST.rsp||(ST.rsp={});
+const rsp=k=>Math.min(100,Math.max(0,+RSP[k]||0));
+const rFocus=(r,res,t)=>t<4?r.focus:r.focus*Math.pow(0.5,(30*[4,5,6,7,8].reduce((a,x)=>a+rsp(res+":"+x),0)+250*rsp(res+":"+t))/1e4);
+function drawRsp(){
+  const res=$("rRes").value;
+  $("rSp").innerHTML=[4,5,6,7,8].map(t=>`<label>${img(`T${t}_${{ORE:"METALBAR",WOOD:"PLANKS",FIBER:"CLOTH",HIDE:"LEATHER",ROCK:"STONEBLOCK"}[res]}`)}<span>T${t} ${RNAME[res]}</span><input type="number" min="0" max="100" data-rsp="${res}:${t}" value="${rsp(res+":"+t)||""}" placeholder="0" style="width:64px"></label>`).join("");
+  $("rSp").querySelectorAll("[data-rsp]").forEach(e=>e.oninput=()=>{const v=e.value===""?0:Math.min(100,Math.max(0,+e.value||0));if(v)RSP[e.dataset.rsp]=v;else delete RSP[e.dataset.rsp];LS.set("aotools1",ST);render()});
+}
+let rDsKey="";
+function rDs(){
+  const A=window.aoSpec,k=A&&A.key();if(!k||k===rDsKey)return false;rDsKey=k;
+  Object.keys(RNAME).forEach(res=>[4,5,6,7,8].forEach(t=>{const v=A.lv(`CRAFT_REFINE_${res}_T${t}`);if(v==null)return;if(v)RSP[res+":"+t]=v;else delete RSP[res+":"+t]}));
+  LS.set("aotools1",ST);drawRsp();return true;
+}
+window.aoSpec&&aoSpec.on(()=>{if(MODE==="farm"&&document.querySelector("[data-fsp]")&&fDs())render();if(MODE==="ref"&&$("rSp")&&rDs())render()});
+function fillRef(){const res=$("rRes").value,ts=[...new Set(refAll().filter(r=>r.res===res).map(r=>r.t))],ct=$("rT").value;$("rT").innerHTML=ts.map(t=>`<option value="${t}">T${t}</option>`).join("");$("rT").value=ct!==""&&ts.includes(+ct)?ct:"6";fillE();drawRsp()}
 function fillE(){const res=$("rRes").value,t=+$("rT").value,es=refAll().filter(r=>r.res===res&&r.t===t).map(r=>r.e),ce=$("rE").value;$("rE").innerHTML=es.map(e=>`<option value="${e}">.${e}</option>`).join("");$("rE").value=ce!==""&&es.includes(+ce)?ce:"0"}
 function calcRef(r){const rr=rrr(),mc=r.mats.reduce((a,[m,c])=>a+c*price(m),0),net=mc*(1-rr),fee=r.biv*0.1125*(+$("tFee").value||0)/100,sell=price(r.out)*(1-tax()/100);return {mc,ret:mc*rr,net,fee,sell,pr:sell-net-fee,miss:r.mats.some(([m])=>!price(m))||!price(r.out)}}
 function renderRef(){
@@ -1706,7 +1748,7 @@ function renderRef(){
   $("rPlan").innerHTML=r.mats.map(([m,q])=>`<tr><td>${img(m)}${esc(lbl(m))}</td><td>${fmt(q*n)}</td><td>${manInput(m)}</td><td>${price(m)?fmt(q*n*price(m)):"-"}</td></tr>`).join("")+`<tr><td>${img(r.out)}${esc(lbl(r.out))} <small style="color:var(--mut)">(satılacak ürün)</small></td><td>${fmt(n)}</td><td>${manInput(r.out)}</td><td>${price(r.out)?fmt(n*price(r.out)):"-"}</td></tr>`;
   $("rTot").innerHTML=c.miss?'<div class="k">Hesap için fiyat gerekli<b>-</b>Fiyatları çek ya da yukarıdaki kutulara yaz.</div>':
     [["Malzeme (brüt)",fmt(c.mc*n)],["Geri dönen","-"+fmt(c.ret*n)],["İstasyon ücreti",fmt(c.fee*n)],["Toplam maliyet",fmt((c.net+c.fee)*n)],["Satış (kesinti sonrası)",fmt(c.sell*n)]].map(([a,b])=>`<div class="k"><div>${a}</div><b>${b}</b></div>`).join("")
-    +`<div class="k"><div>Kâr</div><b class="${c.pr>=0?"pos":"neg"}">${fmt(c.pr*n)}</b><div>Marj: ${pct(c.pr/(c.net+c.fee))} · ${fmt(c.pr)}/adet</div></div>`+($("tFoc").checked?`<div class="k"><div>Focus</div><b>${fmt(r.focus*n)}</b>${c.pr>0?`<div>${fmt(c.pr/r.focus)} silver/focus</div>`:""}</div>`:"");
+    +`<div class="k"><div>Kâr</div><b class="${c.pr>=0?"pos":"neg"}">${fmt(c.pr*n)}</b><div>Marj: ${pct(c.pr/(c.net+c.fee))} · ${fmt(c.pr)}/adet</div></div>`+($("tFoc").checked?`<div class="k"><div>Focus</div><b>${fmt(rFocus(r,res,+$("rT").value)*n)}</b>${c.pr>0?`<div>${fmt(c.pr/rFocus(r,res,+$("rT").value))} silver/focus</div>`:""}</div>`:"");
   {const cc=PXC[r.out]||{},cost=c.net+c.fee,T=tax(),rows=CITIES.map(ct=>({ct,o:cc[ct]})).filter(x=>x.o).map(x=>({...x,pr:x.o.p*(1-T/100)-cost})).sort((a,b)=>b.pr-a.pr);
    const ag=iso=>{const m=ageMin(iso);return m===null?"-":m<60?Math.max(1,Math.round(m))+" dk":m<1440?Math.round(m/60)+" sa":Math.round(m/1440)+" gün"};
    $("rCityNote").textContent=`Malzemeler ${$("tCity").value} fiyatıyla alınıp ${$("tCity").value}'de refine edildi varsayımıyla; satış fiyatı her şehrin kendi pazarından.`+(c.miss?" Maliyet için önce malzeme fiyatları gerekli.":"");
@@ -1734,6 +1776,15 @@ const VOL={};
 let ftool=ST.ftool||"crop",fFetched=false;
 const saveF=()=>{ST.farm=FS;ST.fsp=FSP;LS.set("aotools1",ST)};
 const fsp=k=>Math.min(100,Math.max(0,+FSP[k]||0));
+// Destiny Board: FARM_CROPS(_CARROT), FARM_HERBS(_AGARIC), FARM_ANIMALS(_CHICKEN) düğümleri; bir kez yazılır, sonra elle değiştirilebilir
+let fDsKey="";
+function fDs(){
+  const A=window.aoSpec,k=A&&A.key();if(!k||k===fDsKey)return false;fDsKey=k;
+  const G={crop:"CROPS",herb:"HERBS",anim:"ANIMALS"};
+  Object.keys(G).forEach(g=>["m",...(g==="anim"?Object.keys(ANAME):D.crops.filter(c=>(g==="herb")===c.herb).map(c=>c.key))].forEach(x=>{
+    const v=A.lv("FARM_"+G[g]+(x==="m"?"":"_"+x.toUpperCase()));if(v==null)return;if(v)FSP[g+":"+x]=v;else delete FSP[g+":"+x]}));
+  saveF();document.querySelectorAll("[data-fsp]").forEach(e=>e.value=fsp(e.dataset.fsp)||"");return true;
+}
 const fGroup=x=>x.herb?"herb":x.cyc?"anim":"crop";
 const fFocus=x=>{const g=fGroup(x);return 1000/Math.pow(2,(100*fsp(g+":m")+200*fsp(g+":"+x.key))/1e4)};
 const fBon=x=>(FBON[x.key]||[]).includes(FS.isle)||(FS.isle==="Brecilien"&&!x.herb&&!x.cyc);
@@ -1756,7 +1807,7 @@ function uiFarm(){
   <label>Sıralama<select id="fSort"><option value="p1">Kâr (focus'lu)</option><option value="p0">Kâr (focus'suz)</option><option value="spf">Focus başına silver</option><option value="vol">Satış hacmi (24s)</option><option value="t">Tier</option></select></label>
   <label class="c tgc"><input type="checkbox" id="fNpc"${FS.npc?" checked":""}> Tohum ve yavruyu Farming Merchant'tan al</label>
   </div>
-  <details class="tdet"${Object.keys(FSP).length?"":" open"}><summary>Spec'ler (Destiny Board): sulama ve besleme focus'unu düşürür</summary><p class="st" style="margin:8px 0">Focus = 1000 / 2^((100 × mastery + 200 × ürün spec'i) / 10000). Mastery 100 ve spec 100'de 125 focus.</p>${spg("crop")}${spg("herb")}${spg("anim")}</details></section>
+  <details class="tdet"${Object.keys(FSP).length?"":" open"}><summary>Spec'ler (Destiny Board): sulama ve besleme focus'unu düşürür</summary><p class="st" style="margin:8px 0">Focus = 1000 / 2^((100 × mastery + 200 × ürün spec'i) / 10000). Mastery 100 ve spec 100'de 125 focus.</p><div class="dsbar st" style="margin:0 0 10px"></div>${spg("crop")}${spg("herb")}${spg("anim")}</details></section>
   <section><div class="tabs" style="margin-bottom:14px"><button data-ft="crop">Tarla</button><button data-ft="herb">Ot bahçesi</button><button data-ft="anim">Hayvan</button></div>${fetchBar()}
   <div id="fSum" class="st" style="margin:0 0 10px"></div>
   <div data-fp="plant"><div class="t"><table><thead><tr><th>Tohum → ürün</th><th>Tohum</th><th>Ürün</th><th>Tohum dönüşü<br><small>sulamasız → sulanmış</small></th><th class="n">Kâr<br><small>focus'suz</small></th><th class="n">Kâr<br><small>focus'lu</small></th><th class="n">Focus</th><th class="n">Silver<br><small>/ focus</small></th></tr></thead><tbody id="cRows"></tbody></table></div></div>
@@ -1768,6 +1819,7 @@ function uiFarm(){
   const set=(id,k,f,refetch)=>$(id).addEventListener(f||"change",()=>{const e=$(id);FS[k]=e.type==="checkbox"?e.checked:e.type==="number"?Math.max(1,+e.value||1):e.value;saveF();if(refetch)farmFetch();else render()});
   set("fBuy","buy",0,1);set("fSell","sell",0,1);set("fIsle","isle");set("fPlots","plots","input");set("fPm","pm",0,1);set("fSm","sm",0,1);set("fSort","sort");set("fNpc","npc");
   document.querySelectorAll("[data-fsp]").forEach(e=>e.oninput=()=>{const v=e.value===""?0:Math.min(100,Math.max(0,+e.value||0));if(v)FSP[e.dataset.fsp]=v;else delete FSP[e.dataset.fsp];saveF();render()});
+  fDs();window.aoSpec&&aoSpec.draw();
   farmFetch();
 }
 

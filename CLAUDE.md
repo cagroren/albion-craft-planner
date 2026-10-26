@@ -30,6 +30,7 @@ Static site (no build step, no framework, no test suite) for the Albion Online g
 - `auth.js` (loaded on every page except `admin.html`):
   - Discord login via Supabase (`window.aoSb`), the guild gate overlay, feedback bubble, Data Client / DPS Meter info popups, page-view tracking.
   - Cloud sync: hooks `Storage.prototype.setItem` and pushes the `KEYS` list to `user_data`. On load it compares the cloud value with a snapshot taken when the page opened, so a page that rewrites its own data on load does not trigger a reload loop.
+- `dspec.js` (index.html only): `window.aoSpec` reads Destiny Board levels (collector > `destiny_boards` > `aodestiny1` manual) and fills Craft/Cooking/Alchemy/Farming/Refining spec fields once per load or character change; fields stay editable.
 - `config.js`: Supabase URL and publishable key (public by design; security is RLS).
 
 ### Guild access (Discord role gate)
