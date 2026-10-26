@@ -23,7 +23,7 @@ import webbrowser
 import zlib
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-VERSION = 13                 # GitHub'daki dps-vN sürümüyle aynı olmalı (güncelleme kontrolü bunu karşılaştırır)
+VERSION = 14                 # GitHub'daki dps-vN sürümüyle aynı olmalı (güncelleme kontrolü bunu karşılaştırır)
 PORT = int(os.environ.get("ALBION_DPS_PORT") or 47700)
 COMBAT_GAP_SECONDS = 5       # vuruşlar arası bundan uzun boşluk "savaş süresi"ne sayılmaz
 FP = 10000.0                 # oyunun sabit noktalı sayı çarpanı
@@ -81,6 +81,7 @@ GEAR_SLOTS = ("w", "o", "h", "a", "s", "b", "c", "m", "p", "f")
 ITEMS_URL = "https://raw.githubusercontent.com/ao-data/ao-bin-dumps/master/formatted/items.txt"
 SPELLS_URL = "https://raw.githubusercontent.com/ao-data/ao-bin-dumps/master/spells.xml"
 MAX_SPELLS_PER_PLAYER = 30
+MAX_TARGETS = 5000           # oyuncu başına hatırlanan farklı hedef sayısı (Top Stats: saldırılan hedef)
 
 
 def log(*a):
@@ -773,6 +774,7 @@ class Tracker:
         self.chests = []         # açtığın sandıkların içeriği
         self.evlog = []          # Log sekmesi: olay günlüğü
         self.loot_dirty = False
+        self.burst = {}          # oyuncu adı -> son 10 sn'deki vuruşlar [(zaman, hasar)] (Top Stats: burst hasar)
         self.load_saved()
         self.load_live()
         self.load_loot()
@@ -936,13 +938,15 @@ class Tracker:
                     self.board.progress(self.local_name, p)
         with self.lock:
             if code == EV["HealthUpdate"]:
-                self.health(to_int(p.get(0)), p.get(2), p.get(3), to_int(p.get(6)), 3 in p, p.get(7))
+                self.health(to_int(p.get(0)), p.get(2), p.get(3), to_int(p.get(6)), 3 in p, p.get(7), p.get(4))
             elif code == EV["HealthUpdates"]:
                 aff = to_int(p.get(0))
                 ch, nh, cs, sp = as_list(p.get(2)), as_list(p.get(3)), as_list(p.get(6)), as_list(p.get(7))
+                et = as_list(p.get(4))
                 for i in range(max(len(ch), len(cs))):
                     self.health(aff, ch[i] if i < len(ch) else 0, nh[i] if i < len(nh) else None,
-                                to_int(cs[i]) if i < len(cs) else None, i < len(nh), sp[i] if i < len(sp) else None)
+                                to_int(cs[i]) if i < len(cs) else None, i < len(nh), sp[i] if i < len(sp) else None,
+                                et[i] if i < len(et) else None)
             elif code == EV["NewCharacter"]:
                 oid = to_int(p.get(0))
                 name = p.get(1)
@@ -1200,7 +1204,7 @@ class Tracker:
                     "members": [{"name": n, "me": n == self.local_name, **(self.gear.get(n) or {})}
                                 for n in sorted(self.party_names())]}
 
-    def health(self, aff, change, new_health, causer, has_new, spell=None):
+    def health(self, aff, change, new_health, causer, has_new, spell=None, etype=None):
         if aff is None:
             return
         try:
@@ -1229,7 +1233,8 @@ class Tracker:
         f["lastHit"] = now
         self.live_dirty = True
         if causer_in:
-            st = self.player(f, self.name_of(causer))
+            st_name = self.name_of(causer)
+            st = self.player(f, st_name)
             st["last"] = now
             if st["first"] is None:
                 st["first"] = now
@@ -1241,6 +1246,21 @@ class Tracker:
                 sk[0] += amt
                 if aff not in self.objects:
                     st["mob"] += amt
+                # Top Stats: en büyük vuruş, 5/10 sn'lik en yüksek hasar, hasar türü, farklı hedef sayısı
+                st["hit"] = max(st.get("hit", 0), amt)
+                q = self.burst.setdefault(st_name, [])
+                q.append((now, amt))
+                while q and now - q[0][0] > 10:
+                    q.pop(0)
+                st["b10"] = max(st.get("b10", 0), sum(a for t, a in q))
+                st["b5"] = max(st.get("b5", 0), sum(a for t, a in q if now - t <= 5))
+                # Hasar türü (oyunun EffectType'ı): 1 fiziksel, 2 büyü, diğerleri gerçek hasar
+                et = to_int(etype)
+                dt = st.setdefault("dtype", [0, 0, 0])
+                dt[0 if et == 1 else 1 if et == 2 else 2] += amt
+                tg = st.setdefault("tg", {})
+                if len(tg) < MAX_TARGETS:
+                    tg[str(aff)] = 1
             else:
                 amt = round(change)
                 over = has_new and prev is not None and new_health is not None and abs(float(new_health) - prev) < 0.5
@@ -1301,6 +1321,8 @@ class Tracker:
                 "weapon": st.get("weapon") or self.weapons.get(name),
                 "damage": st["damage"], "heal": st["heal"], "overheal": st["overheal"],
                 "taken": st["taken"],
+                "hit": st.get("hit", 0), "burst5": st.get("b5", 0), "burst10": st.get("b10", 0),
+                "targets": len(st.get("tg", {})), "dtype": st.get("dtype", [0, 0, 0]),
                 "dps": round(st["damage"] / act, 1), "hps": round(st["heal"] / act, 1),
                 "spells": [{"key": k, "damage": v[0], "heal": v[1], "hits": v[2]} for k, v in
                            sorted(st.get("spells", {}).items(), key=lambda kv: -(kv[1][0] + kv[1][1]))
@@ -1327,6 +1349,7 @@ class Tracker:
         """Oturumu bitirir, geçmişe kaydeder; sonraki vuruş/kazançta yenisi başlar (paneldeki 'Bitir')."""
         f, self.fight = self.fight, None
         self.paused = False
+        self.burst = {}
         self.save_live()
         if not f:
             return None

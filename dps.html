@@ -165,6 +165,31 @@ h3{font:700 12px/1.4 "Inter",system-ui,sans-serif;letter-spacing:.08em;text-tran
 .lg td{font-size:13px;padding:5px 8px;vertical-align:middle}
 .lg .k{font-size:11px;font-weight:700;letter-spacing:.06em;color:var(--mut);white-space:nowrap}
 .lg img{width:26px;height:26px;vertical-align:middle}
+.tc{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px;margin-bottom:12px}
+.tc .g{border-left-color:var(--bad)}
+.tc .g.h{border-left-color:var(--good)}
+.tc .g.tk{border-left-color:#58a6ff}
+.tc .g small{display:block;color:var(--ink);font-size:13px;letter-spacing:0;text-transform:none;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.tl{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:10px;margin-bottom:12px}
+.tb{background:var(--card2);border:1px solid var(--line);border-radius:12px;padding:10px 14px}
+.tb h4{margin:0 0 8px;font-size:12px;font-weight:700;letter-spacing:.04em;color:var(--acc)}
+.tb.h h4{color:var(--good)}
+.tb.tk h4{color:#58a6ff}
+.tr{display:grid;grid-template-columns:18px minmax(0,1fr) 70px 64px;gap:8px;align-items:center;font-size:13px;padding:2px 0}
+.tr .r{color:var(--mut);font-weight:700}
+.tr .nm2{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:600}
+.tr .me{color:var(--accT)}
+.tr .bb{height:6px;border-radius:4px;background:var(--in);overflow:hidden}
+.tr .bb i{display:block;height:100%;border-radius:4px;background:var(--bad)}
+.tb.h .bb i{background:var(--good)}
+.tb.tk .bb i{background:#58a6ff}
+.tr .vv{text-align:right;font-weight:700;font-variant-numeric:tabular-nums}
+.dt{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.dt div{background:var(--in);border:1px solid var(--line);border-radius:10px;padding:8px;text-align:center;font-size:12px;color:var(--mut)}
+.dt b{display:block;color:var(--ink);font-size:16px;font-variant-numeric:tabular-nums}
+.ab{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:4px 24px}
+.ab .tr{grid-template-columns:18px 28px minmax(0,1fr) 90px 70px 46px}
+.ab img,.ab .ph.sm{width:26px;height:26px}
 @media(max-width:860px){@media(max-width:700px){body{padding:12px 16px}section{padding:16px;border-radius:14px}.tabs button{padding:8px 11px}h1{font-size:24px}}
 </style>
 </head>
@@ -191,7 +216,16 @@ h3{font:700 12px/1.4 "Inter",system-ui,sans-serif;letter-spacing:.08em;text-tran
   </div>
 </section>
 
-<div class="tabs vt" id="vTabs" hidden><button data-v="dps">DPS Meter</button><button data-v="loot">Loot</button><button data-v="log">Log</button></div>
+<div class="tabs vt" id="vTabs" hidden><button data-v="dps">DPS Meter</button><button data-v="top">Top Stats</button><button data-v="loot">Loot</button><button data-v="log">Log</button></div>
+
+<section id="topSec" hidden>
+  <div class="dh"><h2>Top Stats · aktif oturum</h2><span class="st" id="topInfo"></span></div>
+  <div id="topLive"></div>
+</section>
+<section id="topHistSec" hidden>
+  <div class="dh"><h2>Geçmiş oturumlar</h2><span class="st">Bitirilen oturumlar buraya kaydedilir; açmak için tıkla.</span></div>
+  <div id="topHist" style="display:flex;flex-direction:column;gap:6px"></div>
+</section>
 
 <section id="lootSec" hidden>
   <div class="dh"><h2>Loot</h2><span class="st" id="lootInfo"></span><span class="sp"></span>
@@ -295,7 +329,8 @@ function render(){
   const cs=$("cState");
   const dv=connected&&VIEW==="dps";
   $("setup").hidden=connected;$("vTabs").hidden=!connected;$("main").hidden=!dv;$("histSec").hidden=!dv||!fights.length;$("setSec").hidden=!dv;
-  $("lootSec").hidden=!connected||VIEW!=="loot";$("logSec").hidden=!connected||VIEW!=="log";
+  $("lootSec").hidden=!connected||VIEW!=="loot";
+  $("topSec").hidden=!connected||VIEW!=="top";$("topHistSec").hidden=!connected||VIEW!=="top"||!fights.length;$("logSec").hidden=!connected||VIEW!=="log";
   if(!connected){cs.className="live";cs.textContent="Bağlı değil";$("cInfo").textContent=LS.app?"DPS Meter başlatılıyor… Tarayıcı \"AlbionDPSMeter açılsın mı?\" diye sorarsa \"Her zaman izin ver\"i işaretleyip Aç'a bas.":"Toplayıcı çalışmıyor ya da tarayıcı bağlantıya izin vermedi.";$("startBtn").hidden=false;$("party").hidden=true;return}
   const cap=status.capturing;
   cs.className="live "+(cap?"on":"wait");cs.textContent=cap?"Oyun verisi geliyor":"Bağlı, oyun bekleniyor";
@@ -306,6 +341,7 @@ function render(){
   $("party").innerHTML=pt.length?`<span class="st" style="align-self:center">Takip edilen:</span>`+pt.map(n=>`<span class="chip${n===status.character?" me":""}">${esc(n)}</span>`).join(""):"";
   renderLive();renderSets();
   if(VIEW==="loot")renderLoot();
+  if(VIEW==="top")renderTop();
   if(VIEW==="log")renderLog();
 }
 
@@ -481,7 +517,7 @@ confirm2($("clearAll"),"Tümünü sil",async()=>{await api("/fights",{method:"DE
 
 // ---- Loot ve Log sekmeleri (toplayıcı v13+) ----
 const LOOT_NEED=13;
-let VIEW=["dps","loot","log"].includes(LS.view)?LS.view:"dps",LOOT=null,LOG=null,PR={},prKey="",prBusy=false,lootSig="",logSig="";
+let VIEW=["dps","top","loot","log"].includes(LS.view)?LS.view:"dps",LOOT=null,LOG=null,PR={},prKey="",prBusy=false,lootSig="",logSig="";
 const chOpen=new Set();
 LS.loot=LS.loot||{sel:{},party:1};
 function setView(v){VIEW=v;LS.view=v;saveLS();lootSig=logSig="";document.querySelectorAll("#vTabs button").forEach(b=>b.classList.toggle("on",b.dataset.v===v));render();poll()}
@@ -574,6 +610,42 @@ function renderLog(){
     :`<tr><td class="st">Henüz olay yok.</td></tr>`;
 }
 confirm2($("logClear"),"Temizle",async()=>{await api("/log",{method:"DELETE"});LOG=[];logSig="";renderLog()});
+
+// ---- Top Stats sekmesi: aktif oturum + geçmiş oturumlar (en büyük vuruş/burst için toplayıcı v14+) ----
+const topOpen=new Set();let topSig="";
+const nmH=p=>`<span class="nm2${p.me?" me":""}">${esc(p.name)}</span>`;
+function top5(title,ps,key,cls,div){
+  const L=ps.filter(p=>p[key]>0).sort((a,b)=>b[key]-a[key]).slice(0,5),max=L.length?L[0][key]:1;
+  return `<div class="tb ${cls||""}"><h4>${title}</h4>${L.length?L.map((p,i)=>`<div class="tr"><span class="r">${i+1}.</span>${nmH(p)}<span class="bb"><i style="width:${(p[key]/max*100).toFixed(1)}%"></i></span><span class="vv">${fmtK(div?p[key]/div:p[key])}</span></div>`).join(""):`<div class="st">Veri yok</div>`}</div>`;
+}
+function topHTML(f){
+  const ps=f.players||[];
+  if(!ps.length)return `<div class="empty" style="padding:14px">Bu oturumda hasar ya da heal kaydı yok.</div>`;
+  const has=ps.some(p=>"hit" in p),best=k=>[...ps].sort((a,b)=>(b[k]||0)-(a[k]||0))[0];
+  const card=(l,k,cls,div)=>{const p=best(k);return `<div class="g ${cls||""}">${l}<small>${p&&p[k]?esc(p.name):"–"}</small><b>${p&&p[k]?fmtK(div?p[k]/div:p[k]):"–"}</b></div>`};
+  const old=has?"":`<div class="st" style="margin-bottom:10px">Bu oturum en büyük vuruş, burst, hasar türü ve hedef sayısı eklenmeden önce kaydedildi.</div>`;
+  const cards=`<div class="tc">${has?card("EN BÜYÜK VURUŞ","hit")+card("PEAK DPS 5 SN","burst5","",5)+card("PEAK DPS 10 SN","burst10","",10):""}${card("TOPLAM HASAR","damage")}${card("EN ÇOK HEAL","heal","h")}${card("EN ÇOK HASAR ALAN","taken","tk")}<div class="g tk">OTURUM<small>${ps.length} oyuncu · ${dur(f.duration)}</small><b>${fmtK(f.totalDamage)}</b></div></div>`;
+  const lists=`<div class="tl">${has?top5("En büyük vuruş · TOP 5",ps,"hit")+top5("5 sn burst hasar · TOP 5",ps,"burst5")+top5("10 sn burst hasar · TOP 5",ps,"burst10"):""}${top5("Toplam hasar · TOP 5",ps,"damage")}${top5("Etkili heal · TOP 5",ps,"heal","h")}${top5("Overheal · TOP 5",ps,"overheal","h")}${top5("Alınan hasar · TOP 5",ps,"taken","tk")}${has?top5("Saldırılan hedef · TOP 5",ps,"targets","tk"):""}</div>`;
+  let types="";
+  if(has){const t=[0,0,0];ps.forEach(p=>(p.dtype||[]).forEach((v,i)=>t[i]+=v||0));const T=t[0]+t[1]+t[2]||1;
+    types=`<div class="tb" style="margin-bottom:12px"><h4>Hasar türü</h4><div class="dt">${["Büyü","Fiziksel","Gerçek"].map((l,j)=>{const v=t[[1,0,2][j]];return `<div>${l} hasar<b>${fmtK(v)}</b>${(v/T*100).toFixed(1).replace(".",",")}%</div>`}).join("")}</div></div>`}
+  const S={};ps.forEach(p=>(p.spells||[]).forEach(s=>{if(!s.damage)return;const x=S[s.key]=S[s.key]||{key:s.key,damage:0,w:p.weapon};x.damage+=s.damage}));
+  const sl=Object.values(S).sort((a,b)=>b.damage-a.damage).slice(0,10),sT=Object.values(S).reduce((a,x)=>a+x.damage,0)||1,sM=sl.length?sl[0].damage:1;
+  const ab=sl.length?`<div class="tb"><h4>Skill bazında hasar · TOP 10</h4><div class="ab">${sl.map((x,i)=>`<div class="tr"><span class="r">${i+1}.</span>${spIcon(x.key,x.w)}<span class="nm2">${esc(spName(x.key))}</span><span class="bb"><i style="width:${(x.damage/sM*100).toFixed(1)}%"></i></span><span class="vv">${fmtK(x.damage)}</span><span class="st" style="text-align:right">${(x.damage/sT*100).toFixed(1).replace(".",",")}%</span></div>`).join("")}</div></div>`:"";
+  return old+cards+lists+types+ab;
+}
+function renderTop(){
+  if(!status)return;
+  const lv=status.live;
+  $("topInfo").textContent=lv?`${dur(lv.duration)} · ${lv.players.length} oyuncu${status.paused?" · duraklatıldı":""}`:"";
+  $("topLive").innerHTML=lv?(status.version<14?`<div class="st" style="margin-bottom:10px">En büyük vuruş, burst, hasar türü ve hedef sayısı için toplayıcının v14 ya da üstü olması gerekiyor (sende v${status.version}). Yukarıdaki <b>Güncelle</b> düğmesini kullan.</div>`:"")+topHTML(lv)
+    :`<div class="empty">Aktif oturum yok. Partin vuruşmaya başlayınca istatistikler burada canlı dolar; DPS Meter sekmesinde <b>Bitir ve kaydet</b>'e basınca aşağıya geçmiş oturum olarak eklenir.</div>`;
+  const sig=JSON.stringify([fights.length,fights[0]&&fights[0].id,[...topOpen],Object.keys(SN).length]);
+  if(sig===topSig)return;topSig=sig;
+  $("topHist").innerHTML=fights.map(f=>{const on=topOpen.has(f.id),top=f.players&&f.players[0];
+    return `<div class="hi${on?" on":""}"><button class="hr" data-top="${esc(f.id)}" aria-expanded="${on}"><span class="hc"><b>${dayOf(f.start)} ${tm(f.start)}</b></span><span class="hc"><small>Süre</small><b>${dur(f.duration)}</b></span><span class="hc"><small>Hasar</small><b>${fmtK(f.totalDamage)}</b></span><span class="hc hide-s"><small>En iyi</small><b>${top?esc(top.name):"–"}</b></span><span class="chev">${on?"▲":"▼"}</span></button>${on?`<div class="hd" style="padding-top:12px">${topHTML(f)}</div>`:""}</div>`}).join("");
+}
+$("topHist").addEventListener("click",e=>{const b=e.target.closest("[data-top]");if(!b)return;const id=b.dataset.top;topOpen.has(id)?topOpen.delete(id):topOpen.add(id);renderTop()});
 
 poll();setInterval(poll,2000);
 </script>
