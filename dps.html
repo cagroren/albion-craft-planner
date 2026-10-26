@@ -601,9 +601,11 @@ function renderLog(){
   if(!status)return;
   if(status.version<LOOT_NEED){$("logBody").innerHTML=`<tr><td class="st">Olay günlüğü için toplayıcının v${LOOT_NEED} ya da üstü olması gerekiyor (sende v${status.version}).</td></tr>`;return}
   if(!LOG)return;
-  const k=$("logK").value,L=LOG.filter(e=>!k||e.k===k).slice(0,500),sig=JSON.stringify([k,L.length,L[0]&&L[0].t]);
+  // Loot satırlarından sadece sen ve parti arkadaşların (yakındaki yabancıların aldıkları gösterilmez)
+  const pt=status.party||[],mine=LOG.filter(e=>e.k!=="loot"||e.party||pt.includes(e.by));
+  const k=$("logK").value,L=mine.filter(e=>!k||e.k===k).slice(0,500),sig=JSON.stringify([k,L.length,L[0]&&L[0].t]);
   if(sig===logSig)return;logSig=sig;
-  $("logInfo").textContent=LOG.length?`${LOG.length} olay`:"";
+  $("logInfo").textContent=mine.length?`${mine.length} olay · sadece sen ve partin`:"";
   let last="";
   $("logBody").innerHTML=L.length?L.map(e=>{const d=dayOf(e.t*1000),h=d!==last?`<tr><td colspan="3" class="st" style="padding-top:12px">${d}</td></tr>`:"";last=d;
     return h+`<tr><td class="st">${new Date(e.t*1000).toLocaleTimeString("tr-TR")}</td><td class="k">${LK[e.k]||esc(e.k)}</td><td>${logText(e)}</td></tr>`}).join("")
