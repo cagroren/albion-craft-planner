@@ -116,8 +116,10 @@ def classify(name):
 
 
 def tcat(name):
-    """Zemin sınıfı: v boşluk (tıklanamayan dolgu), a Avalon taş zemini, w su; diğerleri çizilmez."""
+    """Zemin sınıfı: v boşluk (tıklanamayan dolgu), a Avalon taş zemini, w su, r ana yol; diğerleri çizilmez."""
     u = name.upper()
+    if u.startswith("_ROADS_MIST_ROAD_"):
+        return "r"
     if "NOCLICK" in u:
         return "v"
     if re.search(r"AVA_GROUND_(A_BRIGHT|STONES|INNERCORNER|STONEPATH)", u):
@@ -159,7 +161,7 @@ def template(ref):
             for c in el:
                 if c.tag == "layer":
                     walk(c, c.get("id"))
-                elif c.tag == "tile":
+                elif c.tag in ("tile", "compoundtile"):  # ana yollar compoundtile
                     n = c.get("name") or ""
                     pts, ter = layers.setdefault(lid, ([], []))
                     p = [float(v) for v in c.get("pos", "0 0 0").split()]
@@ -173,9 +175,7 @@ def template(ref):
                     walk(c, lid)
 
         if ref in TPL:
-            t = xml(TPL[ref]).find("tiles")
-            if t is not None:
-                walk(t, None)
+            walk(xml(TPL[ref]), None)
         else:
             print("şablon yok:", ref, file=sys.stderr)
         _tpl[ref] = layers
@@ -210,12 +210,33 @@ def layout(file):
     return slots, pts, homes, ter
 
 
+def roads(ter):
+    """Ana yol: parçalar seyrek dizili; aynı hizadaki (doğu-batı / kuzey-güney) en yakın komşular çizgiyle bağlanır."""
+    ns = []
+    for tc, x, z, *_ in ter:
+        if tc == "r" and all(abs(x - a) > 2 or abs(z - b) > 2 for a, b in ns):
+            ns.append((x, z))
+    seg = set()
+    for i, (x, z) in enumerate(ns):
+        for axis in (0, 1):
+            best = None
+            for j, (a, b) in enumerate(ns):
+                d, off = (a - x, b - z) if axis == 0 else (b - z, a - x)
+                if 0 < d <= 90 and abs(off) <= 6 and (best is None or d < best[0]):
+                    best = (d, j)
+            if best:
+                seg.add(tuple(sorted((i, best[1]))))
+    return [[round(ns[a][0]), round(ns[a][1]), round(ns[b][0]), round(ns[b][1])] for a, b in sorted(seg)]
+
+
 def raster(ter, bb):
+    ter_all = ter
     """Zemini CELL'lik ızgaraya döker: '.' boşluk, 'g' yürünebilir, 'a' Avalon zemini, 'w' su.
     Satırlar kuzeyden (büyük z) başlar; her satır 'harf+sayı' koşularıdır (ör. .12g30a4)."""
     x0, z0, x1, z1 = bb
     W, H = math.ceil((x1 - x0) / CELL), math.ceil((z1 - z0) / CELL)
     g = bytearray(b"g" * (W * H))
+    ter = [t for t in ter if t[0] != "r"]
     order = {"v": 0, "a": 1, "w": 2}
     for tc, x, z, ang, (w, h, ox, oy) in sorted(ter, key=lambda t: order[t[0]]):
         ch = {"v": b".", "a": b"a", "w": b"w"}[tc]
@@ -249,7 +270,7 @@ def raster(ter, bb):
             out.append(chr(row[i]) + str(j - i))
             i = j
         rows.append("".join(out))
-    return {"c": CELL, "w": W, "h": H, "r": rows}
+    return {"c": CELL, "w": W, "h": H, "r": rows, "rd": roads(ter_all)}
 
 
 def summary(pts):

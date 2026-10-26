@@ -161,7 +161,7 @@ function show(r){
       <div><span>Kaynak noktası</span><b>${total(s.r)}</b></div>
       <div><span>Sandık</span><b>${total(s.c)}</b></div>
       <div><span>Dungeon girişi</span><b>${total(s.d)}</b></div>
-      <div><span>Portal çıkışı</span><b>${r.pt.length}</b></div>
+      <div title="Haritadaki portal yerleri; hangilerinin açık olduğu ve nereye bağlandığı oyunda sürekli değişir"><span>Portal yeri</span><b>${r.pt.length}</b></div>
       ${L.h?`<div><span>Hideout alanı</span><b>${L.h}</b></div>`:""}
     </div></section>
     <section><h2>Kaynaklar</h2>${res?`<table>${res}</table>`:'<div class="empty">Bu haritada toplanabilir kaynak yok.</div>'}</section>
@@ -198,10 +198,11 @@ async function draw(){
     T.r.forEach((row,i)=>{let x=x0;const z=ztop-(i+1)*c;
       for(const m of row.matchAll(/([.gaw])(\d+)/g)){const n=+m[2];
         if(m[1]!==".")paths[m[1]]+=`M${x} ${z}h${n*c}v${c}h${-n*c}z`;
-        if(m[1]==="a"||m[1]==="w")paths.g+=`M${x} ${z}h${n*c}v${c}h${-n*c}z`;
+        if(m[1]!=="."&&m[1]!=="g")paths.g+=`M${x} ${z}h${n*c}v${c}h${-n*c}z`;
         x+=n*c}});
+    const rd=(T.rd||[]).map(([a,b,c2,d])=>`M${a} ${b}L${c2} ${d}`).join("");
     const M=`matrix(${ISO} ${ISO*SQ} ${ISO} ${-ISO*SQ} ${-(cx+cz)*ISO} ${-(cx-cz)*ISO*SQ})`;
-    ter=`<g transform="${M}"><path d="${paths.g}" fill="none" stroke="#b07a45" stroke-width="5" stroke-linejoin="round"/><path d="${paths.g}" fill="#6e4528"/><path d="${paths.a}" fill="#c98a4b"/><path d="${paths.w}" fill="#3d6fa8"/></g>`;
+    ter=`<g transform="${M}"><path d="${paths.g}" fill="none" stroke="#b07a45" stroke-width="5" stroke-linejoin="round"/><path d="${paths.g}" fill="#6e4528"/><path d="${paths.a}" fill="#c98a4b"/><path d="${paths.w}" fill="#3d6fa8"/>${rd?`<path d="${rd}" fill="none" stroke="#7a4a1e" stroke-width="18" stroke-linecap="round"/><path d="${rd}" fill="none" stroke="#eda24e" stroke-width="13" stroke-linecap="round"/>`:""}</g>`;
   }
   // kaynak düğümlerini yakınlığa göre tek ikonda topla
   const res=[];
@@ -229,7 +230,7 @@ async function draw(){
     <polygon points="${rim}" fill="#2b2238" stroke="#d6a86a" stroke-width="${u*1.6}" stroke-linejoin="round"/>
     ${ter}${pts.map(icon).join("")}</svg><div class="tip" id="tip" hidden></div>`;
 }
-const lab=p=>{const [k,sub,t]=p;return k==="c"?`${CH[sub][0]} (${CH[sub][2]})`:k==="b"?`${LV[sub]} boss`:k==="d"?(sub.endsWith("AVA")?"Avalon Raid Dungeon":`${LV[sub.split(":")[0]]} dungeon (${FAC[sub.split(":")[1]]||""}) T${t}`):k==="h"?"Hideout alanı":"Portal"};
+const lab=p=>{const [k,sub,t]=p;return k==="c"?`${CH[sub][0]} (${CH[sub][2]})`:k==="b"?`${LV[sub]} boss`:k==="d"?(sub.endsWith("AVA")?"Avalon Raid Dungeon":`${LV[sub.split(":")[0]]} dungeon (${FAC[sub.split(":")[1]]||""}) T${t}`):k==="h"?"Hideout alanı":"Portal yeri (bağlantı oyunda değişir)"};
 
 document.addEventListener("click",e=>{
   const o=e.target.closest("#dd [data-i]");if(o){pick(list[+o.dataset.i]);return}
