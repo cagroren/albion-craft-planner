@@ -1,11 +1,11 @@
 """data/maps.json üretir: Avalon Roads haritalarının içeriği (Maps sekmesi).
 
 Kaynak: ao-data/ao-bin-dumps
-  cluster/world.xml (West), world_europe.xml (Europe), world_asia.xml (East) + *_patch.xml:
-    harita adı, tipi, hangi cluster dosyasını kullandığı, portallar (tunnelexit)
+  cluster/world.xml: harita adı, tipi, hangi cluster dosyasını kullandığı, portallar (tunnelexit)
+    (world_europe.xml / world_asia.xml 2023-2024'ten beri güncellenmiyor; oyun artık her sunucuda
+    world.xml'i kullanıyor, örn. Hebitos-Atontum Europe'ta da T6)
   cluster/TNL-*.cluster.xml: haritayı oluşturan şablonlar ve aktif katmanlar
   templates/*/*.template.xml: katmanlardaki kaynak düğümleri, sandıklar, boss'lar, dungeon girişleri
-Sunucular farklı cluster dosyası (farklı tier/içerik) kullanabildiği için her sunucu ayrı listelenir.
 
 Oyun güncellenince tekrar çalıştır:  py -3 tools/gen_maps.py
 İndirilenler önbelleğe alınır (varsayılan: %TEMP%/ao-bin-cache); --fresh ile yeniden indirir.
@@ -27,7 +27,7 @@ TERDIR = os.path.join(os.path.dirname(OUT), "maps")  # harita başına zemin ız
 CELL = 5  # ızgara hücresi (oyun birimi)
 CACHE = os.path.join(tempfile.gettempdir(), "ao-bin-cache")
 FRESH = "--fresh" in sys.argv
-SERVERS = {"west": "world", "europe": "world_europe", "east": "world_asia"}
+SERVERS = {"all": "world"}
 
 os.makedirs(CACHE, exist_ok=True)
 
@@ -294,6 +294,9 @@ for w in servers.values():
         dists.setdefault(m["f"], m["dist"])
 
 os.makedirs(TERDIR, exist_ok=True)
+for old in os.listdir(TERDIR):  # artık kullanılmayan haritaların ızgaraları kalmasın
+    if old.endswith(".json"):
+        os.remove(os.path.join(TERDIR, old))
 L, slotmap = {}, {}
 for f in files:
     slots, pts, homes, ter = layout(f)
@@ -314,7 +317,7 @@ for f in files:
     with open(os.path.join(TERDIR, key + ".json"), "w", encoding="utf-8") as fh:
         json.dump(raster(ter, bb), fh, separators=(",", ":"))
 
-out = {"src": "ao-data/ao-bin-dumps (cluster/world*.xml, cluster/TNL-*.cluster.xml, templates)", "L": L, "S": {}}
+out = {"src": "ao-data/ao-bin-dumps (cluster/world*.xml, cluster/TNL-*.cluster.xml, templates)", "L": L, "S": []}
 for s, w in servers.items():
     rows = []
     for cid in sorted(w):
@@ -323,7 +326,7 @@ for s, w in servers.items():
         portals = [slotmap[key][e] for e in m["exits"] if e in slotmap[key]]
         # son alan: sunucuda kapalıysa 0 (nüfusa göre yolların bir kısmı kapatılıyor)
         rows.append([cid, m["n"], key, m["ty"], portals, 1 if m["on"] else 0])
-    out["S"][s] = rows
+    out["S"] = rows
     print(s, len(rows), "harita,", sum(r[5] for r in rows), "açık", file=sys.stderr)
 
 with open(OUT, "w", encoding="utf-8") as fh:

@@ -69,7 +69,6 @@ td.nm img{width:32px;height:32px}
 <section>
   <div class="srch">
     <div class="ac"><input id="q" type="search" placeholder="Harita adı yaz (örn. Qiitun-Et-Vynsom)" aria-label="Harita adı" autocomplete="off" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="dd"><div class="dd" id="dd" role="listbox" hidden></div></div>
-    <label class="st" style="display:flex;align-items:center;gap:8px">Sunucu<select id="srv" aria-label="Sunucu"><option value="europe">Europe</option><option value="west">Americas (West)</option><option value="east">Asia (East)</option></select></label>
   </div>
   <div class="rec" id="rec"></div>
   <div class="st" id="info" style="margin-top:8px">Yükleniyor...</div>
@@ -85,7 +84,6 @@ const norm=s=>String(s||"").toLowerCase().replace(/[^a-z0-9]/g,"");
 const LS=(()=>{try{return JSON.parse(localStorage.getItem("aomaps1")||"{}")}catch(e){return {}}})();
 LS.rec=LS.rec||[];
 const saveLS=()=>{try{localStorage.setItem("aomaps1",JSON.stringify(LS))}catch(e){}};
-const SRV={europe:"Europe",west:"Americas",east:"Asia"};
 const TYPE={
   TUNNEL_ROYAL:["Royal bağlantılı","Royal kıtaya portal açılabilir"],
   TUNNEL_ROYAL_RED:["Royal (kırmızı) bağlantılı","Royal kırmızı bölgelere portal açılabilir"],
@@ -110,13 +108,12 @@ const chb=k=>`<span class="tb" style="background:${CH[k][1]};color:#0b0f14">${CH
 const icon=(id,s)=>`<img loading="lazy" src="https://render.albiononline.com/v1/item/${id}.png?size=${s||64}" alt="" onerror="this.style.visibility='hidden'">`;
 
 let D=null,rows=[],cur=null,hl=-1,list=[];
-const srvSel=$("srv");srvSel.value=SRV[LS.srv]?LS.srv:"europe";
 LS.hide=LS.hide||{b:true};
 
 function index(){
-  rows=D.S[srvSel.value].map(r=>({id:r[0],n:r[1],k:r[2],ty:r[3],pt:r[4],on:!!r[5],nn:norm(r[1]),L:D.L[r[2]]}));
+  rows=D.S.map(r=>({id:r[0],n:r[1],k:r[2],ty:r[3],pt:r[4],on:!!r[5],nn:norm(r[1]),L:D.L[r[2]]}));
   const open=rows.filter(r=>r.on).length;
-  $("info").textContent=`${SRV[srvSel.value]} sunucusunda ${open} açık Avalon yolu${open<rows.length?` (${rows.length-open} tanesi bu sunucuda kapalı)`:""}. Yazmaya başla, listeden seç.`;
+  $("info").textContent=`${open} Avalon yolu. Yazmaya başla, listeden seç.`;
 }
 function find(q){
   const n=norm(q);if(!n)return [];
@@ -144,7 +141,6 @@ function recent(){$("rec").innerHTML=LS.rec.length?'<span class="st" style="alig
 function chips(o,fn){return Object.keys(o).sort((a,b)=>a-b).map(t=>fn(t,o[t])).join("")}
 function show(r){
   cur=r;const L=r.L,s=L.s,ty=TYPE[r.ty]||[r.ty,""];
-  const other=Object.keys(SRV).filter(k=>k!==srvSel.value).map(k=>{const x=D.S[k].find(y=>y[1]===r.n);return x?`${SRV[k]}: ${x[5]?"T"+D.L[x[2]].t:"kapalı"}`:""}).filter(Boolean).join(" · ");
   const total=o=>Object.values(o||{}).reduce((a,v)=>a+Object.values(v).reduce((x,y)=>x+y,0),0);
   const res=s.r?RES.filter(x=>s.r[x[0]]).map(([k,n])=>`<tr><td class="nm">${icon("T"+Math.max(...Object.keys(s.r[k]))+"_"+k,64)}${n}</td><td><div class="ch">${chips(s.r[k],(t,c)=>`<span>${tb(t)}×${c}</span>`)}</div></td></tr>`).join(""):"";
   const lvs=o=>Object.keys(o||{}).sort((a,b)=>Object.keys(LV).indexOf(a.split(":")[0])-Object.keys(LV).indexOf(b.split(":")[0]));
@@ -152,8 +148,8 @@ function show(r){
   const cnt=(o,lab)=>lvs(o).map(k=>`<tr><td class="nm">${lab(k)}</td><td><b>${Object.values(o[k]).reduce((a,b)=>a+b,0)}</b></td></tr>`).join("");
   const dg=grp(s.d,k=>{const [lv,f]=k.split(":");return f==="AVA"?"Avalon Raid Dungeon":`${LV[lv]} dungeon <span class="st">· ${FAC[f]||f}</span>`});
   $("out").innerHTML=`<section>
-    <div class="head">${tb(L.t)}<h3>${esc(r.n)}</h3><span class="pill">${esc(ty[0])}</span>${r.on?"":`<span class="pill off">Bu sunucuda kapalı</span>`}</div>
-    <div class="st" style="margin-top:6px">${esc(ty[1])}${ty[1]?" · ":""}${esc(r.id)} · ${esc(r.ty)}${other?" · Diğer sunucular: "+esc(other):""}</div>
+    <div class="head">${tb(L.t)}<h3>${esc(r.n)}</h3><span class="pill">${esc(ty[0])}</span>${r.on?"":`<span class="pill off">Oyunda kapalı</span>`}</div>
+    <div class="st" style="margin-top:6px">${esc(ty[1])}${ty[1]?" · ":""}${esc(r.id)} · ${esc(r.ty)}</div>
   </section>
   <div class="lay"><div>
     <section><div class="kv">
@@ -253,7 +249,6 @@ $("q").addEventListener("keydown",e=>{
   else if(e.key==="Enter"){e.preventDefault();if(!list.length)list=find($("q").value),hl=0;if(list[hl])pick(list[hl])}
   else if(e.key==="Escape")$("dd").hidden=true;
 });
-srvSel.addEventListener("change",()=>{LS.srv=srvSel.value;saveLS();index();const n=cur&&cur.n;cur=null;$("out").innerHTML="";const r=n&&rows.find(x=>x.n===n);if(r)show(r)});
 
 recent();
 fetch("data/maps.json").then(r=>r.json()).then(j=>{
