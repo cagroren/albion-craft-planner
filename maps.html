@@ -52,8 +52,8 @@ td.nm img{width:32px;height:32px}
 .ch{display:flex;gap:6px;flex-wrap:wrap}
 .ch>span{display:inline-flex;align-items:center;gap:5px;background:var(--card2);border:1px solid var(--line);border-radius:8px;padding:2px 8px 2px 3px;font-size:13px;font-weight:700}
 .empty{color:var(--mut);padding:6px 0}
-.mapw{position:relative;background:#0a0e12;border:1px solid var(--line);border-radius:12px;overflow:hidden}
-.mapw svg{display:block;width:100%;height:auto;max-height:640px}
+.mapw{position:relative;background:#14101b;border:1px solid var(--line);border-radius:12px;overflow:hidden}
+.mapw svg{display:block;width:100%;height:auto;max-height:720px}
 .mtools{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:10px}
 .mtools label{display:inline-flex;align-items:center;gap:5px;font-size:13px;color:var(--mut);cursor:pointer;border:1px solid var(--line);border-radius:8px;padding:3px 8px}
 .mtools label i{width:10px;height:10px;border-radius:50%;display:inline-block}
@@ -102,7 +102,7 @@ const RES=[["WOOD","Odun","#b5835a"],["ROCK","Taş","#a3acb8"],["ORE","Cevher","
 const RESN=Object.fromEntries(RES.map(r=>[r[0],r]));
 const LV={solo:"Solo",group:"Grup",raid:"Raid"};
 const FAC={KPR:"Keeper",HER:"Heretic",MOR:"Morgana",UND:"Undead",AVA:"Avalon"};
-const KIND={r:["Kaynak","#7fc35a"],c:["Sandık","#e3b341"],b:["Boss","#f85149"],d:["Dungeon","#b77cff"],p:["Portal","#39c5cf"]};
+const KIND={r:["Kaynak","#7fc35a"],c:["Sandık","#e3b341"],d:["Dungeon","#b77cff"],p:["Portal","#39c5cf"],h:["Hideout","#c0392b"],b:["Boss","#f85149"]};
 const tb=t=>`<span class="tb t${t}">T${t}</span>`;
 // Sandık rengi türüne göre sabit (lootchests.xml minimap işareti): solo yeşil, grup mavi, raid (elite) altın
 const CH={solo:["Yeşil sandık","#3fb950","solo"],group:["Mavi sandık","#4c8dff","grup"],raid:["Altın sandık","#e3b341","raid / elite"]};
@@ -111,7 +111,7 @@ const icon=(id,s)=>`<img loading="lazy" src="https://render.albiononline.com/v1/
 
 let D=null,rows=[],cur=null,hl=-1,list=[];
 const srvSel=$("srv");srvSel.value=SRV[LS.srv]?LS.srv:"europe";
-LS.hide=LS.hide||{};LS.rot=LS.rot||0;
+LS.hide=LS.hide||{b:true};
 
 function index(){
   rows=D.S[srvSel.value].map(r=>({id:r[0],n:r[1],k:r[2],ty:r[3],pt:r[4],on:!!r[5],nn:norm(r[1]),L:D.L[r[2]]}));
@@ -168,48 +168,77 @@ function show(r){
     <section><h2>Sandıklar ve boss'lar</h2>${s.c||s.b?`<table>${cnt(s.c,chb)}${cnt(s.b,k=>LV[k]+" boss")}</table>`:'<div class="empty">Sandık yok.</div>'}</section>
     <section><h2>Dungeon'lar</h2>${dg?`<table>${dg}</table>`:'<div class="empty">Dungeon girişi yok.</div>'}</section>
   </div>
-  <section><h2>Şematik harita</h2>
-    <div class="mtools" id="mt">${Object.entries(KIND).map(([k,[n,c]])=>`<label><input type="checkbox" data-k="${k}"${LS.hide[k]?"":" checked"}><i style="background:${c}"></i>${n}</label>`).join("")}<span style="flex:1"></span><button type="button" id="rot" title="Haritayı 45° döndür">Döndür ↻</button></div>
+  <section><h2>Harita</h2>
+    <div class="mtools" id="mt">${Object.entries(KIND).map(([k,[n,c]])=>`<label><input type="checkbox" data-k="${k}"${LS.hide[k]?"":" checked"}><i style="background:${c}"></i>${n}</label>`).join("")}</div>
     <div class="mapw" id="mw"></div>
-    <div class="st" style="margin-top:8px">Noktaların üzerine gel: tür ve tier görünür. Çizim oyunun koordinatlarından üretilir; yönü oyundaki minimapla aynı değilse Döndür ile çevir.</div>
+    <div class="st" style="margin-top:8px">İkonların üzerine gel: tür ve tier görünür. Yollar, sandıklar ve portallar oyunun kendi harita dosyalarından çizilir.</div>
   </section></div>`;
   draw();
 }
-function draw(){
+const TER={};
+// Oyun kamerası gibi: harita 45° dönük, dikeyde basık. dz>0 kuzey.
+const ISO=Math.SQRT1_2,SQ=.72;
+async function draw(){
   const r=cur,L=r.L,[x0,z0,x1,z1]=L.bb,cx=(x0+x1)/2,cz=(z0+z1)/2;
-  const a=LS.rot*Math.PI/180,ca=Math.cos(a),sa=Math.sin(a);
-  // oyunda z kuzey: ekranda yukarı
-  const P=(x,z)=>{const dx=x-cx,dz=-(z-cz);return [dx*ca-dz*sa,dx*sa+dz*ca]};
+  const P=(x,z)=>{const dx=x-cx,dz=z-cz;return [(dx+dz)*ISO,(dx-dz)*ISO*SQ]};
   const corners=[[x0,z0],[x1,z0],[x1,z1],[x0,z1]].map(c=>P(...c));
-  const xs=corners.map(c=>c[0]),ys=corners.map(c=>c[1]),pad=30;
+  const xs=corners.map(c=>c[0]),ys=corners.map(c=>c[1]),pad=40;
   const vb=[Math.min(...xs)-pad,Math.min(...ys)-pad,Math.max(...xs)-Math.min(...xs)+pad*2,Math.max(...ys)-Math.min(...ys)+pad*2];
-  const u=Math.max(vb[2],vb[3])/100;
-  const lab=p=>{const [k,sub,t]=p;return k==="r"?`${RESN[sub][1]} T${t}`:k==="c"?`${CH[sub][0]} (${CH[sub][2]})`:k==="b"?`${LV[sub]} boss`:k==="d"?(sub.endsWith("AVA")?"Avalon Raid Dungeon":`${LV[sub.split(":")[0]]} dungeon (${FAC[sub.split(":")[1]]||""}) T${t}`):"Portal"};
-  const col=p=>p[0]==="r"?RESN[p[1]][2]:p[0]==="c"?CH[p[1]][1]:KIND[p[0]][1];
-  const pts=L.p.concat(r.pt.map(q=>["p","",0,q[0],q[1]])).filter(p=>!LS.hide[p[0]]);
-  const order={r:0,b:1,c:2,d:3,p:4};pts.sort((p,q)=>order[p[0]]-order[q[0]]);
-  const shape=p=>{const [X,Y]=P(p[3],p[4]),c=col(p),t=esc(lab(p));
-    if(p[0]==="r")return `<circle cx="${X}" cy="${Y}" r="${u*.9}" fill="${c}" stroke="#0a0e12" stroke-width="${u*.25}" data-t="${t}"/>`;
-    if(p[0]==="c")return `<rect x="${X-u*1.4}" y="${Y-u*1.1}" width="${u*2.8}" height="${u*2.2}" rx="${u*.4}" fill="${c}" stroke="#0a0e12" stroke-width="${u*.3}" data-t="${t}"/>`;
-    if(p[0]==="b")return `<path d="M${X} ${Y-u*1.8}L${X+u*1.6} ${Y+u*1.2}L${X-u*1.6} ${Y+u*1.2}Z" fill="${c}" stroke="#0a0e12" stroke-width="${u*.3}" data-t="${t}"/>`;
-    if(p[0]==="d")return `<path d="M${X} ${Y-u*2.2}L${X+u*2.2} ${Y}L${X} ${Y+u*2.2}L${X-u*2.2} ${Y}Z" fill="${c}" stroke="#0a0e12" stroke-width="${u*.3}" data-t="${t}"/>`;
-    return `<circle cx="${X}" cy="${Y}" r="${u*2}" fill="none" stroke="${c}" stroke-width="${u*.8}" data-t="${t}"/><circle cx="${X}" cy="${Y}" r="${u*.7}" fill="${c}" data-t="${t}"/>`};
-  const tiles=L.p.map(p=>P(p[3],p[4]));
-  $("mw").innerHTML=`<svg viewBox="${vb.join(" ")}" role="img" aria-label="${esc(r.n)} şematik harita">
-    <polygon points="${corners.map(c=>c.join(",")).join(" ")}" fill="#0f151c" stroke="#252d38" stroke-width="${u*.3}"/>
-    ${tiles.map(([X,Y])=>`<circle cx="${X}" cy="${Y}" r="${u*6}" fill="#16202a"/>`).join("")}
-    ${pts.map(shape).join("")}</svg><div class="tip" id="tip" hidden></div>`;
+  const u=vb[2]/100;
+  if(!TER[r.k]){
+    $("mw").innerHTML='<div class="empty" style="padding:20px">Harita çiziliyor...</div>';
+    try{TER[r.k]=await fetch("data/maps/"+r.k+".json").then(x=>x.json())}catch(e){TER[r.k]=null}
+    if(cur!==r)return;
+  }
+  const T=TER[r.k];
+  // zemin: dünya düzleminde koşu dikdörtgenleri, matrisle oyun açısına çevrilir
+  let ter="";
+  if(T){
+    const paths={g:"",a:"",w:""},c=T.c,ztop=z0+T.h*c;
+    T.r.forEach((row,i)=>{let x=x0;const z=ztop-(i+1)*c;
+      for(const m of row.matchAll(/([.gaw])(\d+)/g)){const n=+m[2];
+        if(m[1]!==".")paths[m[1]]+=`M${x} ${z}h${n*c}v${c}h${-n*c}z`;
+        if(m[1]==="a"||m[1]==="w")paths.g+=`M${x} ${z}h${n*c}v${c}h${-n*c}z`;
+        x+=n*c}});
+    const M=`matrix(${ISO} ${ISO*SQ} ${ISO} ${-ISO*SQ} ${-(cx+cz)*ISO} ${-(cx-cz)*ISO*SQ})`;
+    ter=`<g transform="${M}"><path d="${paths.g}" fill="none" stroke="#b07a45" stroke-width="5" stroke-linejoin="round"/><path d="${paths.g}" fill="#6e4528"/><path d="${paths.a}" fill="#c98a4b"/><path d="${paths.w}" fill="#3d6fa8"/></g>`;
+  }
+  // kaynak düğümlerini yakınlığa göre tek ikonda topla
+  const res=[];
+  L.p.filter(p=>p[0]==="r").forEach(p=>{const g=res.find(q=>q.k===p[1]&&Math.hypot(q.x-p[3],q.z-p[4])<60);
+    if(g){g.n.push(p[2]);g.x=(g.x*(g.n.length-1)+p[3])/g.n.length;g.z=(g.z*(g.n.length-1)+p[4])/g.n.length}else res.push({k:p[1],n:[p[2]],x:p[3],z:p[4]})});
+  const pts=[];
+  if(!LS.hide.r)res.forEach(g=>pts.push(["r",g]));
+  L.p.forEach(p=>{if(p[0]!=="r"&&!LS.hide[p[0]])pts.push([p[0],p])});
+  if(!LS.hide.p)r.pt.forEach(q=>pts.push(["p",["p","",0,q[0],q[1]]]));
+  const xy=([k,o])=>k==="r"?P(o.x,o.z):P(o[3],o[4]);
+  pts.sort((a,b)=>xy(a)[1]-xy(b)[1]);  // arkadakiler önce
+  const icon=([k,o])=>{const [X,Y]=xy([k,o]);
+    if(k==="r"){const t=Math.max(...o.n),cnt={};o.n.forEach(v=>cnt[v]=(cnt[v]||0)+1);
+      const tip=`${RESN[o.k][1]}: `+Object.keys(cnt).sort().map(v=>`T${v}×${cnt[v]}`).join(", ");
+      return `<g data-t="${esc(tip)}"><ellipse cx="${X}" cy="${Y+u*1.6}" rx="${u*2.6}" ry="${u*1}" fill="#000" opacity=".35"/><image href="https://render.albiononline.com/v1/item/T${t}_${o.k}.png?size=64" x="${X-u*3}" y="${Y-u*3.6}" width="${u*6}" height="${u*6}"/></g>`}
+    const t=esc(lab(o));
+    if(k==="c"){const c=CH[o[1]][1],w=o[1]==="group"?1.3:1;
+      return `<g data-t="${t}" transform="translate(${X} ${Y}) scale(${u*w})"><ellipse cx="0" cy="1.4" rx="3.2" ry="1.2" fill="#000" opacity=".4"/><circle cx="0" cy="-2.6" r="2.6" fill="${c}" opacity=".35"/><path d="M-2.6 -1.2L0 0.2L2.6 -1.2V1L0 2.4L-2.6 1Z" fill="#7d8794"/><path d="M-2.6 -1.2L0 -2.6L2.6 -1.2L0 0.2Z" fill="#c4ccd6"/><path d="M-1.5 -1.6L0 -2.4L1.5 -1.6L0 -0.8Z" fill="${c}"/><path d="M-2.6 -0.3L0 1.1L2.6 -0.3" fill="none" stroke="${c}" stroke-width=".35"/></g>`}
+    if(k==="p")return `<g data-t="${t}" transform="translate(${X} ${Y}) scale(${u})"><ellipse cx="0" cy="1.3" rx="3.4" ry="1.3" fill="#000" opacity=".35"/><circle cx="0" cy="-1" r="3" fill="#123848" stroke="#39c5cf" stroke-width=".6"/><path d="M0 -1m-1.9 0a1.9 1.9 0 1 1 1.9 1.9a1.2 1.2 0 1 1 -1.2 -1.2" fill="none" stroke="#bff3f7" stroke-width=".55" stroke-linecap="round"/></g>`;
+    if(k==="d")return `<g data-t="${t}" transform="translate(${X} ${Y}) scale(${u})"><ellipse cx="0" cy="1.3" rx="3" ry="1.1" fill="#000" opacity=".4"/><path d="M-2.4 1V-1.4A2.4 2.4 0 0 1 2.4 -1.4V1Z" fill="#4b2a6e" stroke="#b77cff" stroke-width=".5"/><path d="M-1.1 1V-0.9A1.1 1.1 0 0 1 1.1 -0.9V1Z" fill="#14081f"/></g>`;
+    if(k==="h")return `<g data-t="${t}" transform="translate(${X} ${Y}) scale(${u})"><ellipse cx="0" cy="1.2" rx="2.4" ry=".9" fill="#000" opacity=".35"/><path d="M-1.6 1V-1.2H1.6V1Z" fill="#9aa3ad"/><path d="M-2 -1.2L0 -2.6L2 -1.2Z" fill="#c0392b"/><path d="M0 -2.6V-4.4" stroke="#ddd" stroke-width=".2"/><path d="M0 -4.4L1.2 -4L0 -3.6Z" fill="#e74c3c"/></g>`;
+    return `<g data-t="${t}" transform="translate(${X} ${Y}) scale(${u})"><path d="M0 -2.4L1.6 0.6H-1.6Z" fill="#f85149" stroke="#0a0e12" stroke-width=".3"/></g>`};
+  const rim=corners.map(([X,Y])=>`${X},${Y}`).join(" ");
+  $("mw").innerHTML=`<svg viewBox="${vb.join(" ")}" role="img" aria-label="${esc(r.n)} haritası">
+    <polygon points="${rim}" fill="#2b2238" stroke="#d6a86a" stroke-width="${u*1.6}" stroke-linejoin="round"/>
+    ${ter}${pts.map(icon).join("")}</svg><div class="tip" id="tip" hidden></div>`;
 }
+const lab=p=>{const [k,sub,t]=p;return k==="c"?`${CH[sub][0]} (${CH[sub][2]})`:k==="b"?`${LV[sub]} boss`:k==="d"?(sub.endsWith("AVA")?"Avalon Raid Dungeon":`${LV[sub.split(":")[0]]} dungeon (${FAC[sub.split(":")[1]]||""}) T${t}`):k==="h"?"Hideout alanı":"Portal"};
 
 document.addEventListener("click",e=>{
   const o=e.target.closest("#dd [data-i]");if(o){pick(list[+o.dataset.i]);return}
   const b=e.target.closest("#rec [data-n]");if(b){const r=rows.find(x=>x.n===b.dataset.n);if(r)pick(r);return}
-  if(e.target.id==="rot"){LS.rot=(LS.rot+45)%360;saveLS();draw();return}
   if(!e.target.closest(".ac"))$("dd").hidden=true;
 });
 document.addEventListener("change",e=>{const k=e.target.dataset&&e.target.dataset.k;if(k&&e.target.closest("#mt")){LS.hide[k]=!e.target.checked;saveLS();draw()}});
 document.addEventListener("mousemove",e=>{
-  const tip=$("tip");if(!tip)return;const t=e.target.getAttribute&&e.target.getAttribute("data-t");
+  const tip=$("tip");if(!tip)return;const g=e.target.closest&&e.target.closest("[data-t]"),t=g&&g.getAttribute("data-t");
   if(!t){tip.hidden=true;return}
   const w=$("mw").getBoundingClientRect();tip.textContent=t;tip.hidden=false;
   tip.style.left=Math.min(e.clientX-w.left+12,w.width-tip.offsetWidth-4)+"px";tip.style.top=(e.clientY-w.top+12)+"px";

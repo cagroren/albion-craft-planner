@@ -23,6 +23,8 @@ from concurrent.futures import ThreadPoolExecutor
 BASE = "https://raw.githubusercontent.com/ao-data/ao-bin-dumps/master/"
 TREE = "https://api.github.com/repos/ao-data/ao-bin-dumps/git/trees/master?recursive=1"
 OUT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "data", "maps.json")
+TERDIR = os.path.join(os.path.dirname(OUT), "maps")  # harita başına zemin ızgarası (sayfa seçilen haritanınkini yükler)
+CELL = 5  # ızgara hücresi (oyun birimi)
 CACHE = os.path.join(tempfile.gettempdir(), "ao-bin-cache")
 FRESH = "--fresh" in sys.argv
 SERVERS = {"west": "world", "europe": "world_europe", "east": "world_asia"}
@@ -113,22 +115,67 @@ def classify(name):
     return None
 
 
+def tcat(name):
+    """Zemin sınıfı: v boşluk (tıklanamayan dolgu), a Avalon taş zemini, w su; diğerleri çizilmez."""
+    u = name.upper()
+    if "NOCLICK" in u:
+        return "v"
+    if re.search(r"AVA_GROUND_(A_BRIGHT|STONES|INNERCORNER|STONEPATH)", u):
+        return "a"
+    if "WATER" in u or "RIVER" in u:
+        return "w"
+    return None
+
+
+# tiles.xml: parçaların taban ölçüsü (genişlik, yükseklik, ofset)
+DIM = {}
+for _, e in ET.iterparse(get("cluster/tiles.xml")):
+    if e.tag == "tile":
+        n = e.get("name") or ""
+        if e.get("width") and tcat(n):
+            o = [float(v) for v in (e.get("offset") or "0 0").split()]
+            DIM[n] = (float(e.get("width")), float(e.get("height")), o[0], o[1])
+    e.clear()
+
+
+def dim(name):
+    if name in DIM:
+        return DIM[name]
+    m = re.search(r"(\d+)x(\d+)", name)
+    w, h = (float(m.group(1)), float(m.group(2))) if m else (10.0, 10.0)
+    return (w, h, -w / 2, -h / 2)
+
+
 _tpl = {}
 
 
 def template(ref):
-    """Şablonun katmanları: layer id -> [(sınıf, x, z)]"""
+    """Şablonun katmanları: layer id -> (noktalar [(sınıf, x, z)], zemin [(tür, x, z, roty, ölçü)]).
+    Katmansız parçalar None anahtarında, her zaman açık."""
     if ref not in _tpl:
         layers = {}
+
+        def walk(el, lid):
+            for c in el:
+                if c.tag == "layer":
+                    walk(c, c.get("id"))
+                elif c.tag == "tile":
+                    n = c.get("name") or ""
+                    pts, ter = layers.setdefault(lid, ([], []))
+                    p = [float(v) for v in c.get("pos", "0 0 0").split()]
+                    k = classify(n)
+                    if k and lid is not None:
+                        pts.append((k, p[0], p[2]))
+                    tc = tcat(n)
+                    if tc:
+                        ter.append((tc, p[0], p[2], float(c.get("roty", 0)), dim(n)))
+                else:
+                    walk(c, lid)
+
         if ref in TPL:
-            for L in xml(TPL[ref]).iter("layer"):
-                items = []
-                for t in L.iter("tile"):
-                    k = classify(t.get("name") or "")
-                    if k:
-                        p = [float(v) for v in t.get("pos", "0 0 0").split()]
-                        items.append((k, p[0], p[2]))
-                layers[L.get("id")] = items
+            t = xml(TPL[ref]).find("tiles")
+            if t is not None:
+                walk(t, None)
         else:
             print("şablon yok:", ref, file=sys.stderr)
         _tpl[ref] = layers
@@ -143,21 +190,66 @@ def rotate(x, z, deg):
 
 def layout(file):
     root = xml("cluster/" + file)
-    slots, pts = {}, []
-    hideouts = 0
+    slots, pts, ter, homes = {}, [], [], []
     for ti in root.iter("templateinstance"):
         ref = ti.get("ref")
         px, _, pz = [float(v) for v in ti.get("pos", "0 0 0").split()]
         rot = float(ti.get("rot", 0))
         slots[ti.get("id")] = (round(px), round(pz))
         if re.match(r"S_[A-Z_]*ROADS?_Hideout_\d", ref):
-            hideouts += 1
+            homes.append([round(px), round(pz)])
         layers = template(ref)
-        for la in ti.findall("activelayer"):
-            for k, x, z in layers.get(la.get("id"), []):
+        for lid in [None] + [la.get("id") for la in ti.findall("activelayer")]:
+            lp, lt = layers.get(lid, ([], []))
+            for k, x, z in lp:
                 rx, rz = rotate(x, z, rot)
                 pts.append(k + [round(px + rx), round(pz + rz)])
-    return slots, pts, hideouts
+            for tc, x, z, ry, d in lt:
+                rx, rz = rotate(x, z, rot)
+                ter.append((tc, px + rx, pz + rz, rot + ry, d))
+    return slots, pts, homes, ter
+
+
+def raster(ter, bb):
+    """Zemini CELL'lik ızgaraya döker: '.' boşluk, 'g' yürünebilir, 'a' Avalon zemini, 'w' su.
+    Satırlar kuzeyden (büyük z) başlar; her satır 'harf+sayı' koşularıdır (ör. .12g30a4)."""
+    x0, z0, x1, z1 = bb
+    W, H = math.ceil((x1 - x0) / CELL), math.ceil((z1 - z0) / CELL)
+    g = bytearray(b"g" * (W * H))
+    order = {"v": 0, "a": 1, "w": 2}
+    for tc, x, z, ang, (w, h, ox, oy) in sorted(ter, key=lambda t: order[t[0]]):
+        ch = {"v": b".", "a": b"a", "w": b"w"}[tc]
+        cs = [rotate(cx, cz, ang) for cx, cz in ((ox, oy), (ox + w, oy), (ox + w, oy + h), (ox, oy + h))]
+        xs, zs = [x + c[0] for c in cs], [z + c[1] for c in cs]
+        c0, c1 = max(0, int((min(xs) - x0) / CELL + .5)), min(W, int((max(xs) - x0) / CELL + .5))
+        r0, r1 = max(0, int((min(zs) - z0) / CELL + .5)), min(H, int((max(zs) - z0) / CELL + .5))
+        if c0 >= c1 or r0 >= r1:
+            continue
+        straight = abs(ang / 90 - round(ang / 90)) < 1e-3
+        for r in range(r0, r1):
+            if straight:
+                if tc == "w":  # su sadece yürünebilir alanın üstüne
+                    for i in range(r * W + c0, r * W + c1):
+                        if g[i] != 46:
+                            g[i] = 119
+                else:
+                    g[r * W + c0:r * W + c1] = ch * (c1 - c0)
+                continue
+            for c in range(c0, c1):  # döndürülmüş parça: hücre merkezi parçanın içinde mi
+                lx, lz = rotate(x0 + (c + .5) * CELL - x, z0 + (r + .5) * CELL - z, -ang)
+                if ox <= lx <= ox + w and oy <= lz <= oy + h and not (tc == "w" and g[r * W + c] == 46):
+                    g[r * W + c] = ch[0]
+    rows = []
+    for r in range(H - 1, -1, -1):
+        row, out, i = g[r * W:(r + 1) * W], [], 0
+        while i < W:
+            j = i
+            while j < W and row[j] == row[i]:
+                j += 1
+            out.append(chr(row[i]) + str(j - i))
+            i = j
+        rows.append("".join(out))
+    return {"c": CELL, "w": W, "h": H, "r": rows}
 
 
 def summary(pts):
@@ -180,9 +272,10 @@ for w in servers.values():
     for m in w.values():
         dists.setdefault(m["f"], m["dist"])
 
+os.makedirs(TERDIR, exist_ok=True)
 L, slotmap = {}, {}
 for f in files:
-    slots, pts, hideouts = layout(f)
+    slots, pts, homes, ter = layout(f)
     root = xml("cluster/" + f)
     mn = [float(v) for v in root.get("minimapBoundsMin", root.get("origin", "0 0")).split()]
     mx = [float(v) for v in root.get("minimapBoundsMax", "0 0").split()]
@@ -194,8 +287,11 @@ for f in files:
     sm["r"] = dists[f]
     if not sm["r"]:
         del sm["r"]
-    L[key] = {"t": tier(key.split("_", 1)[1]), "bb": [round(v) for v in mn + mx], "h": hideouts, "s": sm, "p": pts}
+    bb = [round(v) for v in mn + mx]
+    L[key] = {"t": tier(key.split("_", 1)[1]), "bb": bb, "h": len(homes), "s": sm, "p": pts + [["h", "", 0] + h for h in homes]}
     slotmap[key] = slots
+    with open(os.path.join(TERDIR, key + ".json"), "w", encoding="utf-8") as fh:
+        json.dump(raster(ter, bb), fh, separators=(",", ":"))
 
 out = {"src": "ao-data/ao-bin-dumps (cluster/world*.xml, cluster/TNL-*.cluster.xml, templates)", "L": L, "S": {}}
 for s, w in servers.items():
