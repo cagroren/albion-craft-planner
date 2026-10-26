@@ -148,6 +148,23 @@ tr.spr>td{background:var(--in);padding:4px 8px 10px}
 .spt .bar{min-width:160px}
 .spt .bar i{height:16px}
 .empty{color:var(--mut);padding:30px 10px;text-align:center}
+.vt{margin:0 0 16px}
+.lt{display:flex;flex-direction:column;gap:6px;margin-bottom:16px}
+.lr{background:var(--card2);border:1px solid var(--line);border-radius:10px;padding:8px 12px}
+.lh{display:flex;align-items:center;gap:8px 14px;flex-wrap:wrap}
+.lh b{font-weight:800}
+.lh .v{margin-left:auto;font-weight:800;font-variant-numeric:tabular-nums}
+.lh .x{padding:2px 8px;font-size:12px}
+.lr .eq{margin-top:8px}
+.lr.off{opacity:.55}
+.dl{font-size:12px;font-weight:700;border-radius:6px;padding:1px 6px;font-variant-numeric:tabular-nums}
+.dl.p{color:#ffb3ad;background:rgba(248,81,73,.1)}
+.dl.n{color:#a6e3b0;background:rgba(63,185,80,.1)}
+h3{font:700 12px/1.4 "Inter",system-ui,sans-serif;letter-spacing:.08em;text-transform:uppercase;color:var(--mut);margin:4px 0 8px}
+.lin{width:70px;font:inherit;padding:2px 6px;border:1px solid var(--line2);border-radius:7px;background:var(--in);color:var(--ink);font-size:18px;font-weight:800}
+.lg td{font-size:13px;padding:5px 8px;vertical-align:middle}
+.lg .k{font-size:11px;font-weight:700;letter-spacing:.06em;color:var(--mut);white-space:nowrap}
+.lg img{width:26px;height:26px;vertical-align:middle}
 @media(max-width:860px){@media(max-width:700px){body{padding:12px 16px}section{padding:16px;border-radius:14px}.tabs button{padding:8px 11px}h1{font-size:24px}}
 </style>
 </head>
@@ -172,6 +189,28 @@ tr.spr>td{background:var(--in);padding:4px 8px 10px}
       <li>Tarayıcı <b>"yerel ağdaki cihazlara erişim"</b> izni sorarsa <b>İzin ver</b> de. Bu sayfa bağlanınca otomatik dolacak.</li>
     </ol>
   </div>
+</section>
+
+<div class="tabs vt" id="vTabs" hidden><button data-v="dps">DPS Meter</button><button data-v="loot">Loot</button><button data-v="log">Log</button></div>
+
+<section id="lootSec" hidden>
+  <div class="dh"><h2>Loot</h2><span class="st" id="lootInfo"></span><span class="sp"></span>
+    <label class="st">Fiyat <select id="lPrice"><option value="brec">Brecilien pazarı</option><option value="est">Oyunun tahmini değeri</option></select></label>
+    <select id="lSrv" title="Sunucu"><option value="europe">Europe</option><option value="west">West</option><option value="east">East</option></select>
+    <button class="l" id="lootClear" style="padding:4px 10px;font-size:12px">Tümünü sil</button></div>
+  <div class="gn" id="lootSum"></div>
+  <div class="opts" style="margin:-2px 0 14px"><label title="Kişi sayısını elle değiştirebilirsin; boş bırakınca logdaki oyuncu sayısı kullanılır">Kişi sayısı <input type="number" min="1" class="lin" id="lN"></label><label><input type="checkbox" id="lParty"> Sadece parti</label></div>
+  <h3>Açtığın sandıklar</h3>
+  <div class="lt" id="chestList"></div>
+  <h3>Loot logu (kim ne aldı)</h3>
+  <div class="lt" id="lootList"></div>
+</section>
+
+<section id="logSec" hidden>
+  <div class="dh"><h2>Olay günlüğü</h2><span class="st" id="logInfo"></span><span class="sp"></span>
+    <select id="logK"><option value="">Hepsi</option><option value="loot">Loot</option><option value="chest">Sandık</option><option value="party">Parti</option><option value="zone">Bölge</option><option value="fight">Oturum</option></select>
+    <button class="l" id="logClear" style="padding:4px 10px;font-size:12px">Temizle</button></div>
+  <div style="overflow-x:auto"><table class="lg"><tbody id="logBody"></tbody></table></div>
 </section>
 
 <section id="main" hidden>
@@ -228,6 +267,10 @@ async function poll(){
     connected=true;
     if(status.version>=9&&!LS.app){LS.app=1;saveLS()}
     party=status.version>=SET_NEED?await api("/party").catch(()=>null):null;
+    if(status.version>=LOOT_NEED){
+      if(VIEW==="loot")LOOT=await api("/loot").catch(()=>LOOT);
+      if(VIEW==="log")LOG=await api("/log").catch(()=>LOG);
+    }
   }catch(e){
     connected=false;status=null;party=null;
     // Toplayıcı bu bilgisayarda bir kere açıldıysa albiondps:// ile kendisi başlatılır (tarayıcı ilk seferde izin sorar)
@@ -250,7 +293,9 @@ function updateHtml(){
 }
 function render(){
   const cs=$("cState");
-  $("setup").hidden=connected;$("main").hidden=!connected;$("histSec").hidden=!connected||!fights.length;$("setSec").hidden=!connected;
+  const dv=connected&&VIEW==="dps";
+  $("setup").hidden=connected;$("vTabs").hidden=!connected;$("main").hidden=!dv;$("histSec").hidden=!dv||!fights.length;$("setSec").hidden=!dv;
+  $("lootSec").hidden=!connected||VIEW!=="loot";$("logSec").hidden=!connected||VIEW!=="log";
   if(!connected){cs.className="live";cs.textContent="Bağlı değil";$("cInfo").textContent=LS.app?"DPS Meter başlatılıyor… Tarayıcı \"AlbionDPSMeter açılsın mı?\" diye sorarsa \"Her zaman izin ver\"i işaretleyip Aç'a bas.":"Toplayıcı çalışmıyor ya da tarayıcı bağlantıya izin vermedi.";$("startBtn").hidden=false;$("party").hidden=true;return}
   const cap=status.capturing;
   cs.className="live "+(cap?"on":"wait");cs.textContent=cap?"Oyun verisi geliyor":"Bağlı, oyun bekleniyor";
@@ -260,6 +305,8 @@ function render(){
   $("party").hidden=!pt.length;
   $("party").innerHTML=pt.length?`<span class="st" style="align-self:center">Takip edilen:</span>`+pt.map(n=>`<span class="chip${n===status.character?" me":""}">${esc(n)}</span>`).join(""):"";
   renderLive();renderSets();
+  if(VIEW==="loot")renderLoot();
+  if(VIEW==="log")renderLog();
 }
 
 function gainsHTML(f,g){
@@ -431,6 +478,102 @@ confirm2($("endBtn"),"Bitir ve kaydet",async()=>{const r=await api("/end",{metho
 $("cInfo").addEventListener("click",async e=>{const b=e.target.closest("[data-upd]");if(!b)return;b.disabled=true;try{await api("/update",{method:"POST"})}catch(e){}await poll()});
 $("pauseBtn").onclick=async()=>{try{await api(status&&status.paused?"/resume":"/pause",{method:"POST"});await poll()}catch(e){}};
 confirm2($("clearAll"),"Tümünü sil",async()=>{await api("/fights",{method:"DELETE"});fights=[];open=null;renderHist();render()});
+
+// ---- Loot ve Log sekmeleri (toplayıcı v13+) ----
+const LOOT_NEED=13;
+let VIEW=["dps","loot","log"].includes(LS.view)?LS.view:"dps",LOOT=null,LOG=null,PR={},prKey="",prBusy=false,lootSig="",logSig="";
+const chOpen=new Set();
+LS.loot=LS.loot||{sel:{},party:1};
+function setView(v){VIEW=v;LS.view=v;saveLS();lootSig=logSig="";document.querySelectorAll("#vTabs button").forEach(b=>b.classList.toggle("on",b.dataset.v===v));render();poll()}
+document.querySelectorAll("#vTabs button").forEach(b=>b.onclick=()=>setView(b.dataset.v));
+document.querySelectorAll("#vTabs button").forEach(b=>b.classList.toggle("on",b.dataset.v===VIEW));
+$("lPrice").value=LS.loot.price||"brec";$("lSrv").value=LS.loot.srv||"europe";$("lParty").checked=!!LS.loot.party;$("lN").value=LS.loot.n||"";
+const lootChanged=()=>{LS.loot.price=$("lPrice").value;LS.loot.srv=$("lSrv").value;LS.loot.party=$("lParty").checked?1:0;LS.loot.n=+$("lN").value||0;saveLS();lootSig="";renderLoot()};
+["lPrice","lSrv","lParty"].forEach(id=>$(id).onchange=lootChanged);$("lN").oninput=lootChanged;
+$("logK").onchange=()=>{logSig="";renderLog()};
+
+const iname=id=>{const b=BD.items[ibase(id)];const t=tierOf(id),e=enchOf(id);return (b?b.n:ibase(id).replace(/_/g," ").toLowerCase())+(t?` T${t}${e?"."+e:""}`:"")};
+// Brecilien fiyatı: tüm kalitelerin en düşük satış fiyatı (0 olanlar yok sayılır); 10 dakikada bir yenilenir
+async function loadPrices(ids){
+  const srv=$("lSrv").value,need=ids.filter(id=>!(srv+id in PR)),key=srv+need.join(",");
+  if(!need.length||prBusy||key===prKey&&Date.now()-(PR._t||0)<6e5)return;
+  prBusy=true;prKey=key;
+  try{
+    for(let i=0;i<need.length;i+=40){
+      const r=await fetch(`https://${srv}.albion-online-data.com/api/v2/stats/prices/${need.slice(i,i+40).join(",")}.json?locations=Brecilien`).then(r=>r.json());
+      need.slice(i,i+40).forEach(id=>PR[srv+id]=PR[srv+id]||0);
+      r.forEach(p=>{const v=p.sell_price_min||0;if(v&&(!PR[srv+p.item_id]||v<PR[srv+p.item_id]))PR[srv+p.item_id]=v});
+    }
+    PR._t=Date.now();
+  }catch(e){}
+  prBusy=false;lootSig="";renderLoot();
+}
+// Birim değer: seçilen kaynak, yoksa diğeri
+function unitVal(id,est){const p=PR[$("lSrv").value+id]||0;return $("lPrice").value==="est"?(est||p):(p||est||0)}
+function slotsHTML(items){
+  const m={};items.forEach(x=>{const k=x.item;(m[k]=m[k]||{item:k,qty:0,est:x.est||0}).qty+=x.qty||1});
+  return Object.values(m).sort((a,b)=>unitVal(b.item,b.est)*b.qty-unitVal(a.item,a.est)*a.qty).map(x=>{
+    const v=unitVal(x.item,x.est);
+    return `<span class="sl" title="${esc(iname(x.item))} ×${x.qty} · ${v?fmt(v)+" silver/adet":"fiyat yok"}">${icon(x.item)}<i>${fmtK(x.qty)}</i></span>`}).join("");
+}
+const valOf=items=>items.reduce((s,x)=>s+unitVal(x.item,x.est)*(x.qty||1),0);
+function renderLoot(){
+  if(!status)return;
+  if(status.version<LOOT_NEED){$("lootSum").innerHTML="";$("chestList").innerHTML="";$("lootList").innerHTML=`<div class="st">Loot için toplayıcının v${LOOT_NEED} ya da üstü olması gerekiyor (sende v${status.version}). Yukarıdaki <b>Güncelle</b> düğmesini kullan.</div>`;return}
+  if(!LOOT)return;
+  const sig=JSON.stringify([LOOT,PR._t,Object.keys(BD.items).length]);if(sig===lootSig)return;lootSig=sig;
+  const L=LOOT,sel=LS.loot.sel,onlyP=$("lParty").checked,me=L.character;
+  const ids=new Set();L.chests.forEach(c=>c.items.forEach(x=>ids.add(x.item)));L.loot.forEach(e=>e.item&&ids.add(e.item));
+  loadPrices([...ids]);
+  // Sandıklar
+  const chosen=L.chests.filter(c=>sel[c.id]);
+  $("chestList").innerHTML=L.chests.length?[...L.chests].reverse().map(c=>{
+    const v=valOf(c.items),on=chOpen.has(c.id),miss=c.count-c.items.length;
+    return `<div class="lr${sel[c.id]?"":" off"}"><div class="lh"><label><input type="checkbox" data-sel="${esc(c.id)}"${sel[c.id]?" checked":""}> <b>${esc(c.name?c.name+" (ceset)":"Sandık")}</b></label><span class="st">${dayOf(c.t*1000)} ${tm(c.t*1000)} · ${c.count} eşya${miss>0?` · ${miss} tanesi okunamadı`:""}</span><button class="l x" data-tg="${esc(c.id)}">${on?"Gizle":"Eşyalar"}</button><span class="v">${fmtK(v)}</span><button class="l x" data-del="${esc(c.id)}" title="Bu sandığı sil">✕</button></div>${on?`<div class="eq">${slotsHTML(c.items)}</div>`:""}</div>`}).join("")
+    :`<div class="st">Henüz sandık yok. Oyunda bir sandığı ya da cesedi açınca içeriği burada görünür; toplamak istediklerini işaretle.</div>`;
+  // Loot logu: oyuncu başına
+  const P={};L.loot.forEach(e=>{if(onlyP&&!e.party)return;const p=P[e.by]=P[e.by]||{name:e.by,items:[],silver:0,me:e.by===me};if(e.silver)p.silver+=e.silver;else p.items.push({item:e.item,qty:e.qty})});
+  const ps=Object.values(P).map(p=>({...p,v:valOf(p.items)+p.silver})).sort((a,b)=>b.v-a.v);
+  // Toplam: işaretli sandıklar varsa onlar, yoksa loot logu
+  const fromChest=chosen.length>0,total=fromChest?chosen.reduce((s,c)=>s+valOf(c.items),0):ps.reduce((s,p)=>s+p.v,0);
+  const autoN=ps.length||(L.party||[]).length||1,n=LS.loot.n||autoN,share=total/n;
+  $("lN").placeholder=autoN;
+  $("lootInfo").textContent=fromChest?`Toplam: işaretli ${chosen.length} sandık`:"Toplam: loot logu (sandık işaretlenmedi)";
+  $("lootSum").innerHTML=`<div class="g">TOPLAM DEĞER<b>${fmt(total)}</b></div><div class="g">KİŞİ<b>${n}</b></div><div class="g">KİŞİ BAŞI PAY<b>${fmt(share)}</b></div>`;
+  $("lootList").innerHTML=ps.length?ps.map(p=>{
+    const d=p.v-share;
+    return `<div class="lr"><div class="lh"><b${p.me?' style="color:var(--accT)"':""}>${esc(p.name)}</b>${p.silver?`<span class="st">${fmt(p.silver)} silver</span>`:""}${fromChest?"":`<span class="dl ${d>0?"p":"n"}" title="${d>0?"Paydan fazla aldı, bu kadarını vermeli":"Paydan az aldı, bu kadarını almalı"}">${d>0?"vermeli ":"almalı "}${fmt(Math.abs(d))}</span>`}<span class="v">${fmtK(p.v)}</span></div>${p.items.length?`<div class="eq">${slotsHTML(p.items)}</div>`:""}</div>`}).join("")
+    :`<div class="st">Henüz loot yok. Yakınındaki oyuncular bir cesetten ya da sandıktan eşya aldıkça burada görünür${onlyP?" (sadece parti)":""}.</div>`;
+}
+$("chestList").addEventListener("click",async e=>{
+  const s=e.target.closest("[data-sel]"),t=e.target.closest("[data-tg]"),d=e.target.closest("[data-del]");
+  if(s){if(s.checked)LS.loot.sel[s.dataset.sel]=1;else delete LS.loot.sel[s.dataset.sel];saveLS();lootSig="";renderLoot()}
+  else if(t){chOpen.has(t.dataset.tg)?chOpen.delete(t.dataset.tg):chOpen.add(t.dataset.tg);lootSig="";renderLoot()}
+  else if(d){try{await api("/chests/"+d.dataset.del,{method:"DELETE"});delete LS.loot.sel[d.dataset.del];saveLS();LOOT=await api("/loot");renderLoot()}catch(e){}}
+});
+confirm2($("lootClear"),"Tümünü sil",async()=>{await api("/loot",{method:"DELETE"});LS.loot.sel={};saveLS();LOOT=await api("/loot");renderLoot()});
+
+const LK={loot:"LOOT",chest:"SANDIK",party:"PARTİ",zone:"BÖLGE",fight:"OTURUM"};
+function logText(e){
+  if(e.k==="loot")return `<b>${esc(e.by)}</b> ${e.silver?fmt(e.silver)+" silver":`${icon(e.item)} ${esc(iname(e.item))} ×${e.qty}`} aldı${e.from?` · <span class="st">${esc(e.from)} cesedinden</span>`:""}`;
+  if(e.k==="chest")return `${esc(e.name?e.name+" cesedi":"Sandık")} açıldı · ${e.n} eşya`;
+  if(e.k==="zone")return `Bölgeye girildi${e.zone?` · <span class="st">${esc(e.zone)}</span>`:""}${e.character?` · ${esc(e.character)}`:""}`;
+  if(e.k==="fight")return `Oturum kaydedildi · ${dur(e.dur||0)} · hasar ${fmt(e.dmg)} · en yüksek ${esc(e.top)}`;
+  return esc(e.text||"");
+}
+function renderLog(){
+  if(!status)return;
+  if(status.version<LOOT_NEED){$("logBody").innerHTML=`<tr><td class="st">Olay günlüğü için toplayıcının v${LOOT_NEED} ya da üstü olması gerekiyor (sende v${status.version}).</td></tr>`;return}
+  if(!LOG)return;
+  const k=$("logK").value,L=LOG.filter(e=>!k||e.k===k).slice(0,500),sig=JSON.stringify([k,L.length,L[0]&&L[0].t]);
+  if(sig===logSig)return;logSig=sig;
+  $("logInfo").textContent=LOG.length?`${LOG.length} olay`:"";
+  let last="";
+  $("logBody").innerHTML=L.length?L.map(e=>{const d=dayOf(e.t*1000),h=d!==last?`<tr><td colspan="3" class="st" style="padding-top:12px">${d}</td></tr>`:"";last=d;
+    return h+`<tr><td class="st">${new Date(e.t*1000).toLocaleTimeString("tr-TR")}</td><td class="k">${LK[e.k]||esc(e.k)}</td><td>${logText(e)}</td></tr>`}).join("")
+    :`<tr><td class="st">Henüz olay yok.</td></tr>`;
+}
+confirm2($("logClear"),"Temizle",async()=>{await api("/log",{method:"DELETE"});LOG=[];logSig="";renderLog()});
 
 poll();setInterval(poll,2000);
 </script>

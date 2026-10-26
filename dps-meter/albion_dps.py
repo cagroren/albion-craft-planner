@@ -23,7 +23,7 @@ import webbrowser
 import zlib
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-VERSION = 12                 # GitHub'daki dps-vN sürümüyle aynı olmalı (güncelleme kontrolü bunu karşılaştırır)
+VERSION = 13                 # GitHub'daki dps-vN sürümüyle aynı olmalı (güncelleme kontrolü bunu karşılaştırır)
 PORT = int(os.environ.get("ALBION_DPS_PORT") or 47700)
 COMBAT_GAP_SECONDS = 5       # vuruşlar arası bundan uzun boşluk "savaş süresi"ne sayılmaz
 FP = 10000.0                 # oyunun sabit noktalı sayı çarpanı
@@ -46,6 +46,10 @@ HERE = os.path.dirname(sys.executable if getattr(sys, "frozen", False) else os.p
 SAVE_DIR = os.path.join(HERE, "kayitlar")
 CACHE_DIR = os.path.join(HERE, "onbellek")
 LIVE_FILE = os.path.join(CACHE_DIR, "aktif-oturum.json")
+LOOT_FILE = os.path.join(CACHE_DIR, "loot.json")
+MAX_LOOT = 5000             # hatırlanan loot kaydı
+MAX_CHESTS = 100            # hatırlanan sandık içeriği
+MAX_LOG = 2000              # olay günlüğü satırı
 
 # ---------------------------------------------------------------------------
 # Olay / işlem kodları. Oyun güncellemelerinde değişebilir; program açılışta
@@ -58,8 +62,10 @@ EV = {
     "TakeSilver": 62, "UpdateFame": 82, "UpdateCurrency": 85,
     "MightAndFavorReceivedEvent": 496, "InCombatStateUpdate": 277,
     "UpdateReSpecPoints": 84,
+    "NewEquipmentItem": 30, "NewSimpleItem": 32, "AttachItemContainer": 99, "InventoryPutItem": 26,
+    "InventoryDeleteItem": 27, "OtherGrabbedLoot": 278, "NewLoot": 98,
 }
-OP = {"Join": 2, "ClaimPaymentTransaction": 297}
+OP = {"Join": 2, "ClaimPaymentTransaction": 297, "ContainerOpen": 98}
 
 # Destiny Board kayıt modu (1. aşama): oyunun board mesajları henüz çözülmedi; ham hâlleri dosyaya yazılır.
 # Oyun board düğümlerine içeride "achievement" der. Adı bu desene uyan olay/işlemler kaydedilir.
@@ -757,8 +763,19 @@ class Tracker:
         self.last_packet = 0
         self.relogin = False       # oyun bir süre sessiz kaldı (kapandı/çıkış yapıldı): sonraki girişte parti sıfırlanır
         self.started = time.time()
+        # Loot sekmesi: oyun eşyaları önce nesne olarak (numara, adet, tahmini değer) gönderir,
+        # sonra sandık açılınca içindeki nesne numaralarını. Açtığın sandıkların içeriği o anki hâliyle saklanır.
+        self.items = {}          # eşya objectId -> (eşya numarası, adet, oyunun tahmini değeri)
+        self.containers = {}     # sandık guid -> [eşya objectId, ...] (boş slot 0)
+        self.corpses = {}        # ceset objectId -> ölen oyuncunun adı
+        self.opening = {}        # açmak istediğin sandık guid -> {"t", "name"}
+        self.loot = []           # kim kimden ne aldı (OtherGrabbedLoot)
+        self.chests = []         # açtığın sandıkların içeriği
+        self.evlog = []          # Log sekmesi: olay günlüğü
+        self.loot_dirty = False
         self.load_saved()
         self.load_live()
+        self.load_loot()
 
     # ---- kayıt ----
     def load_saved(self):
@@ -807,6 +824,69 @@ class Tracker:
                 os.remove(LIVE_FILE)
         except Exception as e:
             log("Aktif oturum kaydedilemedi:", e)
+
+    def load_loot(self):
+        try:
+            with open(LOOT_FILE, encoding="utf-8") as fh:
+                d = json.load(fh)
+            self.loot, self.chests, self.evlog = d.get("loot", []), d.get("chests", []), d.get("log", [])
+        except Exception:
+            pass
+
+    def save_loot(self):
+        try:
+            os.makedirs(CACHE_DIR, exist_ok=True)
+            with open(LOOT_FILE, "w", encoding="utf-8") as fh:
+                json.dump({"loot": self.loot, "chests": self.chests, "log": self.evlog}, fh, ensure_ascii=False)
+        except Exception as e:
+            log("Loot kaydı yazılamadı:", e)
+
+    def note(self, kind, **kw):
+        """Olay günlüğüne bir satır ekler."""
+        self.evlog.append({"t": time.time(), "k": kind, **kw})
+        del self.evlog[:-MAX_LOG]
+        self.loot_dirty = True
+
+    # ---- loot ----
+    def snapshot_chest(self, g, info):
+        ids = [i for i in self.containers.get(g, []) if i]
+        if not ids:
+            return
+        last = self.chests[-1] if self.chests else None
+        if last and last.get("g") == g and sorted(last["ids"]) == sorted(ids):
+            return  # aynı sandık aynı içerikle yeniden açıldı
+        c = {"id": "%d" % (time.time() * 1000), "t": time.time(), "g": g, "name": info.get("name"), "ids": ids, "res": {}}
+        self.resolve_chest(c)
+        self.chests.append(c)
+        del self.chests[:-MAX_CHESTS]
+        self.note("chest", name=c["name"], n=len(ids))
+
+    def resolve_chest(self, c):
+        """Eşya bilgisi sandıktan sonra gelebilir; bilinmeyenler her okumada yeniden aranır."""
+        for i in c["ids"]:
+            k = str(i)
+            if k not in c["res"] and i in self.items:
+                idx, qty, est = self.items[i]
+                if ITEM_NAMES.get(idx):
+                    c["res"][k] = [ITEM_NAMES[idx], qty, est]
+                    self.loot_dirty = True
+
+    def loot_data(self):
+        with self.lock:
+            out = []
+            for c in self.chests:
+                self.resolve_chest(c)
+                out.append({"id": c["id"], "t": c["t"], "name": c.get("name"), "count": len(c["ids"]),
+                            "items": [{"item": r[0], "qty": r[1], "est": r[2]} for r in c["res"].values()]})
+            return {"loot": self.loot, "chests": out, "party": sorted(self.party_names()), "character": self.local_name}
+
+    def clear_loot(self, cid=None):
+        with self.lock:
+            if cid:
+                self.chests = [c for c in self.chests if c["id"] != cid]
+            else:
+                self.loot, self.chests = [], []
+            self.loot_dirty = True
 
     def delete(self, fid):
         with self.lock:
@@ -946,23 +1026,79 @@ class Tracker:
                 self.party_known = True
                 self.relogin = False  # girişteki parti bilgisi Join'den önce geldiyse silinmesin
                 log("Partiye katıldın:", ", ".join(sorted(self.party.values())))
+                self.note("party", text="Partiye katıldın: " + ", ".join(sorted(self.party.values())))
             elif code == EV["PartyPlayerJoined"]:
                 g, n = guid_key(p.get(1)), p.get(2)
                 if g and isinstance(n, str) and n:
                     self.party[g] = n
                     self.party_known = True
                     log("Partiye girdi:", n)
+                    self.note("party", text=n + " partiye girdi")
             elif code == EV["PartyPlayerLeft"]:
                 g = guid_key(p.get(1))
                 n = self.party.pop(g, None)
                 if n:
                     log("Partiden çıktı:", n)
+                    self.note("party", text=n + " partiden çıktı")
                 if n and n == self.local_name:
                     self.party = {}
             elif code == EV["PartyDisbanded"]:
                 self.party = {}
                 self.party_known = True
                 log("Parti dağıldı.")
+                self.note("party", text="Parti dağıldı")
+            elif code in (EV["NewSimpleItem"], EV["NewEquipmentItem"]):
+                # 0: nesne, 1: eşya numarası, 2: adet, 4: oyunun tahmini pazar değeri (birim, sabit noktalı)
+                oid, idx = to_int(p.get(0)), to_int(p.get(1))
+                if oid is not None and idx:
+                    self.items.pop(oid, None)
+                    self.items[oid] = (idx, to_int(p.get(2)) or 1, round((to_int(p.get(4)) or 0) / FP))
+                    if len(self.items) > 30000:
+                        for k in list(self.items)[:5000]:
+                            del self.items[k]
+            elif code == EV["AttachItemContainer"]:
+                g = guid_key(p.get(1))
+                if g:
+                    self.containers.pop(g, None)
+                    self.containers[g] = [to_int(x) or 0 for x in as_list(p.get(3))]
+                    for k in list(self.containers)[:max(0, len(self.containers) - 300)]:
+                        del self.containers[k]
+                    if g in self.opening:
+                        self.snapshot_chest(g, self.opening.pop(g))
+            elif code == EV["InventoryPutItem"]:
+                oid, g = to_int(p.get(0)), guid_key(p.get(2))
+                if oid is not None and g in self.containers:
+                    lst, slot = self.containers[g], to_int(p.get(1)) or 0
+                    lst.extend([0] * (slot + 1 - len(lst)))
+                    lst[slot] = oid
+            elif code == EV["InventoryDeleteItem"]:
+                oid = to_int(p.get(0))
+                for lst in self.containers.values():
+                    if oid in lst:
+                        lst[lst.index(oid)] = 0
+            elif code == EV["NewLoot"]:
+                oid, n = to_int(p.get(0)), p.get(3)
+                if oid is not None and isinstance(n, str):
+                    self.corpses[oid] = n
+                    for k in list(self.corpses)[:max(0, len(self.corpses) - 500)]:
+                        del self.corpses[k]
+            elif code == EV["OtherGrabbedLoot"]:
+                # 1: cesedi yağmalanan, 2: alan, 3: silver mı, 4: eşya numarası, 5: adet (silver'da sabit noktalı miktar)
+                by = p.get(2)
+                if isinstance(by, str) and by:
+                    silver = bool(p.get(3))
+                    qty = to_int(p.get(5)) or 0
+                    item = None if silver else ITEM_NAMES.get(to_int(p.get(4)) or -1)
+                    if silver or item:
+                        e = {"t": time.time(), "by": by, "from": p.get(1) if isinstance(p.get(1), str) else None,
+                             "party": by in self.party_names()}
+                        if silver:
+                            e["silver"] = round(qty / FP)
+                        else:
+                            e["item"], e["qty"] = item, max(1, qty)
+                        self.loot.append(e)
+                        del self.loot[:-MAX_LOOT]
+                        self.note("loot", **{k: v for k, v in e.items() if k != "t"})
 
     def on_request(self, _code, p):
         # Auto-respec durumu eskiden buradan tahmin ediliyordu ama yanlış "açık" gösteriyordu;
@@ -970,6 +1106,13 @@ class Tracker:
         code = to_int(p.get(253))
         if code in DESTINY_OP:
             DESTINY.write("request", code, DESTINY_OP[code], p)
+        if code == OP["ContainerOpen"]:
+            # 0: sandık/ceset nesnesi, 2: sandığın guid'i. İçerik cevaptan sonra AttachItemContainer ile gelir.
+            g = guid_key(p.get(2))
+            if g:
+                with self.lock:
+                    n = self.corpses.get(to_int(p.get(0)))
+                    self.opening[g] = {"t": time.time(), "name": n}
 
     def on_response(self, _code, p):
         code = to_int(p.get(253))
@@ -1007,6 +1150,7 @@ class Tracker:
                 if isinstance(rs, (list, tuple)) and len(rs) > 1:
                     self.credits_total = (to_int(rs[1]) or 0) / FP
                 log(f"Bölgeye girildi. Karakter: {self.local_name}")
+                self.note("zone", zone=self.zone, character=self.local_name)
 
     def mark_packet(self):
         now = time.time()
@@ -1194,6 +1338,7 @@ class Tracker:
         self.fights = self.fights[-MAX_FIGHTS_IN_MEMORY:]
         self.save(s)
         top = s["players"][0]["name"] if s["players"] else "-"
+        self.note("fight", dmg=s["totalDamage"], dur=round(s["duration"]), top=top)
         log(f"Oturum bitti: {s['duration']:.0f} sn, toplam hasar {s['totalDamage']:,}, en yüksek: {top}")
         return s
 
@@ -1202,6 +1347,16 @@ class Tracker:
             if self.live_dirty:
                 self.live_dirty = False
                 self.save_live()
+            # Sandık içeriği oyunda zaten açıksa yeniden gönderilmeyebilir: elde olan içerik kaydedilir
+            now = time.time()
+            for g, info in list(self.opening.items()):
+                if now - info["t"] > 2:
+                    del self.opening[g]
+                    if g in self.containers:
+                        self.snapshot_chest(g, info)
+            if self.loot_dirty:
+                self.loot_dirty = False
+                self.save_loot()
 
     def status(self):
         with self.lock:
@@ -1363,6 +1518,11 @@ def make_handler(tracker):
                     self.send_json(dict(tracker.board.data))
             elif path == "/party":
                 self.send_json(tracker.party_gear())
+            elif path == "/loot":
+                self.send_json(tracker.loot_data())
+            elif path == "/log":
+                with tracker.lock:
+                    self.send_json(list(reversed(tracker.evlog)))
             else:
                 self.send_json({"error": "bulunamadı"}, 404)
 
@@ -1390,6 +1550,17 @@ def make_handler(tracker):
             m = re.match(r"^/fights/([\w\-]+)$", path)
             if m:
                 tracker.delete(m.group(1))
+                self.send_json({"ok": True})
+            elif path == "/loot":
+                tracker.clear_loot()
+                self.send_json({"ok": True})
+            elif re.match(r"^/chests/\d+$", path):
+                tracker.clear_loot(path.rsplit("/", 1)[1])
+                self.send_json({"ok": True})
+            elif path == "/log":
+                with tracker.lock:
+                    tracker.evlog = []
+                    tracker.loot_dirty = True
                 self.send_json({"ok": True})
             elif path == "/fights":
                 with tracker.lock:
