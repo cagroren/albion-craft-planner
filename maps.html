@@ -172,6 +172,45 @@ function show(r){
   draw();
 }
 const TER={};
+// Yol parçaları dosyada aralıklı: açıkta kalan uçlar, zemin üzerinden geçebiliyorsa en yakın yol parçasına ya da portala bağlanır
+function linkRoads(T,x0,ztop,portals){
+  const segs=(T.rd||[]).slice();if(!segs.length)return segs;
+  const c=T.c,W=T.w,H=T.h,grid=new Uint8Array(W*H);
+  T.r.forEach((row,i)=>{let x=0;for(const m of row.matchAll(/([.gaw])(\d+)/g)){const n=+m[2];if(m[1]!==".")grid.fill(1,i*W+x,i*W+x+n);x+=n}});
+  const walk=(x,z)=>{const gx=Math.floor((x-x0)/c),gz=Math.floor((ztop-z)/c);return gx>=0&&gz>=0&&gx<W&&gz<H&&grid[gz*W+gx]};
+  const clear=(a,b)=>{const L=Math.hypot(b[0]-a[0],b[1]-a[1]),n=Math.max(2,Math.ceil(L/c));let ok=0;
+    for(let i=0;i<=n;i++)if(walk(a[0]+(b[0]-a[0])*i/n,a[1]+(b[1]-a[1])*i/n))ok++;return ok/(n+1)>.9};
+  const key=p=>p[0]+","+p[1],P={},deg={},par={};
+  const find=k=>par[k]===k?k:(par[k]=find(par[k]));
+  segs.forEach(([a,b,cc,d])=>{[[a,b],[cc,d]].forEach(q=>{const k=key(q);P[k]=q;deg[k]=(deg[k]||0)+1;if(!(k in par))par[k]=k})});
+  segs.forEach(([a,b,cc,d])=>{par[find(key([a,b]))]=find(key([cc,d]))});
+  Object.keys(deg).filter(k=>deg[k]===1).forEach(k=>{
+    const e=P[k];let best=null;
+    const tryT=(t,d)=>{if(d<(best?best[1]:Infinity)&&clear(e,t))best=[t,d]};
+    Object.keys(P).forEach(o=>{if(find(o)===find(k))return;const t=P[o],d=Math.hypot(t[0]-e[0],t[1]-e[1]);if(d<170)tryT(t,d)});
+    (portals||[]).forEach(t=>{const d=Math.hypot(t[0]-e[0],t[1]-e[1]);if(d<170)tryT(t,d*.9)});
+    if(best){const t=best[0];segs.push([e[0],e[1],t[0],t[1]]);const tk=key(t);if(P[tk])par[find(k)]=find(tk)}
+  });
+  return segs;
+}
+// Ana yol: parçalar arası düz çizgiler zincirlere bağlanır, köşeler Chaikin ile yuvarlatılır
+function roadPath(segs){
+  if(!segs.length)return "";
+  const key=(x,z)=>x+","+z,adj={},pt={};
+  segs.forEach(([a,b,c,d])=>{const p=key(a,b),q=key(c,d);pt[p]=[a,b];pt[q]=[c,d];(adj[p]=adj[p]||[]).push(q);(adj[q]=adj[q]||[]).push(p)});
+  const used=new Set(),ek=(p,q)=>p<q?p+"|"+q:q+"|"+p,chains=[];
+  const walk=(s,n)=>{const ch=[s];let prev=s,cur=n;used.add(ek(s,n));
+    while(true){ch.push(cur);if(adj[cur].length!==2||cur===s)break;
+      const nx=adj[cur].find(x=>x!==prev&&!used.has(ek(cur,x)));if(!nx)break;used.add(ek(cur,nx));prev=cur;cur=nx}
+    return ch};
+  Object.keys(adj).filter(k=>adj[k].length!==2).forEach(k=>adj[k].forEach(n=>{if(!used.has(ek(k,n)))chains.push(walk(k,n))}));
+  Object.keys(adj).forEach(k=>adj[k].forEach(n=>{if(!used.has(ek(k,n)))chains.push(walk(k,n))}));
+  const chaikin=(P,closed)=>{for(let it=0;it<3;it++){const Q=closed?[]:[P[0]];
+      for(let i=0;i<P.length-1;i++){const [a,b]=P[i],[c,d]=P[i+1];Q.push([a*.75+c*.25,b*.75+d*.25],[a*.25+c*.75,b*.25+d*.75])}
+      if(!closed)Q.push(P[P.length-1]);P=Q}return P};
+  return chains.map(ch=>{const closed=ch[0]===ch[ch.length-1]&&ch.length>3;
+    const P=chaikin(ch.map(k=>pt[k]),closed);return "M"+P.map(([x,z])=>x.toFixed(1)+" "+z.toFixed(1)).join("L")+(closed?"Z":"")}).join("");
+}
 // Oyun kamerası gibi: harita 45° dönük, dikeyde basık. dz>0 kuzey.
 const ISO=Math.SQRT1_2,SQ=.72;
 async function draw(){
@@ -196,9 +235,16 @@ async function draw(){
         if(m[1]!==".")paths[m[1]]+=`M${x} ${z}h${n*c}v${c}h${-n*c}z`;
         if(m[1]!=="."&&m[1]!=="g")paths.g+=`M${x} ${z}h${n*c}v${c}h${-n*c}z`;
         x+=n*c}});
-    const rd=(T.rd||[]).map(([a,b,c2,d])=>`M${a} ${b}L${c2} ${d}`).join("");
     const M=`matrix(${ISO} ${ISO*SQ} ${ISO} ${-ISO*SQ} ${-(cx+cz)*ISO} ${-(cx-cz)*ISO*SQ})`;
-    ter=`<g transform="${M}"><path d="${paths.g}" fill="none" stroke="#b07a45" stroke-width="5" stroke-linejoin="round"/><path d="${paths.g}" fill="#6e4528"/><path d="${paths.a}" fill="#c98a4b"/><path d="${paths.w}" fill="#3d6fa8"/>${rd?`<path d="${rd}" fill="none" stroke="#7a4a1e" stroke-width="18" stroke-linecap="round"/><path d="${rd}" fill="none" stroke="#eda24e" stroke-width="13" stroke-linecap="round"/>`:""}</g>`;
+    // Izgara köşeli görünmesin: her katman bulanıklaştırılıp keskin eşikle kesilir, kenarlar yumuşak eğri olur
+    const F=(id,b,cut)=>`<filter id="${id}" x="-3%" y="-3%" width="106%" height="106%" color-interpolation-filters="sRGB"><feGaussianBlur stdDeviation="${b}"/><feComponentTransfer><feFuncA type="linear" slope="14" intercept="${-14*cut}"/></feComponentTransfer></filter>`;
+    const rp=roadPath(linkRoads(T,x0,ztop,r.pt));
+    ter=`<defs>${F("fE",8,.18)}${F("fG",8,.45)}${F("fA",6,.5)}${F("fW",6,.3)}</defs><g transform="${M}">
+      <g filter="url(#fE)"><path d="${paths.g}" fill="#a8743f"/></g>
+      <g filter="url(#fG)"><path d="${paths.g}" fill="#6e4528"/></g>
+      <g filter="url(#fA)"><path d="${paths.a}" fill="#86562f"/></g>
+      <g filter="url(#fW)"><path d="${paths.w}" fill="#3d6fa8"/></g>
+      ${rp?`<g fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="${rp}" stroke="#2a1a0c" stroke-opacity=".45" stroke-width="34"/><path d="${rp}" stroke="#b9854d" stroke-width="27"/><path d="${rp}" stroke="#d6a76a" stroke-width="19"/></g>`:""}</g>`;
   }
   // kaynak düğümlerini yakınlığa göre tek ikonda topla
   const res=[];

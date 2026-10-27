@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Albion Depo</title><link rel="manifest" href="manifest.webmanifest"><link rel="icon" href="icon-192.png"><meta name="theme-color" content="#0b0f14"><link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap">
+<script src="config.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<script src="auth.js"></script>
+<script src="stock.js"></script>
+<style>
+:root{--bg:#0b0f14;--card:#11161d;--card2:#151b23;--in:#0d1218;--ink:#e6e9ee;--mut:#8b95a3;--line:#252d38;--line2:#323c49;--acc:#f0883e;--acc2:#7a3e16;--accT:#ffd6b3;--good:#3fb950;--bad:#f85149;--warn:#e3b341;color-scheme:dark}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 "Inter",system-ui,-apple-system,"Segoe UI",sans-serif;padding:20px 16px;-webkit-font-smoothing:antialiased}
+main{max-width:1240px;margin:auto}
+h1{font:800 30px/1.2 "Inter",system-ui,sans-serif;letter-spacing:-.01em;margin:0}
+h2{font:700 12px/1.4 "Inter",system-ui,sans-serif;letter-spacing:.12em;text-transform:uppercase;color:var(--acc);margin:0 0 12px}
+section{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:20px;margin-bottom:16px}
+button,select,input{font:inherit;padding:9px 12px;border:1px solid var(--line2);border-radius:9px;background:var(--in);color:var(--ink);min-width:0}
+input::placeholder{color:#5f6976}
+button{background:transparent;color:var(--acc);border-color:#5a3a24;cursor:pointer;font-weight:700}
+button:hover{background:rgba(240,136,62,.08);border-color:var(--acc)}
+button.p{background:var(--acc2);color:var(--accT);border-color:#b8602a}
+button.p:hover{background:#8f4a1b}
+button.bad{color:var(--bad);border-color:rgba(248,81,73,.45)}
+button:disabled{opacity:.5;cursor:default}
+button:focus-visible,select:focus-visible,input:focus-visible,a:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
+a{color:var(--acc)}
+.st{color:var(--mut);font-size:13px}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.sp{flex:1}
+.pos{color:var(--good)}.neg{color:var(--bad)}
+.pill{display:inline-block;padding:2px 9px;border-radius:20px;border:1px solid var(--line2);color:var(--mut);font-size:12px;font-weight:700;white-space:nowrap}
+.pill.b{border-color:#2f5d8a;color:#9cc7f0}.pill.i{border-color:rgba(63,185,80,.5);color:#a6e3b0}.pill.m{border-color:#5a3a24;color:var(--accT)}
+.live{font-size:10px;font-weight:800;letter-spacing:.1em;border-radius:20px;padding:4px 12px;border:1px solid var(--line2);color:var(--mut);text-transform:uppercase}
+.live.on{color:var(--good);border-color:rgba(63,185,80,.6);background:rgba(63,185,80,.12)}
+.how{margin:12px 0 0;padding-left:20px;color:#c3cad4;font-size:14px}.how li{margin:3px 0}
+.cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px}
+.card{background:var(--card2);border:1px solid var(--line);border-radius:14px;padding:14px;display:flex;flex-direction:column;gap:8px}
+.card.off{opacity:.55}
+.card b{font-size:16px;overflow-wrap:anywhere}
+.card .ic{display:flex;gap:2px;flex-wrap:wrap;min-height:34px}
+.card .ic img{width:34px;height:34px}
+.tg{display:inline-flex;align-items:center;gap:6px;font-size:13px;font-weight:600;cursor:pointer}
+.tg input{width:16px;height:16px;accent-color:var(--acc)}
+.t{overflow-x:auto}
+table{width:100%;border-collapse:collapse}
+th,td{text-align:left;padding:7px 6px;border-bottom:1px solid var(--line);font-size:14px;vertical-align:middle}
+th{color:var(--mut);font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;white-space:nowrap}
+td.n,th.n{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+.pn{display:flex;align-items:center;gap:8px;font-weight:600;min-width:180px}
+.pn img{width:36px;height:36px;flex:none}
+.pn small{display:block;color:var(--mut);font-weight:500;font-size:12px}
+.mats{display:flex;gap:4px;flex-wrap:wrap}
+.mats span{display:inline-flex;align-items:center;gap:3px;background:var(--in);border:1px solid var(--line);border-radius:7px;padding:1px 6px 1px 2px;font-size:12px;font-weight:700;white-space:nowrap}
+.mats img{width:24px;height:24px}
+.tabs{display:flex;gap:4px;flex-wrap:wrap;padding:4px;background:var(--in);border:1px solid var(--line2);border-radius:12px;width:fit-content;max-width:100%;margin-bottom:12px}
+.tabs button{background:transparent;border-color:transparent;color:var(--mut);padding:6px 12px;font-size:14px}
+.tabs button.on{background:var(--acc2);color:var(--accT);border-color:#b8602a}
+.g{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:10px;margin-bottom:12px}
+.g label{display:flex;flex-direction:column;gap:4px;font-size:12px;font-weight:700;color:var(--mut)}
+.g label.c{flex-direction:row;align-items:center;gap:8px;font-size:14px;color:var(--ink);font-weight:600;align-self:end;padding-bottom:9px}
+.empty{color:var(--mut);padding:18px 6px;text-align:center}
+.ov{position:fixed;inset:0;background:rgba(3,6,9,.72);display:flex;align-items:flex-start;justify-content:center;padding:40px 16px;z-index:50;overflow-y:auto}
+.md{background:var(--card);border:1px solid var(--line2);border-radius:16px;padding:18px;width:100%;max-width:720px}
+.ac{position:relative;flex:1;min-width:200px}
+.ac input{width:100%}
+.dd{position:absolute;z-index:20;left:0;right:0;top:calc(100% + 4px);background:var(--card2);border:1px solid var(--line2);border-radius:12px;padding:4px;max-height:300px;overflow:auto;box-shadow:0 12px 30px rgba(0,0,0,.45)}
+.dd div{display:flex;gap:8px;align-items:center;padding:6px 8px;border-radius:8px;cursor:pointer;font-size:14px}
+.dd div.on,.dd div:hover{background:var(--acc2);color:var(--accT)}
+.dd img{width:28px;height:28px}
+.warn{border:1px solid rgba(227,179,65,.5);background:rgba(227,179,65,.06);border-radius:12px;padding:10px 14px;font-size:14px;margin-top:10px}
+@media(max-width:700px){body{padding:12px 16px}section{padding:16px}h1{font-size:24px}.ov{padding:12px}}
+</style>
+</head>
+<body>
+<main>
+<nav id="topnav"></nav><script src="nav.js"></script>
+<div style="display:flex;align-items:center;gap:12px;margin:14px 0 16px"><img src="logo.png" alt="KVF" width="48" height="48"><h1>Depo</h1></div>
+
+<section>
+  <div class="row"><span class="live" id="cState">Bağlanıyor</span><span class="st" id="cInfo"></span><span class="sp"></span><button class="p" id="sync">Oyundan güncelle</button><button id="addM">+ Elle depo ekle</button></div>
+  <ol class="how">
+    <li>DPS Meter toplayıcısı açıkken oyunda <b>bankayı aç ve her sekmeye bir kez tıkla</b>. Ada ya da evdeki <b>sandıkları aç</b>. İçerikleri kendiliğinden buraya gelir.</li>
+    <li>Hangi deponun hesaba katılacağını aşağıdan seç. Seçtiklerin <b>Craft, Cooking, Alchemy, Refining ve Farming</b> sekmelerinde "depoda" olarak düşülür.</li>
+    <li>Toplayıcı yoksa ya da bir şey eksik kaldıysa depoyu <b>elle</b> de girip düzeltebilirsin.</li>
+  </ol>
+</section>
+
+<section><div class="row" style="margin-bottom:12px"><h2 style="margin:0">Depolar</h2><span class="sp"></span><span class="st" id="sSum"></span></div><div id="stores"></div><div id="others"></div></section>
+
+<section><div class="row" style="margin-bottom:12px"><h2 style="margin:0">Toplam stok</h2><span class="sp"></span><input id="tq" type="search" placeholder="Eşya ara" aria-label="Stokta ara" style="min-width:220px"></div><div class="t" id="tot"></div></section>
+
+<section>
+  <h2>Bununla ne craftlayabilirim?</h2>
+  <div class="g">
+    <label>Sunucu<select id="cSrv"><option value="europe">Europe</option><option value="west">Americas</option><option value="east">Asia</option></select></label>
+    <label>Fiyat şehri<select id="cCity"></select></label>
+    <label>Return rate (%)<input id="cRr" type="number" min="0" max="60" step="0.1" placeholder="0"></label>
+    <label class="c"><input type="checkbox" id="cPrem"> Premium (vergi %4)</label>
+    <label class="c"><input type="checkbox" id="cNeg"> Zarar edenleri gizle</label>
+  </div>
+  <div class="row" style="margin-bottom:12px"><button class="p" id="calc">Hesapla</button><span class="st" id="cSt">Depodaki malzemelerle yapılabilecek her şeyi bulur, o şehrin fiyatlarıyla kâra göre sıralar.</span></div>
+  <div id="cOut"></div>
+</section>
+</main>
+<div class="ov" id="ov" hidden><div class="md" role="dialog" aria-modal="true" id="md"></div></div>
+<script>
+(function(){
+const $=id=>document.getElementById(id);
+const esc=t=>String(t==null?"":t).replace(/&/g,"&amp;").replace(/"/g,"&quot;").replace(/</g,"&lt;");
+const API="http://127.0.0.1:47700",DUMP="https://raw.githubusercontent.com/ao-data/ao-bin-dumps/master/items.json";
+const CITIES=["Martlock","Bridgewatch","Lymhurst","Fort Sterling","Thetford","Caerleon","Brecilien","Black Market"];
+const fmt=n=>Math.round(n).toLocaleString("tr-TR");
+const arr=x=>x==null?[]:Array.isArray(x)?x:[x];
+const img=(id,s)=>`<img loading="lazy" src="https://render.albiononline.com/v1/item/${encodeURIComponent(id)}.png?size=${s||64}" alt="" onerror="this.style.visibility='hidden'">`;
+const ago=t=>{if(!t)return "";const m=(Date.now()/1e3-t)/60;return m<60?Math.max(1,Math.round(m))+" dk önce":m<1440?Math.round(m/60)+" sa önce":Math.round(m/1440)+" gün önce"};
+const S=window.aoStock;
+let D=S.load();D.stores=D.stores||{};D.hidden=D.hidden||{};D.set=Object.assign({srv:"europe",city:"Martlock",prem:true,rr:0,neg:true},D.set||{});
+const save=()=>S.save(D);
+let NM={},ZN={},OTHER=[],REC=null,LAST=null;
+
+// ---------- adlar
+const tierOf=id=>{const m=id.match(/^T(\d)_.*?(?:@(\d))?$/);return m?"T"+m[1]+(m[2]?"."+m[2]:""):""};
+const nm=id=>NM[id]||NM[id.replace(/@\d$/,"")]||id;
+const PRE=/^((Beginner's|Novice's|Journeyman's|Adept's|Expert's|Master's|Grandmaster's|Elder's|Uncommon|Rare|Exceptional|Pristine) )+/;
+const label=id=>{const t=tierOf(id),n=nm(id).replace(PRE,"");return t?`${n} (${t})`:n};
+const zoneName=z=>{z=String(z||"");if(/ISLAND/i.test(z))return "Ada";if(/^TNL-/.test(z))return "Avalon yolu";return (ZN[z]||z||"?").replace(/ Market$/,"")};
+async function loadNames(){
+  if(Object.keys(NM).length)return;
+  try{const r=await fetch("https://raw.githubusercontent.com/ao-data/ao-bin-dumps/master/formatted/items.txt");
+    if(r.ok)(await r.text()).split("\n").forEach(l=>{const m=l.match(/^\s*\d+:\s*(\S+)\s*:\s*(.+?)\s*$/);if(m)NM[m[1]]=m[2]})}catch(e){}
+}
+
+// ---------- toplayıcı
+async function col(path,opt){const c=new AbortController();setTimeout(()=>c.abort(),3000);const r=await fetch(API+path,Object.assign({signal:c.signal,cache:"no-store"},opt||{}));if(!r.ok)throw new Error("HTTP "+r.status);return r.json()}
+const appFlag=()=>{try{return !!JSON.parse(localStorage.getItem("aodps1")||"{}").app}catch(e){return false}};
+let launched=false;
+async function sync(manual){
+  let j;
+  try{j=await col("/storage")}catch(e){
+    let st=null;try{st=await col("/status")}catch(_){}
+    $("cState").className="live";$("cState").textContent=st?"Eski sürüm":"Bağlı değil";
+    $("cInfo").innerHTML=st?`DPS Meter açık ama bu sürüm (v${st.version}) depoyu okuyamıyor. <a href="dps.html">DPS Meter</a> sayfasından güncelle (v15 gerekli).`
+      :`DPS Meter toplayıcısı açık değil. ${appFlag()?'<a href="albiondps://start">Başlat</a>':'<a href="dps.html">DPS Meter</a> sayfasından kur'}; ya da depoları elle gir.`;
+    if(!st&&appFlag()&&!launched&&!manual){launched=true;location.href="albiondps://start";setTimeout(()=>sync(true),6000)}
+    return;
+  }
+  $("cState").className="live on";$("cState").textContent="Bağlı";
+  let n=0;OTHER=[];
+  (j.stores||[]).forEach(s=>{
+    if(D.hidden[s.key]&&s.t<=D.hidden[s.key])return;
+    delete D.hidden[s.key];
+    const items={};(s.items||[]).forEach(x=>items[x.item]=(items[x.item]||0)+x.qty);
+    const old=D.stores[s.key];
+    if(!old&&s.kind==="chest"&&!s.island){OTHER.push({...s,items});return}  // dünyadaki sandıklar sorulur
+    if(old&&old.t>=s.t)return;
+    D.stores[s.key]={name:old&&old.rn?old.name:s.name,rn:old&&old.rn,zone:s.zone,kind:s.kind,t:s.t,on:old?old.on:true,items};n++;
+  });
+  save();
+  $("cInfo").textContent=(j.character?j.character+" · ":"")+(n?n+" depo güncellendi":"Yeni bir şey yok")+". Bankada her sekmeye tıklayınca o sekme gelir.";
+  render();
+}
+$("sync").onclick=()=>sync(true);
+
+// ---------- depolar
+function storeCard(k,s){
+  const its=Object.entries(s.items||{}).filter(([,q])=>q>0),tot=its.reduce((a,[,q])=>a+q,0);
+  const kind=s.kind==="bank"?'<span class="pill b">Banka</span>':s.kind==="manual"?'<span class="pill m">Elle</span>':'<span class="pill i">Sandık</span>';
+  return `<div class="card${s.on?"":" off"}"><div class="row" style="gap:8px">${kind}<b>${esc(s.name||"Depo")}</b></div>
+  <div class="st">${esc(s.kind==="manual"?"Elle girildi":zoneName(s.zone))}${s.t?" · "+ago(s.t):""} · ${its.length} çeşit, ${fmt(tot)} adet</div>
+  <div class="ic">${its.sort((a,b)=>b[1]-a[1]).slice(0,10).map(([i])=>img(i,48)).join("")}</div>
+  <div class="row" style="gap:8px"><label class="tg"><input type="checkbox" data-on="${esc(k)}"${s.on?" checked":""}> Hesaba kat</label><span class="sp"></span><button data-ed="${esc(k)}">Düzenle</button><button class="bad" data-del="${esc(k)}" aria-label="Sil">Sil</button></div></div>`;
+}
+function renderStores(){
+  const ks=Object.keys(D.stores).sort((a,b)=>(D.stores[a].kind==="bank"?0:1)-(D.stores[b].kind==="bank"?0:1)||zoneName(D.stores[a].zone).localeCompare(zoneName(D.stores[b].zone))||String(D.stores[a].name).localeCompare(D.stores[b].name));
+  $("stores").innerHTML=ks.length?`<div class="cards">${ks.map(k=>storeCard(k,D.stores[k])).join("")}</div>`:'<div class="empty">Henüz depo yok. Oyunda bankayı ya da bir sandığı aç, ya da <b>+ Elle depo ekle</b>.</div>';
+  $("sSum").textContent=ks.length?`${ks.filter(k=>D.stores[k].on).length}/${ks.length} depo hesaba katılıyor`:"";
+  $("others").innerHTML=OTHER.length?`<div class="warn">Ada dışında açtığın ${OTHER.length} sandık daha var (ör. dünyadaki ya da guild sandığı). Senin deponsa ekle:<div class="row" style="margin-top:8px">${OTHER.map((s,i)=>`<button data-oth="${i}">${esc(zoneName(s.zone))} · ${Object.keys(s.items).length} çeşit</button>`).join("")}</div></div>`:"";
+  $("stores").querySelectorAll("[data-on]").forEach(c=>c.onchange=()=>{D.stores[c.dataset.on].on=c.checked;save();render()});
+  $("stores").querySelectorAll("[data-ed]").forEach(b=>b.onclick=()=>edit(b.dataset.ed));
+  // Oyundan gelen depo silinirse, oyunda tekrar açılana kadar geri gelmez
+  $("stores").querySelectorAll("[data-del]").forEach(b=>confirm2(b,"Sil",()=>{const k=b.dataset.del;if(D.stores[k].kind!=="manual")D.hidden[k]=Date.now()/1e3;delete D.stores[k];save();render()}));
+  $("others").querySelectorAll("[data-oth]").forEach(b=>b.onclick=()=>{const s=OTHER.splice(+b.dataset.oth,1)[0];D.stores[s.key]={name:"Sandık",zone:s.zone,kind:"chest",t:s.t,on:true,items:s.items};save();render()});
+}
+function confirm2(b,label,fn){let armed=false,tm=0;b.onclick=()=>{clearTimeout(tm);if(!armed){armed=true;b.textContent="Emin misin?";tm=setTimeout(()=>{armed=false;b.textContent=label},3500);return}fn()}}
+
+// ---------- toplam
+function renderTot(){
+  const T=S.total(),q=($("tq").value||"").trim().toLowerCase();
+  const where={};Object.values(D.stores).forEach(s=>{if(!s.on)return;Object.entries(s.items||{}).forEach(([i,n])=>{if(n>0)(where[i]=where[i]||[]).push(`${s.name} ${fmt(n)}`)})});
+  const L=Object.entries(T).filter(([i,n])=>n>0&&(!q||label(i).toLowerCase().includes(q)||i.toLowerCase().includes(q))).sort((a,b)=>label(a[0]).localeCompare(label(b[0])));
+  $("tot").innerHTML=L.length?`<table><thead><tr><th>Eşya</th><th class="n">Adet</th><th>Nerede</th></tr></thead><tbody>${L.map(([i,n])=>`<tr><td><span class="pn">${img(i)}<span>${esc(label(i))}</span></span></td><td class="n"><b>${fmt(n)}</b></td><td class="st">${esc(where[i].join(" · "))}</td></tr>`).join("")}</tbody></table>`:`<div class="empty">${Object.keys(T).length?"Eşleşen eşya yok.":"Hesaba katılan depolarda eşya yok."}</div>`;
+}
+$("tq").oninput=renderTot;
+
+// ---------- düzenleme penceresi
+function modal(html){$("md").innerHTML=html;$("ov").hidden=false;document.body.style.overflow="hidden"}
+function closeM(){$("ov").hidden=true;$("md").innerHTML="";document.body.style.overflow=""}
+$("ov").onclick=e=>{if(e.target===$("ov"))closeM()};
+document.addEventListener("keydown",e=>{if(e.key==="Escape"&&!$("ov").hidden)closeM()});
+async function edit(k){
+  const isNew=!k,s=isNew?{name:"Elle girilen",kind:"manual",on:true,items:{}}:D.stores[k],W={name:s.name,items:Object.assign({},s.items)};
+  const draw=()=>{
+    const L=Object.entries(W.items).sort((a,b)=>label(a[0]).localeCompare(label(b[0])));
+    modal(`<div class="row" style="margin-bottom:12px"><h2 style="margin:0">${isNew?"Elle depo ekle":"Depoyu düzenle"}</h2><span class="sp"></span><button id="mX" aria-label="Kapat">✕</button></div>
+    <label class="st" style="display:flex;flex-direction:column;gap:4px;margin-bottom:12px">Depo adı<input id="mN" value="${esc(W.name)}" maxlength="40"></label>
+    ${s.kind!=="manual"?'<div class="st" style="margin-bottom:10px">Oyundan tekrar güncellenince bu depo oyundaki hâliyle değişir.</div>':""}
+    <div class="row" style="margin-bottom:10px"><div class="ac"><input id="mQ" placeholder="Eşya ekle: adını yaz (örn. Planks T5.1)" autocomplete="off" aria-label="Eşya ara"><div class="dd" id="mD" hidden></div></div><input id="mC" type="number" min="1" value="1" style="width:100px" aria-label="Adet"></div>
+    <div class="t" style="max-height:50vh;overflow:auto">${L.length?`<table><tbody>${L.map(([i,n])=>`<tr><td><span class="pn">${img(i)}<span>${esc(label(i))}</span></span></td><td class="n"><input type="number" min="0" data-q="${esc(i)}" value="${n}" style="width:110px"></td><td class="n"><button class="bad" data-rm="${esc(i)}" aria-label="Çıkar">✕</button></td></tr>`).join("")}</tbody></table>`:'<div class="empty">Henüz eşya yok.</div>'}</div>
+    <div class="row" style="margin-top:14px"><button class="p" id="mS">Kaydet</button><button id="mX2">Vazgeç</button></div>`);
+    $("mX").onclick=$("mX2").onclick=closeM;
+    $("mN").oninput=e=>W.name=e.target.value;
+    $("md").querySelectorAll("[data-q]").forEach(e=>e.oninput=()=>W.items[e.dataset.q]=Math.max(0,+e.value||0));
+    $("md").querySelectorAll("[data-rm]").forEach(b=>b.onclick=()=>{delete W.items[b.dataset.rm];draw()});
+    let hl=0,M=[];
+    const sug=()=>{const q=$("mQ").value.trim().toLowerCase();if(q.length<2){$("mD").hidden=true;return}
+      const ws=q.split(/\s+/);M=Object.keys(NM).filter(i=>/^T\d_/.test(i)).filter(i=>{const h=(label(i)+" "+i).toLowerCase();return ws.every(w=>h.includes(w))}).slice(0,14);hl=0;
+      $("mD").innerHTML=M.map((i,x)=>`<div data-i="${x}" class="${x===hl?"on":""}">${img(i,48)}<span>${esc(label(i))}</span></div>`).join("")||'<div>Bulunamadı</div>';$("mD").hidden=false;
+      $("mD").querySelectorAll("[data-i]").forEach(d=>d.onmousedown=ev=>{ev.preventDefault();add(M[+d.dataset.i])})};
+    const add=i=>{if(!i)return;W.items[i]=(W.items[i]||0)+Math.max(1,+$("mC").value||1);draw();$("mQ").focus()};
+    $("mQ").oninput=sug;$("mQ").onblur=()=>setTimeout(()=>{const d=$("mD");if(d)d.hidden=true},150);
+    $("mQ").onkeydown=e=>{if(e.key==="ArrowDown"||e.key==="ArrowUp"){e.preventDefault();hl=Math.max(0,Math.min(M.length-1,hl+(e.key==="ArrowDown"?1:-1)));$("mD").querySelectorAll("[data-i]").forEach((d,x)=>d.classList.toggle("on",x===hl))}else if(e.key==="Enter"){e.preventDefault();add(M[hl])}};
+    $("mS").onclick=()=>{const it={};Object.entries(W.items).forEach(([i,n])=>{if(n>0)it[i]=n});
+      if(isNew)D.stores["m:"+Date.now()]={name:W.name.trim()||"Elle girilen",kind:"manual",on:true,t:Date.now()/1e3,items:it};
+      else Object.assign(D.stores[k],{name:W.name.trim()||s.name,rn:W.name.trim()&&W.name.trim()!==s.name?1:s.rn,items:it});
+      save();closeM();render()};
+  };
+  if(!Object.keys(NM).length){modal('<div class="empty">Eşya adları yükleniyor...</div>');await loadNames()}
+  draw();
+}
+$("addM").onclick=()=>edit(null);
+
+// ---------- ne craftlayabilirim
+// Tarifler oyun verisinden: Craft (silah/zırh/aksesuar), Cooking, Alchemy, Refining; Farming = depodaki tohum ve yavrular
+async function loadRecipes(){
+  if(REC)return REC;
+  const r=await fetch(DUMP);if(!r.ok)throw new Error("HTTP "+r.status);
+  const j=(await r.json()).items,L=[],F=[];
+  const mats=c=>arr(c.craftresource).filter(x=>x["@uniquename"]).map(x=>{const e=+x["@enchantmentlevel"]||0;return [x["@uniquename"]+(e?"@"+e:""),+x["@count"]||0,x["@maxreturnamount"]==="0"]});
+  const add=(id,reqs,cat)=>{const R=arr(reqs).map(c=>({m:mats(c),out:+(c["@amountcrafted"]||1)})).filter(x=>x.m.length);if(R.length)L.push({id,cat,alts:R})};
+  const gear=it=>{const id=it["@uniquename"],sc=it["@shopcategory"];if(!/^T\d_/.test(id)||["vanity","other","furniture"].includes(sc)||/_ROYAL$|_PROTOTYPE$/.test(id))return;
+    add(id,it.craftingrequirements,"craft");arr(it.enchantments&&it.enchantments.enchantment).forEach(e=>add(id+"@"+e["@enchantmentlevel"],e.craftingrequirements,"craft"))};
+  ["weapon","equipmentitem","transformationweapon"].forEach(k=>arr(j[k]).forEach(gear));
+  arr(j.consumableitem).forEach(it=>{const id=it["@uniquename"],cat=/_MEAL_/.test(id)?"food":/_POTION_/.test(id)?"alch":null;if(!cat||!/^T\d_/.test(id))return;
+    add(id,it.craftingrequirements,cat);arr(it.enchantments&&it.enchantments.enchantment).forEach(e=>add(id+"@"+e["@enchantmentlevel"],e.craftingrequirements,cat))});
+  arr(j.simpleitem).forEach(it=>{const id=it["@uniquename"],m=id.match(/^T\d_(METALBAR|PLANKS|CLOTH|LEATHER|STONEBLOCK)(_LEVEL(\d))?$/);if(!m)return;add(id+(m[3]?"@"+m[3]:""),it.craftingrequirements,"ref")});
+  arr(j.farmableitem).forEach(it=>{const id=it["@uniquename"];
+    if(it["@kind"]==="plant"&&it.harvest)F.push({id,cat:"farm",kind:"seed",out:String(it.harvest["@lootlist"]).replace(/_LOOT$/,""),ret:+(it.harvest.seed&&it.harvest.seed["@chance"])||0});
+    if(it["@kind"]==="animal"&&it.grownitem&&/_BABY$/.test(id))F.push({id,cat:"farm",kind:"baby",out:it.grownitem["@uniquename"],ret:+(it.grownitem.offspring&&it.grownitem.offspring["@chance"])||0})});
+  REC={L,F};return REC;
+}
+const CAT={all:"Tümü",craft:"Craft",food:"Cooking",alch:"Alchemy",ref:"Refining",farm:"Farming"};
+let ctab="all",LIM=50;
+async function getJ(u){let r=await fetch(u);if(r.status===429){await new Promise(z=>setTimeout(z,3000));r=await fetch(u)}if(!r.ok)throw new Error("API "+r.status);return r.json()}
+async function prices(ids){
+  const P={},srv=D.set.srv,loc=D.set.city.replace(" ","");
+  for(let i=0;i<ids.length;i+=40){
+    $("cSt").textContent=`Fiyatlar çekiliyor... ${Math.min(i+40,ids.length)}/${ids.length}`;
+    const d=await getJ(`https://${srv}.albion-online-data.com/api/v2/stats/prices/${ids.slice(i,i+40).join(",")}.json?locations=${loc}&qualities=1`);
+    d.forEach(o=>{if(o.sell_price_min&&(!P[o.item_id]||o.sell_price_min<P[o.item_id]))P[o.item_id]=o.sell_price_min});
+  }
+  return P;
+}
+async function calc(){
+  const T=S.total();
+  if(!Object.keys(T).length){$("cOut").innerHTML='<div class="empty">Önce hesaba katılan bir depoya malzeme ekle.</div>';return}
+  $("calc").disabled=true;
+  try{
+    $("cSt").textContent="Tarifler yükleniyor (dosya büyük, ilk seferde biraz sürebilir)...";
+    await Promise.all([loadRecipes(),loadNames()]);
+    const rr=Math.min(.6,Math.max(0,(+D.set.rr||0)/100)),out=[];
+    REC.L.forEach(r=>{let best=null;
+      r.alts.forEach(a=>{let n=Infinity;a.m.forEach(([m,c,nr])=>{const need=c*(nr?1:1-rr);n=Math.min(n,need>0?Math.floor((T[m]||0)/need+1e-9):Infinity)});
+        if(n>=1&&n<Infinity&&(!best||n>best.n))best={n,a}});
+      if(best)out.push({id:r.id,cat:r.cat,n:best.n,outN:best.n*best.a.out,mats:best.a.m,per:best.a.out})});
+    REC.F.forEach(f=>{const n=T[f.id]||0;if(n>=1)out.push({id:f.out,src:f.id,cat:"farm",kind:f.kind,n,ret:f.ret,mats:[[f.id,1,true]],per:f.kind==="seed"?4.5*(D.set.prem?2:1):1})});
+    if(!out.length){LAST={out,P:{}};$("cSt").textContent="Depodaki malzemelerle tamamlanabilecek bir tarif bulunamadı.";drawCalc();return}
+    const ids=[...new Set(out.flatMap(o=>[o.id,...o.mats.map(m=>m[0])]))];
+    const P=await prices(ids);
+    const tax=(D.set.prem?4:8)+2.5;
+    out.forEach(o=>{
+      const matV=o.mats.reduce((a,[m,c,nr])=>a+c*(nr?1:1-rr)*(P[m]||0),0)+(o.kind?-(o.ret*(P[o.src]||0)):0);
+      const sell=o.per*(P[o.id]||0)*(1-tax/100);
+      o.miss=!P[o.id]||o.mats.some(([m])=>!P[m]);o.matV=matV;o.sell=sell;o.pr=sell-matV;o.tot=o.pr*o.n});
+    out.sort((a,b)=>(a.miss-b.miss)||b.tot-a.tot);
+    LAST={out,P};
+    $("cSt").textContent=`${out.length} şey yapılabiliyor · ${D.set.city} fiyatları, satışta %${tax} vergi + kurulum ücreti düşüldü${rr?", malzemede %"+(rr*100).toFixed(1)+" return":""}. İstasyon ücreti dahil değil.`;
+    drawCalc();
+  }catch(e){$("cSt").textContent="Hesaplanamadı: "+e.message}
+  finally{$("calc").disabled=false}
+}
+function drawCalc(){
+  if(!LAST)return;const out=LAST.out.filter(o=>!D.set.neg||o.miss||o.pr>0),cnt={all:out.length};out.forEach(o=>cnt[o.cat]=(cnt[o.cat]||0)+1);
+  const AL=out.filter(o=>ctab==="all"||o.cat===ctab),L=AL.slice(0,LIM);
+  $("cOut").innerHTML=`<div class="tabs">${Object.keys(CAT).map(k=>`<button data-ct="${k}" class="${k===ctab?"on":""}">${CAT[k]} <span class="st">${cnt[k]||0}</span></button>`).join("")}</div>
+  ${L.length?`<div class="t"><table><thead><tr><th>Ürün</th><th class="n">Yapılabilir</th><th>Kullanılan (1 adet için)</th><th class="n">Malzeme değeri</th><th class="n">Satış</th><th class="n">Kâr / adet</th><th class="n">Toplam kâr</th></tr></thead><tbody>${L.map(o=>`<tr><td><span class="pn">${img(o.id)}<span>${esc(label(o.id))}<small>${CAT[o.cat]}${o.kind==="seed"?" · ekersen (ort. "+o.per+" ürün)":o.kind==="baby"?" · büyütürsen (yem hariç)":""}</small></span></span></td><td class="n"><b>${fmt(o.n)}</b>${o.per!==1&&!o.kind?`<br><small class="st">${fmt(o.n*o.per)} ürün</small>`:""}</td><td><span class="mats">${o.mats.map(([m,c])=>`<span title="${esc(label(m))}">${img(m,48)}${c}</span>`).join("")}</span></td>${o.miss?'<td class="n st" colspan="4">fiyat eksik</td>':`<td class="n">${fmt(o.matV)}</td><td class="n">${fmt(o.sell)}</td><td class="n ${o.pr>=0?"pos":"neg"}">${fmt(o.pr)}</td><td class="n ${o.tot>=0?"pos":"neg"}"><b>${fmt(o.tot)}</b></td>`}</tr>`).join("")}</tbody></table></div>${AL.length>LIM?`<div class="row" style="margin-top:10px"><button id="cMore">Daha fazla göster (${AL.length-LIM} tane daha)</button></div>`:""}`:`<div class="empty">${D.set.neg&&LAST.out.length?"Bu bölümde kârlı bir şey yok. Zarar edenleri gizle'yi kapatırsan hepsini görürsün.":"Bu bölümde yapılabilecek bir şey yok."}</div>`}
+  <p class="st" style="margin:10px 0 0">Malzeme değeri: kullandığın malzemeleri ${esc(D.set.city)}'ta satsan alacağın para. Kâr bunun üstüne kazandığın. Return rate girdiysen geri dönen malzeme düşülür ve o kadar fazla yapabilirsin.</p>`;
+  $("cOut").querySelectorAll("[data-ct]").forEach(b=>b.onclick=()=>{ctab=b.dataset.ct;LIM=50;drawCalc()});
+  if($("cMore"))$("cMore").onclick=()=>{LIM+=100;drawCalc()};
+}
+$("calc").onclick=calc;
+$("cCity").innerHTML=CITIES.map(c=>`<option${c===D.set.city?" selected":""}>${c}</option>`).join("");
+$("cSrv").value=D.set.srv;$("cRr").value=D.set.rr||"";$("cPrem").checked=!!D.set.prem;$("cNeg").checked=!!D.set.neg;
+$("cNeg").addEventListener("change",()=>{D.set.neg=$("cNeg").checked;save();drawCalc()});
+[["cSrv","srv"],["cCity","city"],["cRr","rr"],["cPrem","prem"]].forEach(([id,k])=>$(id).addEventListener("change",()=>{const e=$(id);D.set[k]=e.type==="checkbox"?e.checked:e.type==="number"?+e.value||0:e.value;save();if(LAST)calc()}));
+
+function render(){renderStores();renderTot();if(LAST)drawCalc()}
+// Bulut eşitlemesi başka sekmeden veriyi değiştirirse yeniden oku
+window.addEventListener("storage",e=>{if(e.key===S.K){D=S.load();D.stores=D.stores||{};D.hidden=D.hidden||{};D.set=Object.assign({srv:"europe",city:"Martlock",prem:true,rr:0,neg:true},D.set||{});render()}});
+fetch("data/zones.json").then(r=>r.json()).then(z=>{ZN=z;render()}).catch(()=>{});
+loadNames().then(render);
+render();sync(false);
+})();
+</script>
+</body>
+</html>

@@ -38,7 +38,7 @@
   if(!C.url||!C.key||/XXX/.test(C.url)||!window.supabase){gate("off");return}
   const sb=window.supabase.createClient(C.url,C.key,{auth:{flowType:"pkce",detectSessionInUrl:true,persistSession:true}});
   window.aoSb=sb;
-  const KEYS=["aoplan3","aoplan3f","aoplan3c","aoprofiles","aoprofilesf","aoprofilesc","aoactive","aoactivef","aoactivec","aobm1","aodb1"];
+  const KEYS=["aoplan3","aoplan3f","aoplan3c","aoprofiles","aoprofilesf","aoprofilesc","aoactive","aoactivef","aoactivec","aobm1","aodb1","aostock1"];
   const get=k=>{try{return LS.getItem(k)}catch(e){return null}};
   const orig=Storage.prototype.setItem;
   const put=(k,v)=>{try{orig.call(LS,k,v)}catch(e){}};
@@ -170,7 +170,7 @@
     try{const c=new AbortController();setTimeout(()=>c.abort(),2500);const r=await fetch("http://127.0.0.1:47700/status",{signal:c.signal,cache:"no-store"});return r.ok?await r.json():null}catch(e){return null}
   }
   async function infoPopup(){
-    const page=window.aoNav&&window.aoNav.page;if(!page||page==="builds"||page==="maps")return;
+    const page=window.aoNav&&window.aoNav.page;if(!page||page==="builds"||page==="maps"||page==="depo")return;
     const kind=page==="dps"||page==="destiny"?"dps":"data";
     try{if(LS.getItem("aoPopNo_"+kind)||sessionStorage.getItem("aoPop_"+kind))return}catch(e){return}
     let st=null;

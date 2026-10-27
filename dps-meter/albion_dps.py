@@ -23,7 +23,7 @@ import webbrowser
 import zlib
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-VERSION = 14                 # GitHub'daki dps-vN sürümüyle aynı olmalı (güncelleme kontrolü bunu karşılaştırır)
+VERSION = 15                 # GitHub'daki dps-vN sürümüyle aynı olmalı (güncelleme kontrolü bunu karşılaştırır)
 PORT = int(os.environ.get("ALBION_DPS_PORT") or 47700)
 COMBAT_GAP_SECONDS = 5       # vuruşlar arası bundan uzun boşluk "savaş süresi"ne sayılmaz
 FP = 10000.0                 # oyunun sabit noktalı sayı çarpanı
@@ -49,6 +49,8 @@ LIVE_FILE = os.path.join(CACHE_DIR, "aktif-oturum.json")
 LOOT_FILE = os.path.join(CACHE_DIR, "loot.json")
 MAX_LOOT = 5000             # hatırlanan loot kaydı
 MAX_CHESTS = 100            # hatırlanan sandık içeriği
+STORAGE_FILE = os.path.join(CACHE_DIR, "storage.json")  # Depo sekmesi: banka sekmeleri ve ada sandıkları
+MAX_STORES = 80             # hatırlanan depo (banka sekmesi + sandık)
 MAX_LOG = 2000              # olay günlüğü satırı
 
 # ---------------------------------------------------------------------------
@@ -63,7 +65,7 @@ EV = {
     "MightAndFavorReceivedEvent": 496, "InCombatStateUpdate": 277,
     "UpdateReSpecPoints": 84,
     "NewEquipmentItem": 30, "NewSimpleItem": 32, "AttachItemContainer": 99, "InventoryPutItem": 26,
-    "InventoryDeleteItem": 27, "OtherGrabbedLoot": 278, "NewLoot": 98,
+    "InventoryDeleteItem": 27, "OtherGrabbedLoot": 278, "NewLoot": 98, "BankVaultInfo": 413,
 }
 OP = {"Join": 2, "ClaimPaymentTransaction": 297, "ContainerOpen": 98}
 
@@ -774,10 +776,16 @@ class Tracker:
         self.chests = []         # açtığın sandıkların içeriği
         self.evlog = []          # Log sekmesi: olay günlüğü
         self.loot_dirty = False
+        # Depo sekmesi: banka açılınca oyun sekmelerin guid'lerini ve adlarını gönderir (BankVaultInfo),
+        # sekme açılınca içeriği AttachItemContainer ile gelir (2: sekmenin guid'i). Ada sandıkları ContainerOpen ile.
+        self.vault_tabs = {}     # sekme guid -> {"name", "zone"}
+        self.stores = {}         # depo anahtarı -> {"key","kind","zone","name","t","g","ids","res"}
+        self.store_dirty = False
         self.burst = {}          # oyuncu adı -> son 10 sn'deki vuruşlar [(zaman, hasar)] (Top Stats: burst hasar)
         self.load_saved()
         self.load_live()
         self.load_loot()
+        self.load_stores()
 
     # ---- kayıt ----
     def load_saved(self):
@@ -849,6 +857,93 @@ class Tracker:
         del self.evlog[:-MAX_LOG]
         self.loot_dirty = True
 
+    # ---- depo (banka / ada sandığı) ----
+    def load_stores(self):
+        try:
+            with open(STORAGE_FILE, encoding="utf-8") as fh:
+                self.stores = {s["key"]: s for s in json.load(fh).get("stores", [])}
+        except Exception:
+            self.stores = {}
+
+    def save_stores(self):
+        try:
+            os.makedirs(CACHE_DIR, exist_ok=True)
+            with open(STORAGE_FILE, "w", encoding="utf-8") as fh:
+                json.dump({"stores": list(self.stores.values())}, fh, ensure_ascii=False)
+        except Exception as e:
+            log("Depo kaydı yazılamadı:", e)
+
+    def on_vault_info(self, p):
+        # 1: "konum-guid@bölge", 2: sekme guid'leri (16 baytlık parçalar ya da dizi), 3: sekme adları
+        loc = str(p.get(1) or "")
+        zone = loc.rsplit("@", 1)[1] if "@" in loc else self.zone
+        raw, gs = p.get(2), []
+        if isinstance(raw, (bytes, bytearray)) or (isinstance(raw, list) and raw and all(isinstance(x, int) for x in raw)):
+            b = bytes(x & 0xFF for x in raw)
+            gs = [b[i:i + 16].hex() for i in range(0, len(b) - 15, 16)]
+        else:
+            gs = [guid_key(x) for x in as_list(raw)]
+        names = [str(x) for x in as_list(p.get(3))] if not isinstance(p.get(3), str) else [p.get(3)]
+        for i, g in enumerate(gs):
+            if g:
+                n = names[i] if i < len(names) else ""
+                self.vault_tabs[g] = {"name": "Banka" if not n or n.startswith("@BUILDINGS") else n, "zone": zone}
+        if gs:
+            log(f"Banka açıldı: {len(gs)} sekme ({zone})")
+
+    def snapshot_store(self, key, kind, zone, name, g):
+        ids = [i for i in self.containers.get(g, []) if i]
+        old = self.stores.get(key)
+        st = {"key": key, "kind": kind, "zone": zone, "name": name, "t": time.time(), "g": g, "ids": ids,
+              "res": (old or {}).get("res", {})}
+        self.stores.pop(key, None)
+        self.stores[key] = st
+        self.resolve_store(st)
+        # en eski sandıklar silinir; banka sekmeleri en son silinir
+        while len(self.stores) > MAX_STORES:
+            ks = [k for k, v in self.stores.items() if v["kind"] != "bank"] or list(self.stores)
+            del self.stores[ks[0]]
+        self.store_dirty = True
+        self.note("storage", name=name, zone=zone, n=len(ids))
+
+    def resolve_store(self, st):
+        # sekme hâlâ bellekteyse içerik canlı okunur (eşya taşındıysa güncel olur)
+        if st.get("g") in self.containers:
+            ids = [i for i in self.containers[st["g"]] if i]
+            if ids != st["ids"]:
+                st["ids"], self.store_dirty = ids, True
+        res = {}
+        for i in st["ids"]:
+            k = str(i)
+            if i in self.items and ITEM_NAMES.get(self.items[i][0]):
+                res[k] = [ITEM_NAMES[self.items[i][0]], self.items[i][1]]
+            elif k in st["res"]:
+                res[k] = st["res"][k]
+        if res != st["res"]:
+            st["res"], self.store_dirty = res, True
+
+    def storage_data(self):
+        with self.lock:
+            out = []
+            for st in reversed(list(self.stores.values())):
+                self.resolve_store(st)
+                agg = {}
+                for name, qty in st["res"].values():
+                    agg[name] = agg.get(name, 0) + qty
+                out.append({"key": st["key"], "kind": st["kind"], "zone": st["zone"], "name": st["name"], "t": st["t"],
+                            "island": "ISLAND" in str(st["zone"] or "").upper(), "slots": len(st["ids"]),
+                            "unknown": len(st["ids"]) - len(st["res"]),
+                            "items": [{"item": k, "qty": v} for k, v in sorted(agg.items())]})
+            return {"stores": out, "character": self.local_name, "zone": self.zone}
+
+    def delete_store(self, key=None):
+        with self.lock:
+            if key:
+                self.stores.pop(key, None)
+            else:
+                self.stores = {}
+            self.store_dirty = True
+
     # ---- loot ----
     def snapshot_chest(self, g, info):
         ids = [i for i in self.containers.get(g, []) if i]
@@ -857,6 +952,8 @@ class Tracker:
         last = self.chests[-1] if self.chests else None
         if last and last.get("g") == g and sorted(last["ids"]) == sorted(ids):
             return  # aynı sandık aynı içerikle yeniden açıldı
+        if not info.get("name"):  # ceset değil: ada / ev sandığı ya da dünyadaki sandık; Depo sekmesine de yazılır
+            self.snapshot_store("c:" + g, "chest", self.zone, "Sandık", g)
         c = {"id": "%d" % (time.time() * 1000), "t": time.time(), "g": g, "name": info.get("name"), "ids": ids, "res": {}}
         self.resolve_chest(c)
         self.chests.append(c)
@@ -1069,6 +1166,10 @@ class Tracker:
                         del self.containers[k]
                     if g in self.opening:
                         self.snapshot_chest(g, self.opening.pop(g))
+                    pg = guid_key(p.get(2))
+                    if pg and pg in self.vault_tabs:
+                        tab = self.vault_tabs[pg]
+                        self.snapshot_store("b:" + pg, "bank", tab["zone"], tab["name"], g)
             elif code == EV["InventoryPutItem"]:
                 oid, g = to_int(p.get(0)), guid_key(p.get(2))
                 if oid is not None and g in self.containers:
@@ -1080,6 +1181,8 @@ class Tracker:
                 for lst in self.containers.values():
                     if oid in lst:
                         lst[lst.index(oid)] = 0
+            elif code == EV["BankVaultInfo"]:
+                self.on_vault_info(p)
             elif code == EV["NewLoot"]:
                 oid, n = to_int(p.get(0)), p.get(3)
                 if oid is not None and isinstance(n, str):
@@ -1380,6 +1483,9 @@ class Tracker:
             if self.loot_dirty:
                 self.loot_dirty = False
                 self.save_loot()
+            if self.store_dirty:
+                self.store_dirty = False
+                self.save_stores()
 
     def status(self):
         with self.lock:
@@ -1546,6 +1652,8 @@ def make_handler(tracker):
             elif path == "/log":
                 with tracker.lock:
                     self.send_json(list(reversed(tracker.evlog)))
+            elif path == "/storage":
+                self.send_json(tracker.storage_data())
             else:
                 self.send_json({"error": "bulunamadı"}, 404)
 
@@ -1579,6 +1687,12 @@ def make_handler(tracker):
                 self.send_json({"ok": True})
             elif re.match(r"^/chests/\d+$", path):
                 tracker.clear_loot(path.rsplit("/", 1)[1])
+                self.send_json({"ok": True})
+            elif path == "/storage":
+                tracker.delete_store()
+                self.send_json({"ok": True})
+            elif re.match(r"^/storage/[\w:\-]+$", path):
+                tracker.delete_store(path.split("/", 2)[2])
                 self.send_json({"ok": True})
             elif path == "/log":
                 with tracker.lock:

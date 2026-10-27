@@ -57,6 +57,15 @@ for x in json.load(open(get(TREE, True), encoding="utf-8"))["tree"]:
             TPL[n] = p
 
 
+def zones(name):
+    """data/zones.json: bölge numarası -> adı (Depo sekmesi bankanın/sandığın nerede olduğunu yazar)."""
+    root = xml("cluster/" + name + ".xml")
+    z = {c.get("id"): c.get("displayname") for c in root.iter("cluster")
+         if c.get("id") and c.get("displayname") and not c.get("id").startswith("TNL-")}
+    with open(os.path.join(os.path.dirname(OUT), "zones.json"), "w", encoding="utf-8") as fh:
+        json.dump(z, fh, ensure_ascii=False, separators=(",", ":"))
+
+
 def world(name):
     """Sunucunun TNL haritaları: id -> {n, f, ty, on, exits}"""
     root = xml("cluster/" + name + ".xml", True)
@@ -116,28 +125,58 @@ def classify(name):
 
 
 def tcat(name):
-    """Zemin sınıfı: v boşluk (tıklanamayan dolgu), a Avalon taş zemini, w su, r ana yol; diğerleri çizilmez."""
+    """Zemin sınıfı: v boşluk (tıklanamayan dolgu), g yürünebilir zemin, a Avalon taş zemini, w su, r ana yol.
+    Yürünebilir alan oyunun "Ground" tipindeki parçalarıdır; geri kalan her yer boşluk sayılır."""
     u = name.upper()
     if u.startswith("_ROADS_MIST_ROAD_"):
         return "r"
-    if "NOCLICK" in u:
-        return "v"
-    if re.search(r"AVA_GROUND_(A_BRIGHT|STONES|INNERCORNER|STONEPATH)", u):
-        return "a"
+    t = TT.get(name)
+    if not t:
+        return None
     if "WATER" in u or "RIVER" in u:
         return "w"
+    if re.search(r"AVA_GROUND_(A_BRIGHT|STONES|INNERCORNER|STONEPATH)|AVA_PORTAL_GROUND", u):
+        return "a"  # Avalon taş zemini (portal çevresi, ana yol); bir kısmı Object tipinde
+    if t[4] == "Ground":
+        return "g"
+    if "NOCLICK" in u:
+        return "v"
     return None
 
 
-# tiles.xml: parçaların taban ölçüsü (genişlik, yükseklik, ofset)
-DIM = {}
+# tiles.xml: parçaların taban ölçüsü (genişlik, yükseklik, ofset, tip) ve compoundtile içerikleri.
+# Yan yollar (_ROADS_MIST_OFFROAD_*) gibi hazır parçalar compoundtile: içindeki Ground parçaları kıvrımlı yolu çizer.
+TT, COMP = {}, {}
 for _, e in ET.iterparse(get("cluster/tiles.xml")):
-    if e.tag == "tile":
-        n = e.get("name") or ""
-        if e.get("width") and tcat(n):
-            o = [float(v) for v in (e.get("offset") or "0 0").split()]
-            DIM[n] = (float(e.get("width")), float(e.get("height")), o[0], o[1])
-    e.clear()
+    if e.tag == "tile" and e.get("type") and e.get("width"):
+        o = [float(v) for v in (e.get("offset") or "0 0").split()]
+        TT[e.get("name")] = (float(e.get("width")), float(e.get("height")), o[0], o[1], e.get("type"))
+    elif e.tag == "compoundtile" and e.get("name") and len(e):
+        COMP[e.get("name")] = [(c.get("name") or "", dict(c.attrib)) for c in e if c.tag in ("tile", "compoundtile")]
+        e.clear()
+DIM = {n: t[:4] for n, t in TT.items()}
+
+
+def roty(a):
+    if a.get("roty"):
+        return float(a["roty"])
+    r = (a.get("rot") or "").split()
+    return float(r[1]) if len(r) == 3 else float(r[0]) if r else 0.0
+
+
+def expand(n, x, z, ang, depth=0):
+    """Compoundtile'ı alt parçalarına açar: [(sınıf, x, z, açı, ölçü)] (yerel koordinatta)."""
+    out = []
+    if n in COMP and depth < 4:
+        for m, a in COMP[n]:
+            p = [float(v) for v in a.get("pos", "0 0 0").split()]
+            rx, rz = rotate(p[0], p[2], ang)
+            out += expand(m, x + rx, z + rz, ang + roty(a), depth + 1)
+        return out
+    tc = tcat(n)
+    if tc and tc != "r":
+        out.append((tc, x, z, ang, dim(n)))
+    return out
 
 
 def dim(name):
@@ -168,9 +207,10 @@ def template(ref):
                     k = classify(n)
                     if k and lid is not None:
                         pts.append((k, p[0], p[2]))
-                    tc = tcat(n)
-                    if tc:
-                        ter.append((tc, p[0], p[2], float(c.get("roty", 0)), dim(n)))
+                    ry = roty(c.attrib)
+                    if tcat(n) == "r":
+                        ter.append(("r", p[0], p[2], ry, dim(n)))
+                    ter += expand(n, p[0], p[2], ry)
                 else:
                     walk(c, lid)
 
@@ -235,11 +275,11 @@ def raster(ter, bb):
     Satırlar kuzeyden (büyük z) başlar; her satır 'harf+sayı' koşularıdır (ör. .12g30a4)."""
     x0, z0, x1, z1 = bb
     W, H = math.ceil((x1 - x0) / CELL), math.ceil((z1 - z0) / CELL)
-    g = bytearray(b"g" * (W * H))
+    g = bytearray(b"." * (W * H))
     ter = [t for t in ter if t[0] != "r"]
-    order = {"v": 0, "a": 1, "w": 2}
+    order = {"v": 0, "g": 1, "a": 2, "w": 3}
     for tc, x, z, ang, (w, h, ox, oy) in sorted(ter, key=lambda t: order[t[0]]):
-        ch = {"v": b".", "a": b"a", "w": b"w"}[tc]
+        ch = {"v": b".", "g": b"g", "a": b"a", "w": b"w"}[tc]
         cs = [rotate(cx, cz, ang) for cx, cz in ((ox, oy), (ox + w, oy), (ox + w, oy + h), (ox, oy + h))]
         xs, zs = [x + c[0] for c in cs], [z + c[1] for c in cs]
         c0, c1 = max(0, int((min(xs) - x0) / CELL + .5)), min(W, int((max(xs) - x0) / CELL + .5))
@@ -282,6 +322,7 @@ def summary(pts):
 
 
 servers = {s: world(n) for s, n in SERVERS.items()}
+zones("world")
 files = sorted({m["f"] for w in servers.values() for m in w.values()})
 with ThreadPoolExecutor(16) as ex:
     list(ex.map(lambda f: get("cluster/" + f), files))
