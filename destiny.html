@@ -65,7 +65,14 @@ img[src*="render.albiononline.com"]{filter:drop-shadow(0 2px 3px rgba(0,0,0,.45)
 .plt{overflow-x:auto;margin-top:12px}
 /* düzen */
 .lay{display:grid;grid-template-columns:1fr minmax(340px,440px);gap:16px;align-items:start;margin-top:16px}
-.side{position:sticky;top:12px}
+.side{position:sticky;top:12px;max-height:calc(100vh - 24px);overflow:auto}
+.crg{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:6px;margin-top:10px}
+.crg div{background:var(--card2);border:1px solid var(--line);border-radius:10px;padding:6px 4px;text-align:center;font-size:12px;font-variant-numeric:tabular-nums;cursor:pointer}
+.crg div.on{border-color:var(--acc)}
+.crg img{width:44px;height:44px;display:block;margin:0 auto 2px}
+.crg b{display:block;font-size:13px;color:var(--ink)}
+.crg small{display:block;color:var(--mut);font-size:10px}
+.crc{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:8px;font-size:13px}
 .cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:10px}
 .cd{display:flex;flex-direction:column;gap:8px;text-align:left;background:var(--card2);border:1px solid var(--line);border-radius:12px;padding:10px 12px;color:var(--ink);font-weight:500;cursor:pointer}
 .cd:hover{border-color:#5a3a24}
@@ -170,6 +177,13 @@ function bonusLines(n,from,to){
   return [...acc.values()].map(({b,v})=>{const pc=b.type==="resourcegatherbonus";
     return (b.d||b.type).replace("{0}",`<b>+${pc?"%"+dec(v*100,1):dec(v,1)}</b>`)+(b.min!=null&&b.max!=null&&b.min!==b.max?` <small class="st">(T${b.min}-T${b.max})</small>`:b.min!=null?` <small class="st">(T${b.min})</small>`:"")});
 }
+// Plan her kategori sekmesinde ayrı görünür (Crafting ve Refining ayrı plan); kayıt yine tek liste (LS.plan), eşitleme yapısı değişmez
+const PKL={fighting:"Combat",crafting:"Crafting",refining:"Refining",gathering:"Gathering",farming:"Farming, Cooking, Alchemy",tracking:"Tracking"};
+const pkind=n=>n.cat==="crafting"&&/^REFINE_/.test(n.tpl||"")?"refining":n.cat;
+const kindsOf=c=>c==="crafting"?["crafting","refining"]:[c];
+// Craft fame (oyun verisi): rafine malzeme fame'i tier'a göre × 2^enchant × malzeme adedi × artifact çarpanı (Craft sekmesindeki JFAME ile aynı)
+const JFAME={4:22.5,5:90,6:270,7:645,8:1395};
+const craftFame=(n,t,e)=>n.cr.n*JFAME[t]*Math.pow(2,e)*(n.cr.f||1);
 const short=t=>String(t).replace(/ (Combat|Crafting|Tailoring|Cultivating)? ?Specialist$/,"").replace(/ Crafting Specialist$/,"");
 
 // ---------- dal / alt dal / kartlar
@@ -191,7 +205,7 @@ function card(id,n,withSub){
 }
 function drawNav(){
   $("cats").innerHTML=CATS.map(([k,l])=>{const n=Object.values(D.nodes).filter(x=>x.cat===k&&x.tpl).length;return `<button data-c="${k}" class="${k===cat?"on":""}">${l}<small>${n}</small></button>`}).join("");
-  $("cats").querySelectorAll("[data-c]").forEach(b=>b.onclick=()=>{cat=LS.cat=b.dataset.c;sub="";$("q").value="";saveLS();drawNav();drawGrid()});
+  $("cats").querySelectorAll("[data-c]").forEach(b=>b.onclick=()=>{cat=LS.cat=b.dataset.c;sub="";$("q").value="";saveLS();drawNav();drawGrid();drawPlan()});
   const S=subsOf();if(!S.some(([k])=>k===sub))sub=S[0]?S[0][0]:"";LS.sub=sub;
   $("subs").innerHTML=S.map(([k,l])=>{const m=sortNodes(l.slice())[0],mx=l.filter(([id,n])=>{const x=levelOf(id).lv;return x&&x>=tpl(n).lv.length}).length;
     return `<button data-s="${esc(k)}" class="${k===sub&&!$("q").value?"on":""}">${icon(m&&m[1].icon)}${esc(k)}${mx?` <b title="100 olan">${mx}✓</b>`:""}</button>`}).join("");
@@ -266,7 +280,11 @@ function drawCalc(){
   <label>Saatte kazandığın fame<input type="number" id="cFph" min="0" value="${LS.fph||""}" placeholder="örn. 1500000"></label>
   ${n.rs==="combat"?`<label>Silver / credit oranı<input type="number" id="cSpc" min="0" step="0.0001" value="${LS.spc||""}" placeholder="${SPC0}"></label>`:""}</div>
   <div class="q">${[cur<B?[B,"100'e kadar"]:null,M>B?[M,M+"'ye kadar"]:null].filter(Boolean).map(([v,l])=>`<button type="button" class="l" data-t="${v}">${l}</button>`).join("")}<button type="button" id="cAdd" style="margin-left:auto">${(LS.plan||[]).some(p=>p.id===sel)?"Plandaki hedefi güncelle":"Plana ekle"}</button></div>
-  <div id="cOut"></div>`;
+  <div id="cOut"></div>${n.cr?`<h2 style="margin-top:18px">Kaç tane craftlarsam?</h2>
+  <div class="crc"><label><input type="checkbox" id="crP"${LS.crPrem===false?"":" checked"}> Premium (×${dec(D.premium||1.5)})</label>
+  <select id="crM" aria-label="Hesap türü"><option value="c">Sadece craft</option><option value="s"${LS.crM==="s"?" selected":""}>Craft + Study (LP'siz)</option><option value="l"${LS.crM==="l"?" selected":""}>Craft + Study (LP'li ×${dec(D.study||2.75)})</option></select></div>
+  <div class="crc" id="crL"${LS.crM==="l"?"":" hidden"}><label class="st">Seçili eşyanın study LP'si <input type="number" id="crLp" min="0" style="width:90px" placeholder="oyundaki"></label><span class="st" id="crLh"></span></div>
+  <div id="cCr"></div>`:""}`;
   const out=()=>{
     const c=Math.max(0,Math.min(M,+$("cLv").value||0)),t=Math.max(0,Math.min(M,+$("cTg").value||0)),inl=Math.max(0,+$("cIn").value||0),fph=Math.max(0,+$("cFph").value||0);
     if(!L.auto){LS.lv[sel]=c||undefined;LS.inl=LS.inl||{};LS.inl[sel]=inl||undefined}
@@ -284,13 +302,35 @@ function drawCalc(){
       ${fph?`<div class="k">Tahmini süre<b>${dec(need/fph,1)} saat</b><small>saatte ${fmt(fph)} fame</small></div>`:""}
     </div>
     ${lines.length?`<h2 style="margin-top:18px">${t} seviyede kazanacağın</h2><div class="bon">${lines.map(l=>`<div>${l}</div>`).join("")}</div>`:""}`;
+    if(n.cr)drawCraft(n,need);
   };
   ["cLv","cTg","cIn","cFph"].forEach(i=>$(i).addEventListener("input",()=>{out();if(i==="cLv")refreshCard();drawPlan()}));
   if($("cSpc"))$("cSpc").addEventListener("input",()=>{LS.spc=+$("cSpc").value>0?+$("cSpc").value:undefined;planChanged();out();drawPlan()});
   $("cFph").addEventListener("change",()=>planChanged());
   $("calc").querySelectorAll("[data-t]").forEach(b=>b.onclick=()=>{$("cTg").value=b.dataset.t;out()});
+  if(n.cr){
+    $("crP").onchange=()=>{LS.crPrem=$("crP").checked;saveLS();out()};
+    $("crM").onchange=()=>{LS.crM=$("crM").value;$("crL").hidden=LS.crM!=="l";saveLS();out()};
+    // Study LP'si oyunda eşya başına görünür; seçili eşyanın değeri fame'e oranlanıp diğer tier/enchant'lara uygulanır
+    $("crLp").oninput=()=>{const [t,e]=crSel(n),v=+$("crLp").value;LS.crLpr=v>0?v/craftFame(n,t,e):undefined;saveLS();out()};
+  }
   $("cAdd").onclick=()=>{const t=Math.max(0,Math.min(M,+$("cTg").value||0));LS.plan=(LS.plan||[]).filter(p=>p.id!==sel);LS.plan.push({id:sel,to:t});LS.planOpen=true;planChanged();$("cAdd").textContent="Plandaki hedefi güncelle";drawPlan()};
   out();
+}
+// Hedefe kadar gereken fame için her tier/enchant'tan kaç adet: kalite çerçevesi enchant'ı gösterir (normal=.0 ... masterpiece=.4)
+const crSel=n=>{const v=String(LS.crSel||"").split(".").map(Number);return v.length===2&&JFAME[v[0]]&&v[0]>=n.cr.t0&&v[1]>=0&&v[1]<=4?v:[n.cr.t0,0]};
+function drawCraft(n,need){
+  const prem=LS.crPrem===false?1:(D.premium||1.5),m=LS.crM||"c",mult=m==="s"?2:m==="l"?1+(D.study||2.75):1,lpr=+LS.crLpr||0,[st,se]=crSel(n),base=n.icon.replace(/^T\d_/,"");
+  const inp=$("crLp");if(inp&&document.activeElement!==inp)inp.value=lpr?Math.round(lpr*craftFame(n,st,se)*100)/100:"";
+  const h=$("crLh");if(h)h.textContent=lpr?"":`T${st}.${se} için oyundaki değeri gir; diğerleri buna göre hesaplanır`;
+  let html="";
+  for(let t=n.cr.t0;t<=8;t++)for(let e=0;e<=4;e++){
+    const f=craftFame(n,t,e),k=need?Math.ceil(need/(f*prem*mult)):0,id=`T${t}_${base}${e?"@"+e:""}`;
+    html+=`<div data-cs="${t}.${e}" class="${t===st&&e===se?"on":""}" title="T${t}.${e} · bir tanesi ${fmt(f*prem)} fame${m!=="c"?` (study ile ${fmt(f*prem*mult)})`:""}"><img loading="lazy" src="https://render.albiononline.com/v1/item/${encodeURIComponent(id)}.png?size=64&quality=${e+1}" alt="" onerror="this.style.visibility='hidden'">
+      <small>T${t}.${e}</small><b>x${fmt(k)}</b>${m==="l"&&lpr?`<small>${fmt(k*lpr*f)} LP</small>`:""}</div>`;
+  }
+  $("cCr").innerHTML=need?`<div class="st" style="margin-top:6px">Gereken ${fmt(need)} fame · bir eşya: malzeme fame'i × adet (${n.cr.n})${n.cr.f?` × ${dec(n.cr.f)} artifact`:""}${prem>1?` × ${dec(prem)} premium`:""}${m==="s"?" · craft + study: 2 kat":m==="l"?` · craft + LP'li study: ${dec(mult)} kat`:""}</div><div class="crg">${html}</div>`:"";
+  $("cCr").querySelectorAll("[data-cs]").forEach(d=>d.onclick=()=>{LS.crSel=d.dataset.cs;saveLS();drawCraft(n,need)});
 }
 function refreshCard(){const b=$("grid").querySelector(`[data-n="${sel}"]`);if(b){const w=document.createElement("div");w.innerHTML=card(sel,D.nodes[sel]);const nb=w.firstChild;nb.onclick=b.onclick;b.replaceWith(nb)}}
 
@@ -315,29 +355,33 @@ async function loadPlan(){
 
 // ---------- plan: birden çok spec'in hedefe toplam maliyeti (seviyeler canlı board'dan)
 function drawPlan(){
-  const P=(LS.plan||[]).filter(p=>D.nodes[p.id]&&D.nodes[p.id].tpl),el=$("plan");
-  if(!P.length){el.hidden=true;return}
+  const el=$("plan"),K=kindsOf(cat),all=LS.plan||[];
+  // Plandaki her kayıt LS.plan içindeki sırasıyla tutulur; sadece seçili sekmenin kategorileri gösterilir
+  const blocks=K.map(k=>[k,all.map((p,i)=>[p,i]).filter(([p])=>D.nodes[p.id]&&D.nodes[p.id].tpl&&pkind(D.nodes[p.id])===k)]).filter(([,P])=>P.length);
+  if(!blocks.length){el.hidden=true;return}
   el.hidden=false;
-  const lpDay=D.lp.secPerPointPremium?86400/D.lp.secPerPointPremium:30,fph=+LS.fph||0,T={fame:0,cr:0,silver:0,lp:0};
-  const rows=P.map((p,i)=>{
+  const lpDay=D.lp.secPerPointPremium?86400/D.lp.secPerPointPremium:30,fph=+LS.fph||0;
+  el.innerHTML=blocks.map(([k,P],bi)=>{const T={fame:0,cr:0,silver:0,lp:0};
+  const rows=P.map(([p,i])=>{
     const n=D.nodes[p.id],L=levelOf(p.id),c=Math.min(maxLv(n),L.lv),t=Math.min(maxLv(n),p.to);
     const r=t>c?between(n,c,t):{fame:0,efame:0,cr:0,ecr:0,silver:0,lp:0},inl=t>c&&L.pr&&L.pr[2]!=null?L.pr[2]:0,need=fameNeed(n,r,c,inl);
     T.fame+=need;T.cr+=r.cr+r.ecr;T.silver+=r.silver;T.lp+=r.lp;
     return `<tr><td><span class="pn">${icon(n.icon)}<a href="#" data-go="${p.id}" style="color:var(--ink)">${esc(short(n.t))}</a></span><small class="st">${esc(n.sub||"")}</small></td>
       <td class="n">${c}${L.auto?' <small class="st">oyun</small>':""}</td><td class="n"><input type="number" min="1" max="${maxLv(n)}" value="${t}" data-pi="${i}" aria-label="Hedef seviye"></td>
-      <td class="n">${t>c?(need?fmt(need):'<span class="st">sadece credit</span>'):'<span class="pos" style="color:var(--good)">tamam</span>'}</td><td class="n">${r.cr+r.ecr?fmt(r.cr+r.ecr):"-"}</td><td class="n">${r.silver?fmt(r.silver):"-"}</td><td class="n">${r.lp?fmt(r.lp):"-"}</td>
+      <td class="n">${t>c?(need?fmt(need):'<span class="st">sadece credit</span>'):'<span class="pos" style="color:var(--good)">tamam</span>'}</td>${k==="fighting"?`<td class="n">${r.cr+r.ecr?fmt(r.cr+r.ecr):"-"}</td><td class="n">${r.silver?fmt(r.silver):"-"}</td>`:""}<td class="n">${r.lp?fmt(r.lp):"-"}</td>
       <td class="n"><button type="button" class="l" data-pd="${i}" aria-label="Plandan çıkar" style="padding:3px 9px">✕</button></td></tr>`}).join("");
-  el.innerHTML=`<div class="plh"><h2>Plan · ${P.length} spec</h2><span class="st">Seviyeler oyundan gelir; hedefi buradan değiştirebilirsin. <span id="pSync">${esc(planSync||(sb&&!me?"Planın hesabına kaydedilsin diye Discord ile giriş yap":""))}</span></span><button type="button" class="l" id="pT" style="margin-left:auto;padding:4px 10px;font-size:12px">${LS.planOpen===false?"▾ Göster":"▴ Küçült"}</button><button type="button" class="l" id="pX" style="padding:4px 10px;font-size:12px">Planı temizle</button></div>
+  const cb=k==="fighting";
+  return `<div${bi?' style="margin-top:22px"':""}><div class="plh"><h2>${esc(PKL[k]||k)} planı · ${P.length} spec</h2>${bi?"":`<span class="st">Seviyeler oyundan gelir; hedefi buradan değiştirebilirsin.${k==="crafting"?" Spec'e tıkla: kaç tane craftlaman gerektiği hesaplayıcıda.":""} <span id="pSync">${esc(planSync||(sb&&!me?"Planın hesabına kaydedilsin diye Discord ile giriş yap":""))}</span></span>`}<button type="button" class="l" data-pt style="margin-left:auto;padding:4px 10px;font-size:12px">${LS.planOpen===false?"▾ Göster":"▴ Küçült"}</button><button type="button" class="l" data-px="${k}" style="padding:4px 10px;font-size:12px">Planı temizle</button></div>
   <div class="kp" style="grid-template-columns:repeat(auto-fit,minmax(170px,1fr))"><div class="k big" style="grid-column:auto">Toplam fame<b>${fmt(T.fame)}</b>${fph?`<small>saatte ${fmt(fph)} ile ${dec(T.fame/fph,1)} saat</small>`:""}</div>
   ${T.cr?`<div class="k">Combat fame credit ile<b>${fmt(T.cr)} credit</b><small>${T.silver?`+ ${fmt(T.silver)} silver (sadece 100 üstü)`:"silver gerekmez"}</small></div>`:""}
   ${T.lp?`<div class="k">Learning Points ile<b>${fmt(T.lp)} LP</b><small>Premium'la ${dec(T.lp/lpDay,1)} gün</small></div>`:""}</div>
-  <div class="plt"${LS.planOpen===false?" hidden":""}><table class="pl"><thead><tr><th>Spec</th><th class="n">Şu an</th><th class="n">Hedef</th><th class="n">Fame</th><th class="n">Credit</th><th class="n">Silver</th><th class="n">LP</th><th></th></tr></thead><tbody>${rows}</tbody>
-  <tfoot><tr><td>Toplam</td><td></td><td></td><td class="n">${fmt(T.fame)}</td><td class="n">${T.cr?fmt(T.cr):"-"}</td><td class="n">${T.silver?fmt(T.silver):"-"}</td><td class="n">${T.lp?fmt(T.lp):"-"}</td><td></td></tr></tfoot></table></div>`;
-  $("pT").onclick=()=>{LS.planOpen=LS.planOpen===false;saveLS();drawPlan()};
-  $("pX").onclick=()=>{if(!confirm("Plandaki bütün spec'ler silinsin mi?"))return;LS.plan=[];planChanged();drawPlan();drawCalc()};
+  <div class="plt"${LS.planOpen===false?" hidden":""}><table class="pl"><thead><tr><th>Spec</th><th class="n">Şu an</th><th class="n">Hedef</th><th class="n">Fame</th>${cb?'<th class="n">Credit</th><th class="n">Silver</th>':""}<th class="n">LP</th><th></th></tr></thead><tbody>${rows}</tbody>
+  <tfoot><tr><td>Toplam</td><td></td><td></td><td class="n">${fmt(T.fame)}</td>${cb?`<td class="n">${T.cr?fmt(T.cr):"-"}</td><td class="n">${T.silver?fmt(T.silver):"-"}</td>`:""}<td class="n">${T.lp?fmt(T.lp):"-"}</td><td></td></tr></tfoot></table></div></div>`}).join("");
+  el.querySelectorAll("[data-pt]").forEach(b=>b.onclick=()=>{LS.planOpen=LS.planOpen===false;saveLS();drawPlan()});
+  el.querySelectorAll("[data-px]").forEach(b=>b.onclick=()=>{const k=b.dataset.px;if(!confirm(`${PKL[k]||k} planındaki bütün spec'ler silinsin mi?`))return;LS.plan=all.filter(p=>!(D.nodes[p.id]&&pkind(D.nodes[p.id])===k));planChanged();drawPlan();drawCalc()});
   el.querySelectorAll("[data-pi]").forEach(e=>e.onchange=()=>{const p=LS.plan[+e.dataset.pi];p.to=Math.max(1,+e.value||1);planChanged();drawPlan()});
   el.querySelectorAll("[data-pd]").forEach(e=>e.onclick=()=>{LS.plan.splice(+e.dataset.pd,1);planChanged();drawPlan();drawCalc()});
-  el.querySelectorAll("[data-go]").forEach(a=>a.onclick=e=>{e.preventDefault();const n=D.nodes[a.dataset.go];sel=LS.sel=a.dataset.go;cat=LS.cat=n.cat;sub=LS.sub=n.sub||"";$("q").value="";saveLS();drawNav();drawGrid();drawCalc();$("calc").scrollIntoView({behavior:"smooth",block:"start"})});
+  el.querySelectorAll("[data-go]").forEach(a=>a.onclick=e=>{e.preventDefault();const n=D.nodes[a.dataset.go];sel=LS.sel=a.dataset.go;cat=LS.cat=n.cat;sub=LS.sub=n.sub||"";$("q").value="";saveLS();drawNav();drawGrid();drawCalc();drawPlan();$("calc").scrollIntoView({behavior:"smooth",block:"start"})});
 }
 
 // ---------- toplayıcı ve hesap

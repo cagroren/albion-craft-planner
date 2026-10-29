@@ -1,6 +1,6 @@
 """data/destiny.json üretir: Destiny Board düğümleri, seviye tabloları ve bonuslar.
 
-Kaynak: ao-data/ao-bin-dumps (achievements.xml, localization.xml, characters.xml).
+Kaynak: ao-data/ao-bin-dumps (achievements.xml, localization.xml, characters.xml, items.xml).
 Oyun güncellenince tekrar çalıştır:  py -3 tools/gen_destiny.py
 """
 import json
@@ -100,13 +100,39 @@ for a in ach.findall("achievement"):
     nodes.setdefault(nid, {"t": LOC.get(title.get("tag")) if title is not None else nid, "cat": a.get("category"),
                            "ring": num(a.get("ring")), "main": True, **({"p": parents} if parents else {})})
 
+# Craft düğümleri: düğümün eşyasının (itemforsprite) tarifindeki rafine malzeme adedi ve artifact fame çarpanı.
+# Craft fame = adet × malzeme fame'i (tier'a göre) × 2^enchant × çarpan; sayfa bu iki sayıyla "kaç tane craftlarsam" hesabını yapar.
+items = ET.fromstring(get("items.xml"))
+ITEM = {el.get("uniquename"): el for el in items if el.get("uniquename")}
+MAT = re.compile(r"^T\d_(PLANKS|METALBAR|CLOTH|LEATHER|STONEBLOCK)(_LEVEL\d)?$")
+for nid, n in nodes.items():
+    if n.get("cat") != "crafting" or not str(n.get("tpl", "")).startswith("CRAFT_") or not n.get("icon"):
+        continue
+    base = re.sub(r"^T\d_", "", n["icon"])
+    got = {}
+    for t in range(4, 9):
+        el = ITEM.get(f"T{t}_{base}")
+        cr = el.find("craftingrequirements") if el is not None else None
+        if cr is None:
+            continue
+        got[t] = (sum(int(c.get("count") or 0) for c in cr if MAT.match(c.get("uniquename") or "")),
+                  num(el.get("destinyandjournalcraftfamefactor")) or 1)
+    vals = set(got.values())
+    if len(vals) == 1 and list(vals)[0][0]:
+        c, f = vals.pop()
+        n["cr"] = {k: v for k, v in {"n": c, "f": f if f != 1 else None, "t0": min(got)}.items() if v is not None}
+    else:
+        print("craft tarifi yok/farklı:", nid, base, got, file=sys.stderr)
+
 lp = {k: num(v) for k, v in re.findall(r'(learningpoint\w+)="([^"]+)"', chars)}
 
 # Oyun düğümlere bu sırayla numara verir (0'dan başlayarak); DPS Meter toplayıcısı board'u bu numaralarla gönderir
 order = [el.get("id") for el in ach if el.tag in ("achievement", "templateachievement")]
 
 data = {"src": "ao-bin-dumps", "order": order, "templates": templates, "nodes": nodes,
-        "lp": {"secPerPointPremium": lp.get("learningpointsecondsperpointpremium"), "fameFactor": lp.get("learningpointfamefactor")}}
+        "lp": {"secPerPointPremium": lp.get("learningpointsecondsperpointpremium"), "fameFactor": lp.get("learningpointfamefactor")},
+        "premium": num(re.search(r'premiumdestinyboardprogressionfactor="([^"]+)"', chars).group(1)),
+        "study": num(re.search(r'<StudyFame factor="([^"]+)"', get("gamedata.xml")).group(1))}
 os.makedirs(os.path.dirname(OUT), exist_ok=True)
 with open(OUT, "w", encoding="utf-8") as fh:
     json.dump(data, fh, ensure_ascii=False, separators=(",", ":"))
