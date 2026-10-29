@@ -108,6 +108,7 @@ details.so[open] summary{margin-bottom:8px}
 .nm b.me{color:var(--accT)}
 .nm select{padding:2px 6px;font-size:12px;width:fit-content}
 .nm small{color:var(--mut);font-size:12px}
+.nm .ip{display:inline-block;width:max-content;font-size:12px;font-weight:800;color:var(--accT,#ffd6b3);background:rgba(240,136,62,.12);border:1px solid #5a3a24;border-radius:20px;padding:1px 8px;cursor:help}
 .eq{display:flex;gap:5px;flex-wrap:wrap}
 .sl{position:relative;width:46px;height:46px;border-radius:8px;background:var(--in);border:1px solid var(--line);display:flex;align-items:center;justify-content:center}
 .sl img{width:44px;height:44px}
@@ -216,7 +217,7 @@ h3{font:700 12px/1.4 "Inter",system-ui,sans-serif;letter-spacing:.08em;text-tran
   </div>
 </section>
 
-<div class="tabs vt" id="vTabs" hidden><button data-v="dps">DPS Meter</button><button data-v="top">Top Stats</button><button data-v="loot">Loot</button><button data-v="log">Log</button></div>
+<div class="tabs vt" id="vTabs" hidden><button data-v="dps">DPS Meter</button><button data-v="top">Top Stats</button></div>
 
 <section id="topSec" hidden>
   <div class="dh"><h2>Top Stats · aktif oturum</h2><span class="st" id="topInfo"></span></div>
@@ -466,6 +467,14 @@ function issues(m){
   return out;
 }
 const ago=s=>s<60?"az önce":s<3600?Math.floor(s/60)+" dk önce":Math.floor(s/3600)+" sa önce";
+// Tahmini ortalama IP: silah, yan el (çift elli silahta silah iki kez), kafa, zırh, ayakkabı, pelerin, çanta; boş slot 0.
+// Oyun başkalarının eşya kalitesini ve spec bonusunu göndermediği için sadece tier/enchant'tan hesaplanır.
+const baseIP=id=>{const t=tierOf(id);return t?300+100*(t+enchOf(id)):0};
+function ipOf(eq){
+  const w=eq.w,two=w&&BD.items[ibase(w)]&&BD.items[ibase(w)].h;
+  const v=[baseIP(w||""),two?baseIP(w):baseIP(eq.o||""),...["h","a","s","c","b"].map(k=>baseIP(eq[k]||""))];
+  return Math.round(v.reduce((a,b)=>a+b,0)/v.length);
+}
 function slotHTML(k,id,bad){
   if(!id)return `<span class="sl e${bad?" x":""}" data-l="${SLN[k]}" title="${SLN[k]}: boş"></span>`;
   const t=tierOf(id),tag=t&&k!=="m"?`<i>${t}.${enchOf(id)}</i>`:"";
@@ -487,6 +496,7 @@ function renderSets(){
     +`<div class="pcl">${R.map(({m,seen,is,r})=>{const bs=new Set(is.map(x=>x[0]));
     return `<div class="pc${!seen?" unk":is.length?" bad":""}"><div class="nm"><b class="${m.me?"me":""}">${esc(m.name)}</b>
       ${seen?`<select data-role="${esc(m.name)}" aria-label="Rol"><option value="">${PS.roles[m.name]?"Silahtan tahmin et":esc(r||"Rol?")+" (tahmin)"}</option>${ROLES.map(x=>`<option${PS.roles[m.name]===x?" selected":""}>${x}</option>`).join("")}</select>`:""}
+      ${seen?`<span class="ip" title="Tahmini ortalama IP: tier ve enchant'tan; eşya kalitesi ve spec bonusu dahil değil (oyun bunları göndermiyor)">~${fmt(ipOf(m.eq))} IP</span>`:""}
       <small>${seen?ago(now-m.t)+" görüldü":m.me?"Bir eşyanı çıkarıp tak, setin görünsün":"Yakınına gelince görünür"}</small></div>
       <div class="eq">${seen?SLOTS.map(([k])=>slotHTML(k,m.eq[k],bs.has(k))).join(""):'<span class="st">Seti henüz görülmedi.</span>'}</div>
       ${is.length?`<div class="ws">${is.map(x=>esc(x[1])).join(" · ")}</div>`:""}</div>`}).join("")}</div>`;
@@ -517,7 +527,7 @@ confirm2($("clearAll"),"Tümünü sil",async()=>{await api("/fights",{method:"DE
 
 // ---- Loot ve Log sekmeleri (toplayıcı v13+) ----
 const LOOT_NEED=13;
-let VIEW=["dps","top","loot","log"].includes(LS.view)?LS.view:"dps",LOOT=null,LOG=null,PR={},prKey="",prBusy=false,lootSig="",logSig="";
+let VIEW=["dps","top"].includes(LS.view)?LS.view:"dps",LOOT=null,LOG=null,PR={},prKey="",prBusy=false,lootSig="",logSig="";
 const chOpen=new Set();
 LS.loot=LS.loot||{sel:{},party:1};
 function setView(v){VIEW=v;LS.view=v;saveLS();lootSig=logSig="";document.querySelectorAll("#vTabs button").forEach(b=>b.classList.toggle("on",b.dataset.v===v));render();poll()}
