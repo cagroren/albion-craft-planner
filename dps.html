@@ -108,6 +108,7 @@ details.so[open] summary{margin-bottom:8px}
 .nm b.me{color:var(--accT)}
 .nm select{padding:2px 6px;font-size:12px;width:fit-content}
 .nm small{color:var(--mut);font-size:12px}
+.nm .ip.real{color:#fff;background:rgba(63,185,80,.18);border-color:rgba(63,185,80,.6);cursor:default}
 .nm .ip{display:inline-block;width:max-content;font-size:12px;font-weight:800;color:var(--accT,#ffd6b3);background:rgba(240,136,62,.12);border:1px solid #5a3a24;border-radius:20px;padding:1px 8px;cursor:help}
 .eq{display:flex;gap:5px;flex-wrap:wrap}
 .sl{position:relative;width:46px;height:46px;border-radius:8px;background:var(--in);border:1px solid var(--line);display:flex;align-items:center;justify-content:center}
@@ -489,14 +490,15 @@ function renderSets(){
   const now=party.now||Date.now()/1000,ms=party.members||[];
   const rc={},R=ms.map(m=>{const seen=!!m.eq,is=seen?issues(m):[],r=seen?roleOf(m):"";if(r)rc[r]=(rc[r]||0)+1;return {m,seen,is,r}});
   const bad=R.filter(x=>x.is.length).length,unseen=R.filter(x=>!x.seen).length;
-  $("setInfo").textContent=party.partyKnown?"":"parti bilgisi henüz gelmedi";
+  $("setInfo").textContent=party.partyKnown?(status.version>=16?"Gerçek IP için oyunda oyuncuya sağ tıklayıp İncele de; ~ işaretliler tahmindir":""):"parti bilgisi henüz gelmedi";
   body.innerHTML=`<div class="sum"><span class="chip">Oyuncu<b>${ms.length}</b></span>${ROLES.filter(r=>rc[r]).map(r=>`<span class="chip">${r}<b>${rc[r]}</b></span>`).join("")}`
     +(bad?`<span class="chip bad">Eksik<b>${bad}</b></span>`:R.length>unseen?'<span class="chip ok">Görülen setler tamam</span>':"")
     +(unseen?`<span class="chip">Seti görülmedi<b>${unseen}</b></span>`:"")+`</div>`
     +`<div class="pcl">${R.map(({m,seen,is,r})=>{const bs=new Set(is.map(x=>x[0]));
     return `<div class="pc${!seen?" unk":is.length?" bad":""}"><div class="nm"><b class="${m.me?"me":""}">${esc(m.name)}</b>
       ${seen?`<select data-role="${esc(m.name)}" aria-label="Rol"><option value="">${PS.roles[m.name]?"Silahtan tahmin et":esc(r||"Rol?")+" (tahmin)"}</option>${ROLES.map(x=>`<option${PS.roles[m.name]===x?" selected":""}>${x}</option>`).join("")}</select>`:""}
-      ${seen?`<span class="ip" title="Tahmini ortalama IP: tier ve enchant'tan; eşya kalitesi ve spec bonusu dahil değil (oyun bunları göndermiyor)">~${fmt(ipOf(m.eq))} IP</span>`:""}
+      ${m.ip&&m.ip.ip?`<span class="ip real" title="Oyunda incelendiğinde oyunun gönderdiği gerçek ortalama IP (${ago(now-m.ip.t)})">${fmt(m.ip.ip)} IP</span>`
+        :seen?`<span class="ip" title="Tahmini: sadece tier ve enchant'tan, kalite ve spec bonusu yok. Gerçek IP için oyunda bu oyuncuya sağ tıklayıp İncele de.">~${fmt(ipOf(m.eq))} IP</span>`:""}
       <small>${seen?ago(now-m.t)+" görüldü":m.me?"Bir eşyanı çıkarıp tak, setin görünsün":"Yakınına gelince görünür"}</small></div>
       <div class="eq">${seen?SLOTS.map(([k])=>slotHTML(k,m.eq[k],bs.has(k))).join(""):'<span class="st">Seti henüz görülmedi.</span>'}</div>
       ${is.length?`<div class="ws">${is.map(x=>esc(x[1])).join(" · ")}</div>`:""}</div>`}).join("")}</div>`;

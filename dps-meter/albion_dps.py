@@ -23,7 +23,7 @@ import webbrowser
 import zlib
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-VERSION = 15                 # GitHub'daki dps-vN sürümüyle aynı olmalı (güncelleme kontrolü bunu karşılaştırır)
+VERSION = 16                 # GitHub'daki dps-vN sürümüyle aynı olmalı (güncelleme kontrolü bunu karşılaştırır)
 PORT = int(os.environ.get("ALBION_DPS_PORT") or 47700)
 COMBAT_GAP_SECONDS = 5       # vuruşlar arası bundan uzun boşluk "savaş süresi"ne sayılmaz
 FP = 10000.0                 # oyunun sabit noktalı sayı çarpanı
@@ -67,7 +67,8 @@ EV = {
     "NewEquipmentItem": 30, "NewSimpleItem": 32, "AttachItemContainer": 99, "InventoryPutItem": 26,
     "InventoryDeleteItem": 27, "OtherGrabbedLoot": 278, "NewLoot": 98, "BankVaultInfo": 413,
 }
-OP = {"Join": 2, "ClaimPaymentTransaction": 297, "ContainerOpen": 98}
+# GetCharacterEquipment: oyunda birini "İncele" deyince gelen cevap; gerçek ortalama IP taşır (3)
+OP = {"Join": 2, "ClaimPaymentTransaction": 297, "ContainerOpen": 98, "GetCharacterEquipment": 99}
 
 # Destiny Board kayıt modu (1. aşama): oyunun board mesajları henüz çözülmedi; ham hâlleri dosyaya yazılır.
 # Oyun board düğümlerine içeride "achievement" der. Adı bu desene uyan olay/işlemler kaydedilir.
@@ -752,6 +753,7 @@ class Tracker:
         self.last_health = {}    # objectId -> son can değeri
         self.weapons = {}        # oyuncu adı -> silah unique name
         self.gear = {}           # oyuncu adı -> {"eq": {slot: unique name}, "t": son görülme} (Parti Set sekmesi)
+        self.ip = {}             # oyuncu adı -> {"ip": gerçek ortalama IP, "t": zaman} (oyunda incelenince gelir)
         self.fight = None
         self.fights = []
         self.fame_total = None   # oyunun bildirdiği toplam fame (fark = kazanılan)
@@ -1228,6 +1230,19 @@ class Tracker:
         elif code == OP["Join"]:
             # Giriş cevabı karakterin genel bilgilerini taşır; board'la ilgili alan var mı diye o da kaydedilir
             DESTINY.write("response", code, "Join", p)
+        if code == OP["GetCharacterEquipment"]:
+            # 0: oyuncunun kalıcı kimliği (guid), 1: ekipman dizisi, 3: oyunun hesapladığı gerçek ortalama IP
+            g, ip = guid_key(p.get(0)), p.get(3)
+            try:
+                ip = float(ip)
+            except (TypeError, ValueError):
+                ip = 0
+            with self.lock:
+                name = self.party.get(g) or next((o["name"] for o in self.objects.values() if o.get("guid") == g), None)
+                if name and ip > 0:
+                    self.ip[name] = {"ip": round(ip, 1), "t": time.time()}
+                    self.set_gear(None, p.get(1), name=name)
+                    log(f"İncelendi: {name} · {ip:.0f} IP")
         if code == OP["Join"]:
             with self.lock:
                 oid = to_int(p.get(0))
@@ -1285,7 +1300,7 @@ class Tracker:
             return None
         return ITEM_NAMES.get(idx)
 
-    def set_gear(self, oid, eq):
+    def set_gear(self, oid, eq, name=None):
         """Ekipman dizisi: silah, yan el, kafa, zırh, ayakkabı, çanta, pelerin, binek, iksir, yemek (eşya numaraları)."""
         eq = as_list(eq)
         if len(eq) < 8:
@@ -1295,7 +1310,7 @@ class Tracker:
             i = to_int(v)
             if i and i > 0 and ITEM_NAMES.get(i):
                 g[k] = ITEM_NAMES[i]
-        name = self.name_of(oid)
+        name = name or self.name_of(oid)
         self.gear.pop(name, None)  # sona eklenir: sözlüğün başı en eski görülenler
         self.gear[name] = {"eq": g, "t": time.time()}
         for k in list(self.gear)[:max(0, len(self.gear) - 500)]:
@@ -1304,7 +1319,7 @@ class Tracker:
     def party_gear(self):
         with self.lock:
             return {"character": self.local_name, "partyKnown": self.party_known, "now": time.time(),
-                    "members": [{"name": n, "me": n == self.local_name, **(self.gear.get(n) or {})}
+                    "members": [{"name": n, "me": n == self.local_name, **(self.gear.get(n) or {}), "ip": self.ip.get(n)}
                                 for n in sorted(self.party_names())]}
 
     def health(self, aff, change, new_health, causer, has_new, spell=None, etype=None):
