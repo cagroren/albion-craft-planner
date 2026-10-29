@@ -174,14 +174,18 @@ const CONTENT=["ZvZ","Small Scale","Gank","Solo PvP","Corrupted Dungeon","Hellga
 const ROLES=["Tank","Healer","Support","Melee DPS","Ranged DPS","Battlemount","Utility"];
 const SLOTS=[["b","Çanta"],["h","Kafa"],["c","Pelerin"],["w","Silah"],["a","Zırh"],["o","Yan el"],["p","İksir"],["s","Ayakkabı"],["f","Yemek"],["",""],["m","Binek"],["",""]];
 // Swap: silah, kafa, zırh, ayakkabı ve iksir için isteğe bağlı ikinci seçenek (kutunun sağ altında küçük görünür)
-const SWP={w:"x",h:"xh",a:"xa",s:"xs",p:"xp"},BASE={x:"w",xh:"h",xa:"a",xs:"s",xp:"p"};
-const SN=Object.assign(Object.fromEntries(SLOTS.filter(s=>s[0])),{x:"Swap silah",xh:"Swap kafa",xa:"Swap zırh",xs:"Swap ayakkabı",xp:"Swap iksir"});
+const SWP={w:"x",o:"xo",h:"xh",a:"xa",s:"xs",p:"xp"},BASE={x:"w",xo:"o",xh:"h",xa:"a",xs:"s",xp:"p"};
+const SN=Object.assign(Object.fromEntries(SLOTS.filter(s=>s[0])),{x:"Swap silah",xh:"Swap kafa",xa:"Swap zırh",xs:"Swap ayakkabı",xp:"Swap iksir",xo:"Swap yan el"});
 // p2: Plate zırhların ikinci (PvE) pasif slotu
 const KEYL={w:{q:"Q",w:"W",e:"E",p:"Pasif"},h:{a:"D",p:"Pasif"},a:{a:"R",p:"Pasif 1",p2:"Pasif 2"},s:{a:"F",p:"Pasif"}};
 Object.entries(BASE).forEach(([x,b])=>KEYL[x]=KEYL[b]);
 const isPas=k=>k==="p"||k==="p2";
 const keyL=(sl,k)=>(KEYL[sl]||{})[k]||(isPas(k)?"Pasif":"Aktif");
-const ORDER=["w","o","h","a","s","c","b","m","f","p","x","xh","xa","xs","xp"];
+const ORDER=["w","o","h","a","s","c","b","m","f","p","x","xo","xh","xa","xs","xp"];
+// Çift elli silah: yan el kullanılmaz. Swap yan eli sadece swap silahı tek elliyken anlamlı
+// (ana silah çift elli olsa bile swap silahı tek elliyse swap için yan el seçilebilir).
+const is2H=v=>!!(v&&v.i&&G.items[v.i]&&G.items[v.i].h);
+const offSwapOk=g=>!is2H(g.x)&&(is2H(g.w)?!!g.x:!!g.o);
 let G=null,sb=null,me=null,isAdmin=false,B=[],GB=[],loaded=false,loadErr="",F=null,GF=null;
 
 // ---------- yardımcılar
@@ -264,9 +268,9 @@ function doll(gear,edit){
     if(!k)return '<div class="sl blank"></div>';
     const v=gear[k],id=iconId(k,v),off=k==="o"&&two;
     const tt=id?esc(itemName(k,v)):n;
-    const xk=SWP[k],xid=xk?iconId(xk,gear[xk]):"",xn=xid?esc(itemName(xk,gear[xk])):"";
+    const xk=SWP[k],xid=xk?iconId(xk,gear[xk]):"",xn=xid?esc(itemName(xk,gear[xk])):"",canSwap=k==="o"?offSwapOk(gear):!!id;
     if(!edit)return `<div class="sl${id?" has":""}${off?" off":""}" title="${tt}">${off&&!id?iImg(id||iconId("w",gear.w),80):iImg(id,80)}<small>${n}</small>${xid?`<span class="swp" title="Swap: ${xn}">${iImg(xid,64)}</span>`:""}</div>`;
-    const swp=xk&&id?`<button type="button" class="swp${xid?"":" add"}" data-sl="${xk}" title="${xid?SN[xk]+": "+xn+" (değiştir)":SN[xk]+" ekle (isteğe bağlı)"}" aria-label="${xid?SN[xk]+": "+xn:SN[xk]+" ekle"}">${xid?iImg(xid,64):"+ Swap"}</button>`:"";
+    const swp=xk&&canSwap?`<button type="button" class="swp${xid?"":" add"}" data-sl="${xk}" title="${xid?SN[xk]+": "+xn+" (değiştir)":SN[xk]+" ekle (isteğe bağlı)"}" aria-label="${xid?SN[xk]+": "+xn:SN[xk]+" ekle"}">${xid?iImg(xid,64):"+ Swap"}</button>`:"";
     return `<div style="position:relative"><button type="button" class="sl${id?" has":""}${off?" off":""}" data-sl="${k}" title="${off?"Çift elli silah seçili":tt}" aria-label="${n}${id?": "+tt:""}"${off?" disabled":""}>${iImg(id,80)}<small>${n}</small></button>${id?`<button type="button" class="rmx" data-rm="${k}" aria-label="${n} kaldır" title="Kaldır">✕</button>`:""}${swp}</div>`;
   }).join("")}</div>`;
 }
@@ -405,7 +409,7 @@ function vSlotEdit(i){
 function drawForm(){
   const g=F.gear;
   if(g.w&&G.items[g.w.i]&&G.items[g.w.i].h)delete g.o;
-  Object.entries(SWP).forEach(([b,x])=>{if(!g[b])delete g[x]});
+  Object.entries(SWP).forEach(([b,x])=>{if(b==="o"?!offSwapOk(g):!g[b])delete g[x]});
   $("fDoll").innerHTML=doll(g,true);
   $("fDoll").querySelectorAll("[data-sl]").forEach(b=>b.onclick=()=>pickItem(b.dataset.sl));
   $("fDoll").querySelectorAll("[data-rm]").forEach(b=>b.onclick=()=>{delete g[b.dataset.rm];drawForm()});

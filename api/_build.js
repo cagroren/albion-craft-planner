@@ -45,9 +45,9 @@ export async function getGroup(id) {
 }
 
 // builds.html'deki iconId ile aynı: binek/yemek/iksir ID'si doğrudan, diğerleri en yüksek tier
-// Swap slotları (x: silah, xh: kafa, xa: zırh, xs: ayakkabı, xp: iksir) asıl slotun eşyasıdır
-export const SWP = { w: "x", h: "xh", a: "xa", s: "xs", p: "xp" };
-const BASE = { x: "w", xh: "h", xa: "a", xs: "s", xp: "p" };
+// Swap slotları (x: silah, xo: yan el, xh: kafa, xa: zırh, xs: ayakkabı, xp: iksir) asıl slotun eşyasıdır
+export const SWP = { w: "x", o: "xo", h: "xh", a: "xa", s: "xs", p: "xp" };
+const BASE = { x: "w", xo: "o", xh: "h", xa: "a", xs: "s", xp: "p" };
 
 export function iconId(G, sl, v) {
   if (!v || !v.i) return "";
