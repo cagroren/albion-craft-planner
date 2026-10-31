@@ -38,7 +38,7 @@
   if(!C.url||!C.key||/XXX/.test(C.url)||!window.supabase){gate("off");return}
   const sb=window.supabase.createClient(C.url,C.key,{auth:{flowType:"pkce",detectSessionInUrl:true,persistSession:true}});
   window.aoSb=sb;
-  const KEYS=["aoplan3","aoplan3f","aoplan3c","aoprofiles","aoprofilesf","aoprofilesc","aoactive","aoactivef","aoactivec","aobm1","aodb1","aostock1"];
+  const KEYS=["aoplan3","aoplan3f","aoplan3c","aoprofiles","aoprofilesf","aoprofilesc","aoactive","aoactivef","aoactivec","aobm1","aodb1","aostock1","aogather1"];
   const get=k=>{try{return LS.getItem(k)}catch(e){return null}};
   const orig=Storage.prototype.setItem;
   const put=(k,v)=>{try{orig.call(LS,k,v)}catch(e){}};
