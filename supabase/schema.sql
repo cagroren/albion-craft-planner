@@ -602,15 +602,18 @@ alter table public.dragon_portal_times enable row level security;
 drop policy if exists "portal zamanı okuma" on public.dragon_portal_times;
 create policy "portal zamanı okuma" on public.dragon_portal_times for select using (public.is_member());
 
-create or replace function public.mark_portal_time(k text) returns void
+-- ofs: açılışın şu andan kaç saniye sonra/önce olduğu (oyundaki "açılıyor/kapanıyor" sayacından); 0 = şimdi açıldı
+drop function if exists public.mark_portal_time(text);
+create or replace function public.mark_portal_time(k text, ofs integer default 0) returns void
 language plpgsql security definer set search_path = public as $$
+declare when_at timestamptz := now() + make_interval(secs => greatest(-10800, least(10800, coalesce(ofs, 0))));
 begin
   if not public.is_member() or k !~ '^DRAGON_AREA_(ORANGE|BLACK)_(SMALL|MEDIUM|LARGE)$' then return; end if;
   insert into public.dragon_portal_times as t (kind, last_at, by_name)
-  values (k, now(), (select name from public.profiles where id = auth.uid()))
-  -- Aynı açılışa birkaç kişi basarsa ilk basış geçerli kalır
+  values (k, when_at, (select name from public.profiles where id = auth.uid()))
+  -- "Şimdi açıldı"ya aynı açılışta birkaç kişi basarsa ilk basış geçerli kalır; dakikayla girilen her zaman yazılır
   on conflict (kind) do update set last_at = excluded.last_at, by_name = excluded.by_name
-  where t.last_at < now() - interval '3 minutes';
+  where coalesce(ofs, 0) <> 0 or t.last_at < now() - interval '3 minutes';
 end $$;
-revoke all on function public.mark_portal_time(text) from public, anon;
-grant execute on function public.mark_portal_time(text) to authenticated;
+revoke all on function public.mark_portal_time(text, integer) from public, anon;
+grant execute on function public.mark_portal_time(text, integer) to authenticated;

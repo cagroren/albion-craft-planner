@@ -40,7 +40,10 @@ tr.new td{background:rgba(240,136,62,.08)}
 .tm>div{background:var(--card2);border:1px solid var(--line);border-radius:12px;padding:12px 14px;display:flex;flex-direction:column;gap:4px}
 .tm .nx{font-size:20px;font-weight:800;font-variant-numeric:tabular-nums}
 .tm .nx.ok{color:var(--good)}.tm .nx.wn{color:var(--warn)}
-.tm button{align-self:flex-start;margin-top:6px;padding:6px 10px;font-size:13px}
+.tm button,.tm input,.tm select{padding:6px 8px;font-size:13px}
+.tm .ac{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-top:6px}
+.tm input,.tm select{font:inherit;font-size:13px;border:1px solid var(--line2);border-radius:9px;background:var(--in);color:var(--ink)}
+.tm input{width:64px;text-align:right}
 .note{border:1px solid rgba(227,179,65,.5);background:rgba(227,179,65,.06);border-radius:12px;padding:10px 14px;font-size:14px;margin:0 0 12px}
 details summary{cursor:pointer;font-weight:700;color:var(--acc)}
 .how{margin:8px 0 0;padding-left:20px;color:#c3cad4;font-size:14px}.how li{margin:3px 0}
@@ -156,15 +159,25 @@ async function loadTimes(sb){
   last=L;
 }
 const dk=s=>s<3600?Math.round(s/60)+" dk":(s/3600).toFixed(1).replace(".",",")+" sa";
+// Kartlar bir kez çizilir (dakika kutusuna yazılan silinmesin); her saniye sadece durum satırları güncellenir
 function renderTimes(){
-  const now=Date.now();
-  $("tm").innerHTML=KINDS.map(([c,sz,mn,mx])=>{
-    const k=`DRAGON_AREA_${c}_${sz}`,l=last[k],life=LIFE[sz];
+  const now=Date.now(),box=$("tm");
+  if(!box.children.length)box.innerHTML=KINDS.map(([c,sz,mn,mx])=>{
+    const k=`DRAGON_AREA_${c}_${sz}`,life=LIFE[sz];
+    return `<div data-c="${k}"><span class="bd ${c}"><i></i>${SIZE[sz][0]} · ${COLOR[c][0]}</span>
+      <small class="st">${mx<=4200?mn/60+"–"+mx/60+" dk'da":String(mn/3600).replace(".",",")+"–"+mx/3600+" saatte"} bir · ${life/60} dk açık · ${SIZE[sz][1]}</small>
+      <span class="nx"></span><small class="st nt"></small>
+      <div class="ac"><button type="button" data-k="${k}">Şimdi açıldı</button></div>
+      <div class="ac"><input type="number" min="0" max="180" step="1" placeholder="dk" aria-label="Dakika"><select aria-label="Ne olacak"><option value="open">dk sonra açılacak</option><option value="close">dk sonra kapanacak</option></select><button type="button" data-k="${k}" data-m="1">Kaydet</button></div></div>`;
+  }).join("");
+  KINDS.forEach(([c,sz,mn,mx])=>{
+    const k=`DRAGON_AREA_${c}_${sz}`,l=last[k],life=LIFE[sz],el=box.querySelector(`[data-c="${k}"]`);
     let st,cls="",note="";
     if(!l)st="Bilinmiyor",note="Henüz açılış görülmedi.";
     else{
       const t0=l.t,age=(now-t0)/1e3;
-      if(age<life){st=`Açık · ${mmss(life-age)} kaldı`;cls="ok"}
+      if(age<0){st=`${mmss(-age)} sonra açılıyor`;cls="wn"}
+      else if(age<life){st=`Açık · ${mmss(life-age)} kaldı`;cls="ok"}
       else{
         // Son açılıştan sonraki pencere; geçtiyse sonraki turlara kaydırılır (her turda belirsizlik büyür)
         let a=mn,b=mx,n=0;while(t0+b*1e3<now&&n<50){a+=mn;b+=mx;n++}
@@ -175,20 +188,27 @@ function renderTimes(){
           if(n)note=`${n} tur tahmini (son açılış görülmedi), aralık geniş.`;
         }
       }
-      note=`Son açılış ${ago(t0)}${l.by?" · "+esc(l.by):""}`+(note?"<br>"+note:"");
+      note=(age<0?"Açılış zamanı girildi":`Son açılış ${ago(t0)}`)+(l.by?" · "+esc(l.by):"")+(note?"<br>"+note:"");
     }
-    return `<div><span class="bd ${c}"><i></i>${SIZE[sz][0]} · ${COLOR[c][0]}</span>
-      <small class="st">${mx<=4200?mn/60+"–"+mx/60+" dk'da":String(mn/3600).replace(".",",")+"–"+mx/3600+" saatte"} bir · ${life/60} dk açık · ${SIZE[sz][1]}</small>
-      <span class="nx ${cls}">${st}</span><small class="st">${note}</small>
-      <button type="button" data-k="${k}">Şimdi açıldı</button></div>`;
-  }).join("");
+    const nx=el.querySelector(".nx");nx.className="nx "+cls;nx.textContent=st;
+    el.querySelector(".nt").innerHTML=note;
+  });
 }
 $("tm").addEventListener("click",async e=>{
   const b=e.target.closest("button[data-k]");if(!b||!window.aoSb)return;
-  b.disabled=true;b.textContent="Kaydediliyor…";
-  const {error}=await window.aoSb.rpc("mark_portal_time",{k:b.dataset.k});
-  if(error){b.textContent="Olmadı: "+error.message;return}
-  await load();
+  let ofs=0;
+  if(b.dataset.m){
+    // Oyundaki sayaç: "X dk sonra açılacak" -> açılış şimdi+X; "X dk sonra kapanacak" -> açılış şimdi+X-açık kalma
+    const row=b.parentElement,inp=row.querySelector("input"),m=parseFloat(inp.value);
+    if(!(m>=0&&m<=180)){inp.focus();return}
+    const sz=b.dataset.k.split("_").pop();
+    ofs=Math.round(m*60-(row.querySelector("select").value==="close"?LIFE[sz]:0));
+    inp.value="";
+  }
+  const t=b.textContent;b.disabled=true;b.textContent="Kaydediliyor…";
+  const {error}=await window.aoSb.rpc("mark_portal_time",{k:b.dataset.k,ofs});
+  b.disabled=false;b.textContent=error?"Olmadı: "+error.message:t;
+  if(!error)await load();
 });
 
 async function load(){
