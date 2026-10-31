@@ -173,6 +173,18 @@ h3{font:700 12px/1.4 "Inter",system-ui,sans-serif;letter-spacing:.08em;text-tran
 .tc .g.tk{border-left-color:#58a6ff}
 .tc .g small{display:block;color:var(--ink);font-size:13px;letter-spacing:0;text-transform:none;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .tl{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:10px;margin-bottom:12px}
+.kr{display:flex;flex-direction:column;gap:6px}
+.kl{background:var(--card2);border:1px solid var(--line);border-left:3px solid var(--good);border-radius:10px;padding:8px 12px;display:grid;grid-template-columns:1fr auto 1fr;gap:10px;align-items:center}
+.kl.d{border-left-color:var(--bad)}
+.ks{display:flex;flex-direction:column;gap:5px;min-width:0}
+.ks.r{align-items:flex-end;text-align:right}
+.ks .nm{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.ks.r .nm{justify-content:flex-end}
+.ks .nm b.p{color:var(--accT)}
+.ks .eq .sl{width:38px;height:38px}.ks .eq .sl img{width:36px;height:36px}
+.ka{display:flex;flex-direction:column;align-items:center;font-size:12px;font-weight:700;color:var(--mut);white-space:nowrap}
+.ka b{font-size:20px;line-height:1;color:var(--good)}.kl.d .ka b{color:var(--bad)}
+@media(max-width:700px){.kl{grid-template-columns:1fr}.ks.r{align-items:flex-start;text-align:left}.ks.r .nm{justify-content:flex-start}.ka{flex-direction:row;gap:6px}.ka b{transform:rotate(90deg)}}
 .tb{background:var(--card2);border:1px solid var(--line);border-radius:12px;padding:10px 14px}
 .tb h4{margin:0 0 8px;font-size:12px;font-weight:700;letter-spacing:.04em;color:var(--acc)}
 .tb.h h4{color:var(--good)}
@@ -604,6 +616,7 @@ confirm2($("lootClear"),"Tümünü sil",async()=>{await api("/loot",{method:"DEL
 const LK={loot:"LOOT",chest:"SANDIK",party:"PARTİ",zone:"BÖLGE",fight:"OTURUM"};
 function logText(e){
   if(e.k==="loot")return `<b>${esc(e.by)}</b> ${e.silver?fmt(e.silver)+" silver":`${icon(e.item)} ${esc(iname(e.item))} ×${e.qty}`} aldı${e.from?` · <span class="st">${esc(e.from)} cesedinden</span>`:""}`;
+  if(e.k==="kill")return `<b>${esc(e.killer||"?")}</b> → <b>${esc(e.victim)}</b> oyuncusunu kesti`;
   if(e.k==="chest")return `${esc(e.name?e.name+" cesedi":"Sandık")} açıldı · ${e.n} eşya`;
   if(e.k==="zone")return `Bölgeye girildi${e.zone?` · <span class="st">${esc(e.zone)}</span>`:""}${e.character?` · ${esc(e.character)}`:""}`;
   if(e.k==="fight")return `Oturum kaydedildi · ${dur(e.dur||0)} · hasar ${fmt(e.dmg)} · en yüksek ${esc(e.top)}`;
@@ -632,9 +645,24 @@ function top5(title,ps,key,cls,div){
   const L=ps.filter(p=>p[key]>0).sort((a,b)=>b[key]-a[key]).slice(0,5),max=L.length?L[0][key]:1;
   return `<div class="tb ${cls||""}"><h4>${title}</h4>${L.length?L.map((p,i)=>`<div class="tr"><span class="r">${i+1}.</span>${nmH(p)}<span class="bb"><i style="width:${(p[key]/max*100).toFixed(1)}%"></i></span><span class="vv">${fmtK(div?p[key]/div:p[key])}</span></div>`).join(""):`<div class="st">Veri yok</div>`}</div>`;
 }
+// Savaş raporu (toplayıcı v18+): partinin kestikleri ve partiden ölenler; ekipman ölüm anında bilinen settir
+const KILL_NEED=18,KSL=["w","o","h","a","s","c","b","m"];
+function kSide(x,r){
+  const eq=x.eq,ip=x.ip?`<span class="ip real" title="Oyunda incelendiğinde gelen gerçek ortalama IP">${fmt(x.ip)} IP</span>`
+    :eq?`<span class="ip" title="Tahmini: sadece tier ve enchant'tan, kalite ve spec bonusu yok">~${fmt(ipOf(eq))} IP</span>`:"";
+  return `<div class="ks${r?" r":""}"><div class="nm"><b class="${x.me?"me":x.party?"p":""}">${esc(x.name||"Bilinmiyor")}</b>${x.guild?`<span class="st">[${esc(x.guild)}]</span>`:""}${ip}</div>
+    <div class="eq">${eq?KSL.map(k=>slotHTML(k,eq[k])).join(""):`<span class="st">${x.player===false?"Oyuncu değil":"Seti görülmedi"}</span>`}</div></div>`;
+}
+function killsHTML(f){
+  const ks=f.kills||[];
+  if(!ks.length)return !f.final&&status&&status.version<KILL_NEED?`<div class="st" style="margin-bottom:10px">Savaş raporu için toplayıcının v${KILL_NEED} ya da üstü olması gerekiyor (sende v${status.version}).</div>`:"";
+  const kill=ks.filter(x=>x.k.party&&!x.v.party).length,death=ks.filter(x=>x.v.party).length;
+  return `<div class="tb" style="margin-bottom:12px"><h4>Savaş raporu</h4><div class="sum"><span class="chip ok">Kill<b>${kill}</b></span><span class="chip bad">Ölüm<b>${death}</b></span></div>
+    <div class="kr">${[...ks].reverse().map(x=>`<div class="kl${x.v.party?" d":""}">${kSide(x.k)}<div class="ka"><b>→</b>${x.lethal===false?"yere serdi":"kesti"}<span class="st">${tm(x.t)}</span></div>${kSide(x.v,1)}</div>`).join("")}</div></div>`;
+}
 function topHTML(f){
-  const ps=f.players||[];
-  if(!ps.length)return `<div class="empty" style="padding:14px">Bu oturumda hasar ya da heal kaydı yok.</div>`;
+  const ps=f.players||[],kr=killsHTML(f);
+  if(!ps.length)return kr+`<div class="empty" style="padding:14px">Bu oturumda hasar ya da heal kaydı yok.</div>`;
   const has=ps.some(p=>"hit" in p),best=k=>[...ps].sort((a,b)=>(b[k]||0)-(a[k]||0))[0];
   const card=(l,k,cls,div)=>{const p=best(k);return `<div class="g ${cls||""}">${l}<small>${p&&p[k]?esc(p.name):"–"}</small><b>${p&&p[k]?fmtK(div?p[k]/div:p[k]):"–"}</b></div>`};
   const old=has?"":`<div class="st" style="margin-bottom:10px">Bu oturum en büyük vuruş, burst, hasar türü ve hedef sayısı eklenmeden önce kaydedildi.</div>`;
@@ -646,7 +674,7 @@ function topHTML(f){
   const S={};ps.forEach(p=>(p.spells||[]).forEach(s=>{if(!s.damage)return;const x=S[s.key]=S[s.key]||{key:s.key,damage:0,w:p.weapon};x.damage+=s.damage}));
   const sl=Object.values(S).sort((a,b)=>b.damage-a.damage).slice(0,10),sT=Object.values(S).reduce((a,x)=>a+x.damage,0)||1,sM=sl.length?sl[0].damage:1;
   const ab=sl.length?`<div class="tb"><h4>Skill bazında hasar · TOP 10</h4><div class="ab">${sl.map((x,i)=>`<div class="tr"><span class="r">${i+1}.</span>${spIcon(x.key,x.w)}<span class="nm2">${esc(spName(x.key))}</span><span class="bb"><i style="width:${(x.damage/sM*100).toFixed(1)}%"></i></span><span class="vv">${fmtK(x.damage)}</span><span class="st" style="text-align:right">${(x.damage/sT*100).toFixed(1).replace(".",",")}%</span></div>`).join("")}</div></div>`:"";
-  return old+cards+lists+types+ab;
+  return old+cards+kr+lists+types+ab;
 }
 function renderTop(){
   if(!status)return;

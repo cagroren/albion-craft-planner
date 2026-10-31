@@ -23,7 +23,7 @@ import webbrowser
 import zlib
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-VERSION = 17                 # GitHub'daki dps-vN sürümüyle aynı olmalı (güncelleme kontrolü bunu karşılaştırır)
+VERSION = 18                 # GitHub'daki dps-vN sürümüyle aynı olmalı (güncelleme kontrolü bunu karşılaştırır)
 PORT = int(os.environ.get("ALBION_DPS_PORT") or 47700)
 COMBAT_GAP_SECONDS = 5       # vuruşlar arası bundan uzun boşluk "savaş süresi"ne sayılmaz
 FP = 10000.0                 # oyunun sabit noktalı sayı çarpanı
@@ -31,6 +31,7 @@ FP = 10000.0                 # oyunun sabit noktalı sayı çarpanı
 # olarak ayrı bir mesajla bildirir). respecSilver = ReSpec boost açıkken bu krediler için ödenen silver.
 GAINS = ("fame", "credits", "silver", "might", "favor", "faction", "respecSilver")
 MAX_FIGHTS_IN_MEMORY = 300
+MAX_KILLS = 300              # oturum başına savaş raporu satırı (Top Stats: kim kimi kesti)
 RELOGIN_GAP = 60             # bu kadar saniye oyun trafiği gelmezse sonraki giriş yeni oturum sayılır
 MAX_OBJECTS = 5000           # hatırlanan karakter sayısı (en eskiler silinir)
 JOIN_KEEP_SECONDS = 15       # bölge değişince bundan daha yeni görülen karakterler tutulur
@@ -66,6 +67,7 @@ EV = {
     "UpdateReSpecPoints": 84,
     "NewEquipmentItem": 30, "NewSimpleItem": 32, "AttachItemContainer": 99, "InventoryPutItem": 26,
     "InventoryDeleteItem": 27, "OtherGrabbedLoot": 278, "NewLoot": 98, "BankVaultInfo": 413,
+    "Died": 164,
 }
 # GetCharacterEquipment: oyunda birini "İncele" deyince gelen cevap; gerçek ortalama IP taşır (3)
 OP = {"Join": 2, "ClaimPaymentTransaction": 297, "ContainerOpen": 98, "GetCharacterEquipment": 99}
@@ -1117,6 +1119,8 @@ class Tracker:
                 # sadece 6 şehir faction'ı (1-6) faction puanı sayılır.
                 if (to_int(p.get(2)) or 0) in (1, 2, 3, 4, 5, 6):
                     self.gain("faction", (to_int(p.get(3)) or 0) / FP)
+            elif code == EV["Died"]:
+                self.on_died(p)
             elif code == EV["Leave"]:
                 oid = to_int(p.get(0))
                 if oid is not None and oid != self.local_id:
@@ -1324,6 +1328,36 @@ class Tracker:
         for k in list(self.gear)[:max(0, len(self.gear) - 500)]:
             del self.gear[k]
 
+    def on_died(self, p):
+        """Savaş raporu: 1/2/3 ölen (objectId, ad, guild), 9/10/11 öldüren, 17 ölümcül mü. Sadece partinin
+        kestiği ya da partiden ölen oyuncular kaydedilir; ekipman o an bilinen (görülen) settir."""
+        if self.paused:
+            return
+        names = self.party_names()
+
+        def side(oid, name, guild):
+            oid = to_int(oid)
+            known = oid is not None and oid in self.objects
+            n = self.name_of(oid) if known else (name if isinstance(name, str) else "")
+            party = (self.in_party(oid) if known else False) or n in names
+            g = self.gear.get(n) or {}
+            return {"name": n, "guild": guild if isinstance(guild, str) else "", "party": party, "player": known or party,
+                    "me": n == self.local_name, "eq": g.get("eq"), "ip": (self.ip.get(n) or {}).get("ip")}
+
+        v, k = side(p.get(1), p.get(2), p.get(3)), side(p.get(9), p.get(10), p.get(11))
+        if not v["name"] or not v["player"] or not (v["party"] or k["party"]):
+            return  # mob ölümleri ve partiyle ilgisi olmayan ölümler
+        now = time.time()
+        f = self.ensure_fight(now)
+        ks = f.setdefault("kills", [])
+        if any(x["v"]["name"] == v["name"] and x["k"]["name"] == k["name"] and now - x["t"] / 1000 < 3 for x in ks[-5:]):
+            return  # aynı ölüm iki kez gelirse
+        ks.append({"t": int(now * 1000), "k": k, "v": v, "lethal": bool(p.get(17)) if 17 in p else None})
+        del ks[:-MAX_KILLS]
+        self.live_dirty = True
+        self.note("kill", killer=k["name"], victim=v["name"])
+        log(f"Ölüm: {k['name'] or '?'} -> {v['name']}")
+
     def party_gear(self):
         with self.lock:
             return {"character": self.local_name, "partyKnown": self.party_known, "now": time.time(),
@@ -1468,7 +1502,7 @@ class Tracker:
             "gains": gains,
             "totalDamage": sum(p["damage"] for p in players),
             "totalHeal": sum(p["heal"] for p in players),
-            "players": players, "final": final,
+            "players": players, "final": final, "kills": f.get("kills", []),
         }
 
     def end_fight(self):
@@ -1481,7 +1515,7 @@ class Tracker:
             return None
         f["last"] = time.time()
         s = self.summarize(f, True)
-        if s["totalDamage"] == 0 and s["totalHeal"] == 0 and not any(s["gains"].values()):
+        if s["totalDamage"] == 0 and s["totalHeal"] == 0 and not any(s["gains"].values()) and not s["kills"]:
             return None
         self.fights.append(s)
         self.fights = self.fights[-MAX_FIGHTS_IN_MEMORY:]
