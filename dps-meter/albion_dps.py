@@ -23,7 +23,7 @@ import webbrowser
 import zlib
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-VERSION = 22                 # GitHub'daki dps-vN sürümüyle aynı olmalı (güncelleme kontrolü bunu karşılaştırır)
+VERSION = 23                 # GitHub'daki dps-vN sürümüyle aynı olmalı (güncelleme kontrolü bunu karşılaştırır)
 PORT = int(os.environ.get("ALBION_DPS_PORT") or 47700)
 COMBAT_GAP_SECONDS = 5       # vuruşlar arası bundan uzun boşluk "savaş süresi"ne sayılmaz
 FP = 10000.0                 # oyunun sabit noktalı sayı çarpanı
@@ -83,9 +83,30 @@ DESTINY_OP = {147: "ReSpecAchievement", 311: "TrackAchievements", 312: "SetAchie
 # Dragon portalları (Ancient Lands girişleri): StatisticsAnalysis bunları henüz çözmüyor. Portal olayı
 # (NewDragonAreaEntrance) tahminle okunur; ilgili bütün mesajlar ham hâliyle portal-kayit/ klasörüne de yazılır.
 # Dünya haritası açılınca gelen GetClusterMapInfo da kaydedilir (oyun portalları haritada da gösteriyor).
-PORTAL_NAME = re.compile(r"DragonArea|DragonIncursion")
+# GetClusterMapInfo'da portal çıkmadı; harita işaretleri (LocalTreasures, MapMarkerTimer...) de kaydedilir ve
+# numarası ne olursa olsun içinde "DRAGON_AREA" yazısı geçen her mesaj "Bilinmeyen<kod>" adıyla yazılır.
+PORTAL_NAME = re.compile(r"DragonArea|DragonIncursion|LocalTreasures|MapMarkerTimer|MinimapPositionMarkers|"
+                         r"ClusterInfoUpdate|NewLocationMarker")
 PORTAL_EV = {687: "DragonIncursionClusterState", 694: "NewDragonAreaEntrance", 699: "UsingDragonAreaEntranceStateUpdate",
-             700: "DragonAreaEntranceBindingStateUpdate"}
+             700: "DragonAreaEntranceBindingStateUpdate", 284: "LocalTreasuresUpdate", 649: "PlayerJoinMapMarkerTimerStates",
+             650: "NewMapMarkerTimer", 651: "RemoveMapMarkerTimer", 139: "ClusterInfoUpdate", 447: "MinimapPositionMarkers",
+             383: "NewLocationMarker"}
+PORTAL_MAX_PER = 400   # sık gelen işaret mesajları kaydı doldurmasın
+
+
+def has_dragon(v, depth=0):
+    if isinstance(v, str):
+        return "DRAGON_AREA" in v
+    if depth < 3 and isinstance(v, (list, tuple)):
+        return any(has_dragon(x, depth + 1) for x in v[:500])
+    if depth < 3 and isinstance(v, dict):
+        return any(has_dragon(x, depth + 1) for x in v.values())
+    return False
+
+
+def portal_rec(kind, code, name, p, zone):
+    if PORTAL_REC.counts.get(name, 0) < PORTAL_MAX_PER:
+        PORTAL_REC.write(kind, code, name, dict(p, zone=zone))
 PORTAL_OP = {197: "GetClusterMapInfo", 549: "UseDragonAreaEntrance", 550: "EnterDragonAreaEntrance"}
 # Oyunun gönderdiği tür adı: <BİYOM>_<BÖLGE RENGİ>_DRAGON_AREA_ENTRANCE_PORTAL_<BOYUT>
 # (örn. HIGHLAND_RED_..._PORTAL_LARGE). Sarı bölgedekiler turuncu (T6), diğerleri siyah (T7) Ancient Lands'e açılır.
@@ -1118,9 +1139,9 @@ class Tracker:
                     self.board.full_info(self.local_name, p)
                 elif name == "FullAchievementProgressInfo":
                     self.board.progress(self.local_name, p)
-        if code in PORTAL_EV:
-            name = PORTAL_EV[code]
-            PORTAL_REC.write("event", code, name, dict(p, zone=self.zone))
+        if code in PORTAL_EV or has_dragon(p):
+            name = PORTAL_EV.get(code) or f"Bilinmeyen{code}"
+            portal_rec("event", code, name, p, self.zone)
             if name == "NewDragonAreaEntrance":
                 with self.lock:
                     self.on_portal(p)
@@ -1318,7 +1339,7 @@ class Tracker:
         if code in DESTINY_OP:
             DESTINY.write("request", code, DESTINY_OP[code], p)
         if code in PORTAL_OP:
-            PORTAL_REC.write("request", code, PORTAL_OP[code], dict(p, zone=self.zone))
+            portal_rec("request", code, PORTAL_OP[code], p, self.zone)
         if code == OP["ContainerOpen"]:
             # 0: sandık/ceset nesnesi, 2: sandığın guid'i. İçerik cevaptan sonra AttachItemContainer ile gelir.
             g = guid_key(p.get(2))
@@ -1329,8 +1350,8 @@ class Tracker:
 
     def on_response(self, _code, p):
         code = to_int(p.get(253))
-        if code in PORTAL_OP:
-            PORTAL_REC.write("response", code, PORTAL_OP[code], dict(p, zone=self.zone))
+        if code in PORTAL_OP or has_dragon(p):
+            portal_rec("response", code, PORTAL_OP.get(code) or f"BilinmeyenCevap{code}", p, self.zone)
         if code in DESTINY_OP:
             DESTINY.write("response", code, DESTINY_OP[code], p)
         elif code == OP["Join"]:
