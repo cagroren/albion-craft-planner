@@ -231,12 +231,20 @@ h3{font:700 12px/1.4 "Inter",system-ui,sans-serif;letter-spacing:.08em;text-tran
   </div>
 </section>
 
-<div class="tabs vt" id="vTabs" hidden><button data-v="dps">DPS Meter</button><button data-v="top">Top Stats</button></div>
+<div class="tabs vt" id="vTabs" hidden><button data-v="dps">DPS Meter</button><button data-v="top">Top Stats</button><button data-v="kd">Kill / Death</button></div>
 
 <section id="topSec" hidden>
-  <div class="dh"><h2>Top Stats · aktif oturum</h2><span class="st" id="topInfo"></span><span class="sp"></span>
-    <select id="kSrv" title="Savaş raporu için resmî API sunucusu"><option value="europe">Europe</option><option value="west">West</option><option value="east">East</option></select></div>
+  <div class="dh"><h2>Top Stats · aktif oturum</h2><span class="st" id="topInfo"></span></div>
   <div id="topLive"></div>
+</section>
+<section id="kdSec" hidden>
+  <div class="dh"><h2>Kill / Death · aktif oturum</h2><span class="st">Partinin kestikleri ve partiden ölenler. Toplayıcının görmediği ölümler resmî API'den birkaç dakika gecikmeyle eklenir.</span><span class="sp"></span>
+    <select id="kSrv" title="Resmî API sunucusu"><option value="europe">Europe</option><option value="west">West</option><option value="east">East</option></select></div>
+  <div id="kdLive"></div>
+</section>
+<section id="kdHistSec" hidden>
+  <div class="dh"><h2>Geçmiş oturumlar</h2><span class="st">Açmak için tıkla.</span></div>
+  <div id="kdHist" style="display:flex;flex-direction:column;gap:6px"></div>
 </section>
 <section id="topHistSec" hidden>
   <div class="dh"><h2>Geçmiş oturumlar</h2><span class="st">Bitirilen oturumlar buraya kaydedilir; açmak için tıkla.</span></div>
@@ -347,6 +355,7 @@ function render(){
   $("setup").hidden=connected;$("vTabs").hidden=!connected;$("main").hidden=!dv;$("histSec").hidden=!dv||!fights.length;$("setSec").hidden=!dv;
   $("lootSec").hidden=!connected||VIEW!=="loot";
   $("topSec").hidden=!connected||VIEW!=="top";$("topHistSec").hidden=!connected||VIEW!=="top"||!fights.length;$("logSec").hidden=!connected||VIEW!=="log";
+  $("kdSec").hidden=!connected||VIEW!=="kd";$("kdHistSec").hidden=!connected||VIEW!=="kd"||!fights.length;
   if(!connected){cs.className="live";cs.textContent="Bağlı değil";$("cInfo").textContent=LS.app?"DPS Meter başlatılıyor… Tarayıcı \"AlbionDPSMeter açılsın mı?\" diye sorarsa \"Her zaman izin ver\"i işaretleyip Aç'a bas.":"Toplayıcı çalışmıyor ya da tarayıcı bağlantıya izin vermedi.";$("startBtn").hidden=false;$("party").hidden=true;return}
   const cap=status.capturing;
   cs.className="live "+(cap?"on":"wait");cs.textContent=cap?"Oyun verisi geliyor":"Bağlı, oyun bekleniyor";
@@ -358,6 +367,7 @@ function render(){
   renderLive();renderSets();
   if(VIEW==="loot")renderLoot();
   if(VIEW==="top")renderTop();
+  if(VIEW==="kd")renderKD();
   if(VIEW==="log")renderLog();
 }
 
@@ -543,7 +553,7 @@ confirm2($("clearAll"),"Tümünü sil",async()=>{await api("/fights",{method:"DE
 
 // ---- Loot ve Log sekmeleri (toplayıcı v13+) ----
 const LOOT_NEED=13;
-let VIEW=["dps","top"].includes(LS.view)?LS.view:"dps",LOOT=null,LOG=null,PR={},prKey="",prBusy=false,lootSig="",logSig="";
+let VIEW=["dps","top","kd"].includes(LS.view)?LS.view:"dps",LOOT=null,LOG=null,PR={},prKey="",prBusy=false,lootSig="",logSig="";
 const chOpen=new Set();
 LS.loot=LS.loot||{sel:{},party:1};
 function setView(v){VIEW=v;LS.view=v;saveLS();lootSig=logSig="";document.querySelectorAll("#vTabs button").forEach(b=>b.classList.toggle("on",b.dataset.v===v));render();poll()}
@@ -660,7 +670,7 @@ function kSide(x,r){
 const KA={},KID={};let kaVer=0;
 const ksrv=()=>$("kSrv").value;
 $("kSrv").value=LS.ksrv||(LS.loot&&LS.loot.srv)||"europe";
-$("kSrv").onchange=()=>{LS.ksrv=ksrv();saveLS();for(const k in KA)delete KA[k];kaVer++;topSig="";renderTop()};
+$("kSrv").onchange=()=>{LS.ksrv=ksrv();saveLS();for(const k in KA)delete KA[k];kaVer++;kdSig="";renderKD()};
 function kNames(f){
   const n=new Set((f.kills||[]).flatMap(x=>[x.k,x.v]).filter(x=>x.party).map(x=>x.name));
   if(!f.final&&party)(party.members||[]).forEach(m=>n.add(m.name));
@@ -679,7 +689,7 @@ async function kFetch(f){
     const r=await fetch("/api/kills?"+q);if(!r.ok)throw new Error(r.status);
     const j=await r.json();Object.assign(ids,j.ids||{});a.rows=j.kills||[];a.err=0;
   }catch(e){a.err=1}
-  a.busy=false;kaVer++;renderTop();
+  a.busy=false;kaVer++;renderKD();
 }
 // Toplayıcı satırı ile API olayı: aynı öldüren/ölen, saat farkı 5 dakikadan az (bilgisayar saati kayabilir)
 function kMerge(f){
@@ -696,14 +706,16 @@ function kMerge(f){
 function killsHTML(f){
   kFetch(f);
   const ks=kMerge(f),a=KA[f.id];
-  if(!ks.length)return !f.final&&status&&status.version<KILL_NEED?`<div class="st" style="margin-bottom:10px">Savaş raporu için toplayıcının v${KILL_NEED} ya da üstü olması gerekiyor (sende v${status.version}).</div>`:"";
+  const ast=a&&a.t?a.busy?"Resmî API kontrol ediliyor…":a.err?"Resmî API'ye ulaşılamadı":`Resmî API ${tm(a.t)}'de kontrol edildi${f.final?"":" · 2 dk'da bir"} (gecikmeli gelir)`:"";
+  if(!ks.length)return (!f.final&&status&&status.version<KILL_NEED?`<div class="st" style="margin-bottom:10px">Toplayıcının kendi gördüğü ölümler için v${KILL_NEED} ya da üstü gerekiyor (sende v${status.version}); şimdilik sadece resmî API'den gelenler gösterilir.</div>`:"")
+    +`<div class="empty" style="padding:14px">Bu oturumda henüz kill ya da ölüm yok.${ast?`<br><span class="st">${ast}</span>`:""}</div>`;
   const kill=ks.filter(x=>x.k.party&&!x.v.party).length,death=ks.filter(x=>x.v.party).length;
-  return `<div class="tb" style="margin-bottom:12px"><h4>Savaş raporu</h4><div class="sum"><span class="chip ok">Kill<b>${kill}</b></span><span class="chip bad">Ölüm<b>${death}</b></span><span class="st">${a&&a.t?a.busy?"Resmî API kontrol ediliyor…":a.err?"Resmî API'ye ulaşılamadı":`Resmî API ${tm(a.t)}'de kontrol edildi${f.final?"":" · 2 dk'da bir"} (gecikmeli gelir)`:""}</span></div>
+  return `<div class="tb" style="margin-bottom:12px"><h4>Savaş raporu</h4><div class="sum"><span class="chip ok">Kill<b>${kill}</b></span><span class="chip bad">Ölüm<b>${death}</b></span><span class="st">${ast}</span></div>
     <div class="kr">${[...ks].reverse().map(x=>`<div class="kl${x.v.party?" d":""}">${kSide(x.k)}<div class="ka"><b>→</b>${x.lethal===false?"yere serdi":"kesti"}<span class="st">${tm(x.t)}</span>${x.src==="api"?'<span class="api" title="Toplayıcı bu ölümü görmedi; resmî Albion API&#39;sinden eklendi">API</span>':""}</div>${kSide(x.v,1)}</div>`).join("")}</div></div>`;
 }
 function topHTML(f){
-  const ps=f.players||[],kr=killsHTML(f);
-  if(!ps.length)return kr+`<div class="empty" style="padding:14px">Bu oturumda hasar ya da heal kaydı yok.</div>`;
+  const ps=f.players||[];
+  if(!ps.length)return `<div class="empty" style="padding:14px">Bu oturumda hasar ya da heal kaydı yok.</div>`;
   const has=ps.some(p=>"hit" in p),best=k=>[...ps].sort((a,b)=>(b[k]||0)-(a[k]||0))[0];
   const card=(l,k,cls,div)=>{const p=best(k);return `<div class="g ${cls||""}">${l}<small>${p&&p[k]?esc(p.name):"–"}</small><b>${p&&p[k]?fmtK(div?p[k]/div:p[k]):"–"}</b></div>`};
   const old=has?"":`<div class="st" style="margin-bottom:10px">Bu oturum en büyük vuruş, burst, hasar türü ve hedef sayısı eklenmeden önce kaydedildi.</div>`;
@@ -715,7 +727,7 @@ function topHTML(f){
   const S={};ps.forEach(p=>(p.spells||[]).forEach(s=>{if(!s.damage)return;const x=S[s.key]=S[s.key]||{key:s.key,damage:0,w:p.weapon};x.damage+=s.damage}));
   const sl=Object.values(S).sort((a,b)=>b.damage-a.damage).slice(0,10),sT=Object.values(S).reduce((a,x)=>a+x.damage,0)||1,sM=sl.length?sl[0].damage:1;
   const ab=sl.length?`<div class="tb"><h4>Skill bazında hasar · TOP 10</h4><div class="ab">${sl.map((x,i)=>`<div class="tr"><span class="r">${i+1}.</span>${spIcon(x.key,x.w)}<span class="nm2">${esc(spName(x.key))}</span><span class="bb"><i style="width:${(x.damage/sM*100).toFixed(1)}%"></i></span><span class="vv">${fmtK(x.damage)}</span><span class="st" style="text-align:right">${(x.damage/sT*100).toFixed(1).replace(".",",")}%</span></div>`).join("")}</div></div>`:"";
-  return old+cards+kr+lists+types+ab;
+  return old+cards+lists+types+ab;
 }
 function renderTop(){
   if(!status)return;
@@ -728,6 +740,17 @@ function renderTop(){
   $("topHist").innerHTML=fights.map(f=>{const on=topOpen.has(f.id),top=f.players&&f.players[0];
     return `<div class="hi${on?" on":""}"><button class="hr" data-top="${esc(f.id)}" aria-expanded="${on}"><span class="hc"><b>${dayOf(f.start)} ${tm(f.start)}</b></span><span class="hc"><small>Süre</small><b>${dur(f.duration)}</b></span><span class="hc"><small>Hasar</small><b>${fmtK(f.totalDamage)}</b></span><span class="hc hide-s"><small>En iyi</small><b>${top?esc(top.name):"–"}</b></span><span class="chev">${on?"▲":"▼"}</span></button>${on?`<div class="hd" style="padding-top:12px">${topHTML(f)}</div>`:""}</div>`}).join("");
 }
+const kdOpen=new Set();let kdSig="";
+function renderKD(){
+  if(!status||VIEW!=="kd")return;
+  const lv=status.live;
+  $("kdLive").innerHTML=lv?killsHTML(lv):`<div class="empty">Aktif oturum yok. Partin vuruşmaya başlayınca kill ve ölümler burada görünür.</div>`;
+  const sig=JSON.stringify([fights.length,fights[0]&&fights[0].id,[...kdOpen],kaVer]);
+  if(sig===kdSig)return;kdSig=sig;
+  $("kdHist").innerHTML=fights.map(f=>{const on=kdOpen.has(f.id),ks=kMerge(f),kill=ks.filter(x=>x.k.party&&!x.v.party).length,death=ks.filter(x=>x.v.party).length;
+    return `<div class="hi${on?" on":""}"><button class="hr" data-kd="${esc(f.id)}" aria-expanded="${on}"><span class="hc"><b>${dayOf(f.start)} ${tm(f.start)}</b></span><span class="hc"><small>Süre</small><b>${dur(f.duration)}</b></span><span class="hc"><small>Kill</small><b>${kill}</b></span><span class="hc"><small>Ölüm</small><b>${death}</b></span><span class="chev">${on?"▲":"▼"}</span></button>${on?`<div class="hd" style="padding-top:12px">${killsHTML(f)}</div>`:""}</div>`}).join("");
+}
+$("kdHist").addEventListener("click",e=>{const b=e.target.closest("[data-kd]");if(!b)return;const id=b.dataset.kd;kdOpen.has(id)?kdOpen.delete(id):kdOpen.add(id);renderKD()});
 $("topHist").addEventListener("click",e=>{const b=e.target.closest("[data-top]");if(!b)return;const id=b.dataset.top;topOpen.has(id)?topOpen.delete(id):topOpen.add(id);renderTop()});
 
 poll();setInterval(poll,2000);
