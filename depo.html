@@ -103,7 +103,7 @@ td.n,th.n{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
     <label class="c"><input type="checkbox" id="cPrem"> Premium (vergi %4)</label>
     <label class="c"><input type="checkbox" id="cNeg"> Zarar edenleri gizle</label>
   </div>
-  <div class="row" style="margin-bottom:12px"><button class="p" id="calc">Hesapla</button><span class="st" id="cSt">Depodaki malzemelerle yapılabilecek her şeyi bulur; her biri için 7 şehirde craftlayıp satmayı dener, en kârlı şehri gösterir.</span></div>
+  <div class="row" style="margin-bottom:12px"><button class="p" id="calc">Hesapla</button><span class="st" id="cSt">Toplam stokta işaretli malzemelerle yapılabilecek her şeyi bulur; her biri için 7 şehirde craftlayıp satmayı dener, en kârlı şehri gösterir.</span></div>
   <div class="st" id="cDay" style="margin:-4px 0 12px"></div>
   <div id="cOut"></div>
 </section>
@@ -121,8 +121,8 @@ const arr=x=>x==null?[]:Array.isArray(x)?x:[x];
 const img=(id,s)=>`<img loading="lazy" src="https://render.albiononline.com/v1/item/${encodeURIComponent(id)}.png?size=${s||64}" alt="" onerror="this.style.visibility='hidden'">`;
 const ago=t=>{if(!t)return "";const m=(Date.now()/1e3-t)/60;return m<60?Math.max(1,Math.round(m))+" dk önce":m<1440?Math.round(m/60)+" sa önce":Math.round(m/1440)+" gün önce"};
 const S=window.aoStock;
-let D;
-const initD=()=>{D=S.load();D.stores=D.stores||{};D.hidden=D.hidden||{};D.set=Object.assign({srv:"europe",prem:true,foc:false,neg:true},D.set||{});if(!D.set.pcity)D.set.pcity=CITIES.includes(D.set.city)?D.set.city:"Martlock"};
+let D,EX;
+const initD=()=>{D=S.load();D.stores=D.stores||{};D.hidden=D.hidden||{};D.set=Object.assign({srv:"europe",prem:true,foc:false,neg:true},D.set||{});if(!D.set.pcity)D.set.pcity=CITIES.includes(D.set.city)?D.set.city:"Martlock";D.set.ex=D.set.ex||{};EX=D.set.ex};
 initD();
 const save=()=>S.save(D);
 let NM={},ZN={},OTHER=[],REC=null,LAST=null;
@@ -232,11 +232,17 @@ function renderTot(){
   const L=Object.entries(A).filter(([k])=>{const i=bid(k);return !q||label(i).toLowerCase().includes(q)||i.toLowerCase().includes(q)||(QN[qOf(k)]||"").toLowerCase().includes(q)}).sort((a,b)=>label(bid(a[0])).localeCompare(label(bid(b[0])))||qOf(a[0])-qOf(b[0]));
   const any=Object.keys(A).length,sum=L.reduce((t,[,a])=>t+a.v,0);
   const unit=a=>{const e=Object.entries(a.c);return e.length===1?(e[0][1]?fmt(e[0][1])+`<small class="st" style="display:block">${esc(e[0][0])}</small>`:'<span class="st">—</span>'):e.map(([c,p])=>`<small style="display:block">${esc(c)} ${p?fmt(p):"—"}</small>`).join("")};
-  $("tot").innerHTML=L.length?`<table><thead><tr><th>Eşya</th><th class="n">Adet</th><th class="n">Birim fiyat</th><th class="n">Değer</th><th>Nerede</th></tr></thead><tbody>${L.map(([k,a])=>`<tr><td><span class="pn">${img(bid(k))}<span>${esc(label(bid(k)))}${qPill(k)}</span></span></td><td class="n"><b>${fmt(a.n)}</b></td><td class="n">${unit(a)}</td><td class="n">${a.v?fmt(a.v):'<span class="st">—</span>'}</td><td class="st">${esc(a.w.join(" · "))}</td></tr>`).join("")}</tbody><tfoot><tr><th>Toplam</th><td></td><td></td><td class="n"><b>${fmt(sum)}</b></td><td></td></tr></tfoot></table>`:`<div class="empty">${any?"Eşleşen eşya yok.":"Hesaba katılan depolarda eşya yok."}</div>`;
+  $("tot").innerHTML=L.length?`<table><thead><tr><th title="İşaretli eşyalar 'Bununla ne craftlayabilirim' hesabında kullanılır"><label class="tg"><input type="checkbox" id="useAll"${L.every(([k])=>!EX[k])?" checked":""} aria-label="Hepsini craftta kullan"> Craft</label></th><th>Eşya</th><th class="n">Adet</th><th class="n">Birim fiyat</th><th class="n">Değer</th><th>Nerede</th></tr></thead><tbody>${L.map(([k,a])=>`<tr${EX[k]?' style="opacity:.55"':""}><td><label class="tg"><input type="checkbox" data-use="${esc(k)}"${EX[k]?"":" checked"} aria-label="Craftta kullan"></label></td><td><span class="pn">${img(bid(k))}<span>${esc(label(bid(k)))}${qPill(k)}</span></span></td><td class="n"><b>${fmt(a.n)}</b></td><td class="n">${unit(a)}</td><td class="n">${a.v?fmt(a.v):'<span class="st">—</span>'}</td><td class="st">${esc(a.w.join(" · "))}</td></tr>`).join("")}</tbody><tfoot><tr><td></td><th>Toplam</th><td></td><td></td><td class="n"><b>${fmt(sum)}</b></td><td></td></tr></tfoot></table>`:`<div class="empty">${any?"Eşleşen eşya yok.":"Hesaba katılan depolarda eşya yok."}</div>`;
+  const setEx=(k,on)=>{if(on)delete EX[k];else EX[k]=1};
+  $("tot").querySelectorAll("[data-use]").forEach(c=>c.onchange=()=>{setEx(c.dataset.use,c.checked);useChanged()});
+  if($("useAll"))$("useAll").onchange=()=>{L.forEach(([k])=>setEx(k,$("useAll").checked));useChanged()};
   if(!totBusy)$("tSt").textContent=any?`Fiyat: eşyanın bulunduğu deponun şehrindeki en düşük satış ilanı (${$("cSrv").selectedOptions[0].text}). Silah ve setlerde kendi kalitesinin, kalitesi bilinmeyenlerde Normal fiyatı. Fiyatı olmayanlar değere katılmaz.`:"";
   totPx();
 }
 $("tq").oninput=renderTot;
+// Toplam stokta işareti kaldırılan eşyalar craft hesabına girmez (anahtar kaliteli olabilir)
+const useChanged=()=>{save();renderTot();if(LAST)calc()};
+function useTotal(){const t={};Object.values(D.stores).forEach(s=>{if(s.on)Object.entries(s.items||{}).forEach(([k,n])=>{if(n>0&&!EX[k]){const b=bid(k);t[b]=(t[b]||0)+n}})});return t}
 $("pCity").innerHTML=CITIES.map(c=>`<option${c===D.set.pcity?" selected":""}>${c}</option>`).join("");
 $("pCity").onchange=()=>{D.set.pcity=$("pCity").value;save();render()};
 
@@ -349,8 +355,8 @@ function drawDaily(){
   $("cDay").innerHTML=DAILY===null?"Günlük bonus yükleniyor...":l.length?`Bugünkü günlük bonus (${esc($("cSrv").selectedOptions[0].text)}): ${l.map(r=>`<b>${esc(r.name)} +%${r.pct}</b>`).join(" · ")}. Uyan ürünlerin return rate'ine kendiliğinden eklenir.`:"Bugün bu sunucuda canlı günlük bonus yok.";
 }
 async function calc(){
-  const T=S.total();
-  if(!Object.keys(T).length){$("cOut").innerHTML='<div class="empty">Önce hesaba katılan bir depoya malzeme ekle.</div>';return}
+  const T=useTotal();
+  if(!Object.keys(T).length){$("cOut").innerHTML=`<div class="empty">${Object.keys(S.total()).length?"Toplam stokta craftta kullanılacak eşya seçili değil.":"Önce hesaba katılan bir depoya malzeme ekle."}</div>`;return}
   $("calc").disabled=true;
   try{
     $("cSt").textContent="Tarifler yükleniyor (dosya büyük, ilk seferde biraz sürebilir)...";
