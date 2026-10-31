@@ -183,6 +183,7 @@ h3{font:700 12px/1.4 "Inter",system-ui,sans-serif;letter-spacing:.08em;text-tran
 .ks .nm b.p{color:var(--accT)}
 .ks .eq .sl{width:38px;height:38px}.ks .eq .sl img{width:36px;height:36px}
 .ka{display:flex;flex-direction:column;align-items:center;font-size:12px;font-weight:700;color:var(--mut);white-space:nowrap}
+.ka .api{font-size:10px;font-weight:800;color:#58a6ff;border:1px solid #2a4a6e;border-radius:5px;padding:0 4px;margin-top:2px;cursor:help}
 .ka b{font-size:20px;line-height:1;color:var(--good)}.kl.d .ka b{color:var(--bad)}
 @media(max-width:700px){.kl{grid-template-columns:1fr}.ks.r{align-items:flex-start;text-align:left}.ks.r .nm{justify-content:flex-start}.ka{flex-direction:row;gap:6px}.ka b{transform:rotate(90deg)}}
 .tb{background:var(--card2);border:1px solid var(--line);border-radius:12px;padding:10px 14px}
@@ -233,7 +234,8 @@ h3{font:700 12px/1.4 "Inter",system-ui,sans-serif;letter-spacing:.08em;text-tran
 <div class="tabs vt" id="vTabs" hidden><button data-v="dps">DPS Meter</button><button data-v="top">Top Stats</button></div>
 
 <section id="topSec" hidden>
-  <div class="dh"><h2>Top Stats · aktif oturum</h2><span class="st" id="topInfo"></span></div>
+  <div class="dh"><h2>Top Stats · aktif oturum</h2><span class="st" id="topInfo"></span><span class="sp"></span>
+    <select id="kSrv" title="Savaş raporu için resmî API sunucusu"><option value="europe">Europe</option><option value="west">West</option><option value="east">East</option></select></div>
   <div id="topLive"></div>
 </section>
 <section id="topHistSec" hidden>
@@ -648,17 +650,56 @@ function top5(title,ps,key,cls,div){
 // Savaş raporu (toplayıcı v18+): partinin kestikleri ve partiden ölenler; ekipman ölüm anında bilinen settir
 const KILL_NEED=18,KSL=["w","o","h","a","s","c","b","m"];
 function kSide(x,r){
-  const eq=x.eq,ip=x.ip?`<span class="ip real" title="Oyunda incelendiğinde gelen gerçek ortalama IP">${fmt(x.ip)} IP</span>`
+  const eq=x.eq&&Object.keys(x.eq).length?x.eq:null,ip=x.ip?`<span class="ip real" title="Oyunda incelendiğinde gelen gerçek ortalama IP">${fmt(x.ip)} IP</span>`
     :eq?`<span class="ip" title="Tahmini: sadece tier ve enchant'tan, kalite ve spec bonusu yok">~${fmt(ipOf(eq))} IP</span>`:"";
   return `<div class="ks${r?" r":""}"><div class="nm"><b class="${x.me?"me":x.party?"p":""}">${esc(x.name||"Bilinmiyor")}</b>${x.guild?`<span class="st">[${esc(x.guild)}]</span>`:""}${ip}</div>
     <div class="eq">${eq?KSL.map(k=>slotHTML(k,eq[k])).join(""):`<span class="st">${x.player===false?"Oyuncu değil":"Seti görülmedi"}</span>`}</div></div>`;
 }
+// Toplayıcının göremediği ölümler (uzakta, ekran dışı) resmî API'den tamamlanır: /api/kills, birkaç dakika gecikmeli.
+// Aktif oturum 2 dakikada bir, geçmiş oturum açılınca bir kez sorulur.
+const KA={},KID={};let kaVer=0;
+const ksrv=()=>$("kSrv").value;
+$("kSrv").value=LS.ksrv||(LS.loot&&LS.loot.srv)||"europe";
+$("kSrv").onchange=()=>{LS.ksrv=ksrv();saveLS();for(const k in KA)delete KA[k];kaVer++;topSig="";renderTop()};
+function kNames(f){
+  const n=new Set((f.kills||[]).flatMap(x=>[x.k,x.v]).filter(x=>x.party).map(x=>x.name));
+  if(!f.final&&party)(party.members||[]).forEach(m=>n.add(m.name));
+  else (f.players||[]).forEach(p=>n.add(p.name));
+  return [...n].filter(Boolean).slice(0,20);
+}
+async function kFetch(f){
+  const a=KA[f.id]=KA[f.id]||{t:0,rows:[]},now=Date.now();
+  if(a.busy||(f.final?a.t:now-a.t<120000))return;
+  const ns=kNames(f);if(!ns.length)return;
+  a.busy=true;a.t=now;
+  try{
+    const ids=KID[ksrv()]=KID[ksrv()]||{};
+    const q=new URLSearchParams({srv:ksrv(),since:f.start-60000,until:f.final?f.end+600000:now+3600000});
+    ns.forEach(n=>q.append("n",ids[n]?n+"|"+ids[n]:n));
+    const r=await fetch("/api/kills?"+q);if(!r.ok)throw new Error(r.status);
+    const j=await r.json();Object.assign(ids,j.ids||{});a.rows=j.kills||[];a.err=0;
+  }catch(e){a.err=1}
+  a.busy=false;kaVer++;renderTop();
+}
+// Toplayıcı satırı ile API olayı: aynı öldüren/ölen, saat farkı 5 dakikadan az (bilgisayar saati kayabilir)
+function kMerge(f){
+  const low=s=>String(s||"").toLowerCase(),ns=new Set(kNames(f).map(low));
+  const rows=(f.kills||[]).map(x=>({...x,k:{...x.k},v:{...x.v}})),a=KA[f.id];
+  for(const e of a?a.rows:[]){
+    const m=rows.find(x=>!x.api&&low(x.v.name)===low(e.v.name)&&low(x.k.name)===low(e.k.name)&&Math.abs(x.t-e.t)<300000);
+    if(m){m.api=1;for(const s of ["k","v"]){const x=m[s],y=e[s];if(!x.eq||!Object.keys(x.eq).length)x.eq=y.eq;x.ip=x.ip||y.ip;x.guild=x.guild||y.guild}continue}
+    const me=low(party&&party.character),k={...e.k,party:ns.has(low(e.k.name)),me:low(e.k.name)===me},v={...e.v,party:ns.has(low(e.v.name)),me:low(e.v.name)===me};
+    if(k.party||v.party)rows.push({t:e.t,k,v,src:"api",api:1});
+  }
+  return rows.sort((a,b)=>a.t-b.t);
+}
 function killsHTML(f){
-  const ks=f.kills||[];
+  kFetch(f);
+  const ks=kMerge(f),a=KA[f.id];
   if(!ks.length)return !f.final&&status&&status.version<KILL_NEED?`<div class="st" style="margin-bottom:10px">Savaş raporu için toplayıcının v${KILL_NEED} ya da üstü olması gerekiyor (sende v${status.version}).</div>`:"";
   const kill=ks.filter(x=>x.k.party&&!x.v.party).length,death=ks.filter(x=>x.v.party).length;
-  return `<div class="tb" style="margin-bottom:12px"><h4>Savaş raporu</h4><div class="sum"><span class="chip ok">Kill<b>${kill}</b></span><span class="chip bad">Ölüm<b>${death}</b></span></div>
-    <div class="kr">${[...ks].reverse().map(x=>`<div class="kl${x.v.party?" d":""}">${kSide(x.k)}<div class="ka"><b>→</b>${x.lethal===false?"yere serdi":"kesti"}<span class="st">${tm(x.t)}</span></div>${kSide(x.v,1)}</div>`).join("")}</div></div>`;
+  return `<div class="tb" style="margin-bottom:12px"><h4>Savaş raporu</h4><div class="sum"><span class="chip ok">Kill<b>${kill}</b></span><span class="chip bad">Ölüm<b>${death}</b></span><span class="st">${a&&a.t?a.busy?"Resmî API kontrol ediliyor…":a.err?"Resmî API'ye ulaşılamadı":`Resmî API ${tm(a.t)}'de kontrol edildi${f.final?"":" · 2 dk'da bir"} (gecikmeli gelir)`:""}</span></div>
+    <div class="kr">${[...ks].reverse().map(x=>`<div class="kl${x.v.party?" d":""}">${kSide(x.k)}<div class="ka"><b>→</b>${x.lethal===false?"yere serdi":"kesti"}<span class="st">${tm(x.t)}</span>${x.src==="api"?'<span class="api" title="Toplayıcı bu ölümü görmedi; resmî Albion API&#39;sinden eklendi">API</span>':""}</div>${kSide(x.v,1)}</div>`).join("")}</div></div>`;
 }
 function topHTML(f){
   const ps=f.players||[],kr=killsHTML(f);
@@ -682,7 +723,7 @@ function renderTop(){
   $("topInfo").textContent=lv?`${dur(lv.duration)} · ${lv.players.length} oyuncu${status.paused?" · duraklatıldı":""}`:"";
   $("topLive").innerHTML=lv?(status.version<14?`<div class="st" style="margin-bottom:10px">En büyük vuruş, burst, hasar türü ve hedef sayısı için toplayıcının v14 ya da üstü olması gerekiyor (sende v${status.version}). Yukarıdaki <b>Güncelle</b> düğmesini kullan.</div>`:"")+topHTML(lv)
     :`<div class="empty">Aktif oturum yok. Partin vuruşmaya başlayınca istatistikler burada canlı dolar; DPS Meter sekmesinde <b>Bitir ve kaydet</b>'e basınca aşağıya geçmiş oturum olarak eklenir.</div>`;
-  const sig=JSON.stringify([fights.length,fights[0]&&fights[0].id,[...topOpen],Object.keys(SN).length]);
+  const sig=JSON.stringify([fights.length,fights[0]&&fights[0].id,[...topOpen],Object.keys(SN).length,kaVer]);
   if(sig===topSig)return;topSig=sig;
   $("topHist").innerHTML=fights.map(f=>{const on=topOpen.has(f.id),top=f.players&&f.players[0];
     return `<div class="hi${on?" on":""}"><button class="hr" data-top="${esc(f.id)}" aria-expanded="${on}"><span class="hc"><b>${dayOf(f.start)} ${tm(f.start)}</b></span><span class="hc"><small>Süre</small><b>${dur(f.duration)}</b></span><span class="hc"><small>Hasar</small><b>${fmtK(f.totalDamage)}</b></span><span class="hc hide-s"><small>En iyi</small><b>${top?esc(top.name):"–"}</b></span><span class="chev">${on?"▲":"▼"}</span></button>${on?`<div class="hd" style="padding-top:12px">${topHTML(f)}</div>`:""}</div>`}).join("");
