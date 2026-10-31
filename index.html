@@ -246,6 +246,10 @@ section{padding:16px;border-radius:14px}
 .shopT .shn .cpb{flex:none}
 .shopT th:not(:first-child),.shopT td:not(:first-child){text-align:center}
 .shopT td:not(:first-child) input{display:block;margin:0 auto;text-align:center}
+/* Fiyat durumu yazısı kutunun altında ama satır yüksekliğine katılmaz: fiyat kutusu diğerleriyle aynı hizada kalır */
+.shopT td:last-child{position:relative}
+.shopT tbody td{padding-top:12px;padding-bottom:22px}
+.shopT .pxt{position:absolute;left:0;right:0;bottom:3px;white-space:nowrap}
 </style>
 </head>
 <body>
@@ -970,7 +974,7 @@ function calc(){
   // Depo: hesaba katılan depolardaki adet net ihtiyaçtan düşülür
   const STK=window.aoStock?window.aoStock.total():{},nst=window.aoStock?window.aoStock.count():0;
   $("shopStk").innerHTML=nst?`Depoda: <a href="depo.html">Depo</a> sekmesinde hesaba kattığın ${nst} depodaki adetler. Alınacak = net adet − depoda.`:`Bankandaki ya da ada sandığındaki malzemeleri <a href="depo.html">Depo</a> sekmesine eklersen burada ne kadar daha alman gerektiği çıkar.`;
-  $("shop").innerHTML=Object.entries(shop).map(([m,q])=>{const net=nrs[m]?Math.round(q):Math.ceil(shopN[m]-1e-9),h=STK[m]||0,buy=Math.max(0,net-h);return `<tr><td><span class="shn">${img(m)}<span>${esc(label(m))}</span>${cpb(m)}</span></td><td><input readonly class="cp" style="width:100px" value="${Math.round(q)}" onclick="cpy(this)"></td><td><input readonly class="cp" style="width:100px" value="${net}" onclick="cpy(this)"></td><td>${h?fmt(h):'<span class="s">-</span>'}</td><td><input readonly class="cp" style="width:100px;font-weight:700;color:${buy?"var(--ink)":"var(--good,#3fb950)"}" value="${buy}" onclick="cpy(this)" title="${buy?"":"Depodakiler yetiyor"}"></td><td><input type="text" inputmode="decimal" data-k="m:${m}" data-m="${m}" value="${m in man.mats?man.mats[m]:""}" placeholder="${fmt((px.mats[m]&&px.mats[m].sell)||0)}" style="width:100px"><br>${tag(pinfo(true,m))}</td></tr>`}).join("")||'<tr><td colspan="6">Liste boş.</td></tr>';
+  $("shop").innerHTML=Object.entries(shop).map(([m,q])=>{const net=nrs[m]?Math.round(q):Math.ceil(shopN[m]-1e-9),h=STK[m]||0,buy=Math.max(0,net-h);return `<tr><td><span class="shn">${img(m)}<span>${esc(label(m))}</span>${cpb(m)}</span></td><td><input readonly class="cp" style="width:100px" value="${Math.round(q)}" onclick="cpy(this)"></td><td><input readonly class="cp" style="width:100px" value="${net}" onclick="cpy(this)"></td><td>${h?fmt(h):'<span class="s">-</span>'}</td><td><input readonly class="cp" style="width:100px;font-weight:700;color:${buy?"var(--ink)":"var(--good,#3fb950)"}" value="${buy}" onclick="cpy(this)" title="${buy?"":"Depodakiler yetiyor"}"></td><td><input type="text" inputmode="decimal" data-k="m:${m}" data-m="${m}" value="${m in man.mats?man.mats[m]:""}" placeholder="${fmt((px.mats[m]&&px.mats[m].sell)||0)}" style="width:100px"><span class="pxt">${tag(pinfo(true,m))}</span></td></tr>`}).join("")||'<tr><td colspan="6">Liste boş.</td></tr>';
   document.querySelectorAll("#plan button[data-i]").forEach(b=>b.onclick=()=>{plan.splice(+b.dataset.i,1);calc()});
   document.querySelectorAll("#plan .tg").forEach(b=>b.onclick=()=>{const id=b.dataset.t;if(openRows.has(id))openRows.delete(id);else openRows.add(id);calc()});
   document.querySelectorAll("[data-n]").forEach(e=>e.oninput=()=>{plan[+e.dataset.n].n=pf(e.value)||0;calc()});
