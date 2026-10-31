@@ -57,7 +57,7 @@ details summary{cursor:pointer;font-weight:700;color:var(--acc)}
 
 <section>
   <h2>Sonraki portallar</h2>
-  <p class="st" style="margin:0 0 12px">Her portal türü oyunda tek bir sayaçla bütün haritalarda aynı anda açılır. Son açılış biliniyorsa sonraki açılışın aralığı oyun dosyalarındaki sürelerden hesaplanır. Oyunda yeni açılan bir portal görürsen "Şimdi açıldı"ya bas, herkesin sayacı düzelsin; toplayıcısı açık üyelerin gördükleri kendiliğinden sayılır.</p>
+  <p class="st" style="margin:0 0 12px">Her portal türü oyunda tek bir sayaçla birçok haritada aynı anda belirir, önce kilitli durur, sonra açılır. Son belirme biliniyorsa sonrakinin aralığı oyun dosyalarındaki sürelerden hesaplanır. Oyunda bir portal görürsen üstündeki sayacı ("açılıyor" ya da "kapanıyor") buraya dakika olarak gir ya da yeni açıldıysa "Şimdi açıldı"ya bas; herkesin sayacı düzelir. Toplayıcısı açık üyelerin gördükleri kendiliğinden sayılır.</p>
   <div class="tm" id="tm"></div>
 </section>
 
@@ -85,19 +85,19 @@ details summary{cursor:pointer;font-weight:700;color:var(--acc)}
     <ul class="how">
       <li>Dragon güncellemesiyle gelen <b>Ancient Lands</b> girişleri. Oyun bunları hazine gibi rastgele haritalara dağıtıyor ve dünya haritasında gösteriyor.</li>
       <li><b>Turuncu</b> (T6): Royal kıtanın sarı bölgelerinde. <b>Siyah</b> (T7): Royal kırmızı bölgeler, Outlands ve Avalon yollarının hideout kurulabilen tünelleri.</li>
-      <li><b>Small</b>: turuncu yaklaşık 15 dakikada, siyah 35-55 dakikada bir açılır, 10 dakika açık kalır. İçeri 1, 2-3 ya da 4-5 kişilik gruplar girer (eşleşme giren kişi sayısına göre).</li>
-      <li><b>Medium</b>: 60-70 dakikada bir, 5 dakika açık. 5-7 kişi.</li>
-      <li><b>Large</b>: 2,5-3 saatte bir, 5 dakika açık. 15-20 kişi.</li>
-      <li>Kapanan portal 5 dakika daha görünür, sonra kaybolur. İçeri giren tekrar girmek için bekler: turuncu small 5 dk, siyah small 15 dk, medium 1 saat, large 3 saat.</li>
+      <li>Portal belirince önce <b>kilitli</b> durur, sonra açılır. <b>Small</b>: turuncu yaklaşık 15 dakikada bir belirir ve 5 dk kilitli kalır, siyah 35-55 dakikada bir belirir ve 15 dk kilitli kalır; açılınca 10 dakika açık. İçeri 1, 2-3 ya da 4-5 kişilik gruplar girer (eşleşme giren kişi sayısına göre).</li>
+      <li><b>Medium</b>: 60-70 dakikada bir belirir, 1 saat kilitli, 5 dakika açık. 5-7 kişi.</li>
+      <li><b>Large</b>: 2,5-3 saatte bir belirir, 3 saat kilitli (grubu toplamaya vakit var), 5 dakika açık. 15-20 kişi.</li>
+      <li>Kapanan portal 5 dakika daha görünür, sonra kaybolur. Portallar her mesafeden dünya haritasında görünür. İçeri giren tekrar girmek için 10 dk bekler.</li>
     </ul>
-    <p class="st" style="margin:10px 0 0">Kaynak: oyunun açık dökümleri, <a href="https://github.com/ao-data/ao-bin-dumps" target="_blank" rel="noopener">ao-data/ao-bin-dumps</a> (dragonarea.xml, treasuredistribution.xml). Süreler oyun güncellemeleriyle değişebilir.</p>
+    <p class="st" style="margin:10px 0 0">Kaynak: oyunun açık dökümleri, <a href="https://github.com/ao-data/ao-bin-dumps" target="_blank" rel="noopener">ao-data/ao-bin-dumps</a> (dragonarea.xml, treasuredistribution.xml) ve Dragonfire Patch 3 notları (12 Ekim 2026). Süreler oyun güncellemeleriyle değişebilir.</p>
   </details>
   <details style="margin-top:10px">
     <summary>Liste nasıl doluyor?</summary>
     <ul class="how">
       <li>DPS Meter toplayıcısı açık olan guild üyesi portalın olduğu haritaya girince oyun portalı ona bildirir. Sitenin herhangi bir sayfası açıksa portal buraya otomatik eklenir.</li>
       <li>Toplayıcı portalı görmek için <b>v20 ya da üstü</b> olmalı (kendini günceller).</li>
-      <li>Kapanma süresi oyunun bildirdiği zamandan, okunamazsa portalın ilk görüldüğü andan hesaplanır (yaklaşık, <b>~</b> ile gösterilir).</li>
+      <li>Açılış ve kapanış oyunun bildirdiği zamandan, okunamazsa portalın ilk görüldüğü andan hesaplanır (yaklaşık, <b>~</b> ile gösterilir).</li>
       <li>Bu sayfa açıkken yeni portal gelince ses çalar; "Bildirimleri aç" dersen sekme arka plandayken de haber verir.</li>
     </ul>
   </details>
@@ -147,6 +147,8 @@ function announce(list){
 // Medium ve Large'da oyun aralığı oyuncu yoğunluğuna göre biraz kaydırabiliyor (activityquotient).
 const KINDS=[["ORANGE","SMALL",900,960],["BLACK","SMALL",2100,3300],["ORANGE","MEDIUM",3600,4200],["BLACK","MEDIUM",3600,4200],["ORANGE","LARGE",9000,10800],["BLACK","LARGE",9000,10800]];
 const LIFE={SMALL:600,MEDIUM:300,LARGE:300};
+// Portal belirince önce kilitli durur (dragonarea.xml locktime): turuncu small 5 dk, siyah small 15 dk, medium 1 sa, large 3 sa
+const LOCK=k=>{const m=parse(k);return m.s==="SMALL"?(m.c==="ORANGE"?300:900):m.s==="MEDIUM"?3600:10800};
 let last={};  // tür -> {t: son açılış (ms), by}
 async function loadTimes(sb){
   const [a,b]=await Promise.all([sb.from("dragon_portal_times").select("kind,last_at,by_name"),
@@ -155,40 +157,44 @@ async function loadTimes(sb){
   const add=(k,t,by)=>{if(k&&t&&(!L[k]||t>L[k].t))L[k]={t,by}};
   (a.data||[]).forEach(r=>add(r.kind,Date.parse(r.last_at),r.by_name));
   // Toplayıcının gördüğü portal: kapanış zamanı biliniyorsa açılış = kapanış - açık kalma süresi
-  (b.data||[]).forEach(r=>{const k=parse(r.kind);add(r.kind,r.exact&&k.s?Date.parse(r.closes_at)-LIFE[k.s]*1e3:Date.parse(r.first_seen),r.seen_name)});
+  // Toplayıcının gördüğü portal: kapanış biliniyorsa belirme = kapanış - açık kalma - kilit; bilinmiyorsa ilk görülme
+  (b.data||[]).forEach(r=>{const k=parse(r.kind);add(r.kind,r.exact&&k.s?Date.parse(r.closes_at)-(LIFE[k.s]+LOCK(r.kind))*1e3:Date.parse(r.first_seen),r.seen_name)});
   last=L;
 }
-const dk=s=>s<3600?Math.round(s/60)+" dk":(s/3600).toFixed(1).replace(".",",")+" sa";
+const dk=s=>s<3600?Math.round(s/60)+" dk":String(+(s/3600).toFixed(1)).replace(".",",")+" sa";
 // Kartlar bir kez çizilir (dakika kutusuna yazılan silinmesin); her saniye sadece durum satırları güncellenir
 function renderTimes(){
   const now=Date.now(),box=$("tm");
   if(!box.children.length)box.innerHTML=KINDS.map(([c,sz,mn,mx])=>{
-    const k=`DRAGON_AREA_${c}_${sz}`,life=LIFE[sz];
+    const k=`DRAGON_AREA_${c}_${sz}`,life=LIFE[sz],lock=LOCK(k);
     return `<div data-c="${k}"><span class="bd ${c}"><i></i>${SIZE[sz][0]} · ${COLOR[c][0]}</span>
-      <small class="st">${mx<=4200?mn/60+"–"+mx/60+" dk'da":String(mn/3600).replace(".",",")+"–"+mx/3600+" saatte"} bir · ${life/60} dk açık · ${SIZE[sz][1]}</small>
+      <small class="st">${mx<=4200?mn/60+"–"+mx/60+" dk'da":String(mn/3600).replace(".",",")+"–"+mx/3600+" saatte"} bir · ${dk(lock)} kilitli, ${life/60} dk açık · ${SIZE[sz][1]}</small>
       <span class="nx"></span><small class="st nt"></small>
       <div class="ac"><button type="button" data-k="${k}">Şimdi açıldı</button></div>
       <div class="ac"><input type="number" min="0" max="180" step="1" placeholder="dk" aria-label="Dakika"><select aria-label="Ne olacak"><option value="open">dk sonra açılacak</option><option value="close">dk sonra kapanacak</option></select><button type="button" data-k="${k}" data-m="1">Kaydet</button></div></div>`;
   }).join("");
   KINDS.forEach(([c,sz,mn,mx])=>{
     const k=`DRAGON_AREA_${c}_${sz}`,l=last[k],life=LIFE[sz],el=box.querySelector(`[data-c="${k}"]`);
+    const lock=LOCK(k);
     let st,cls="",note="";
-    if(!l)st="Bilinmiyor",note="Henüz açılış görülmedi.";
+    if(!l)st="Bilinmiyor",note="Henüz görülmedi.";
     else{
+      // t0: son belirme. Belirme -> kilit -> açık -> kapanır; sonraki belirme t0 + aralık
       const t0=l.t,age=(now-t0)/1e3;
-      if(age<0){st=`${mmss(-age)} sonra açılıyor`;cls="wn"}
-      else if(age<life){st=`Açık · ${mmss(life-age)} kaldı`;cls="ok"}
-      else{
-        // Son açılıştan sonraki pencere; geçtiyse sonraki turlara kaydırılır (her turda belirsizlik büyür)
+      if(age<0){st=`${mmss(-age)} sonra beliriyor`;cls="wn"}
+      else if(age<lock){st=`Kilitli · ${mmss(lock-age)} sonra açılıyor`;cls="wn"}
+      else if(age<lock+life){st=`Açık · ${mmss(lock+life-age)} kaldı`;cls="ok"}
+      if(age>=lock+life||age<0){
+        // Sonraki belirme penceresi; geçtiyse sonraki turlara kaydırılır (her turda belirsizlik büyür)
         let a=mn,b=mx,n=0;while(t0+b*1e3<now&&n<50){a+=mn;b+=mx;n++}
         const sa=(t0+a*1e3-now)/1e3,sb=(t0+b*1e3-now)/1e3;
-        if(n>3)st="Bilinmiyor",note="Son açılış çok eski; yeni açılışı işaretle.";
-        else{
-          st=sa>0?`${dk(sa)} – ${dk(sb)} sonra`:`Şu an açılabilir · en geç ${dk(sb)}`;cls=sa>0?"":"wn";
-          if(n)note=`${n} tur tahmini (son açılış görülmedi), aralık geniş.`;
+        if(n>3)st="Bilinmiyor",note="Son görülme çok eski; yeni portalı işaretle.";
+        else if(age>=0){
+          st=sa>0?`${dk(sa)} – ${dk(sb)} sonra belirir`:`Şu an belirebilir · en geç ${dk(sb)}`;cls=sa>0?"":"wn";
+          note=`Belirdikten ${dk(lock)} sonra açılır.`+(n?` ${n} tur tahmini (arada görülmedi), aralık geniş.`:"");
         }
       }
-      note=(age<0?"Açılış zamanı girildi":`Son açılış ${ago(t0)}`)+(l.by?" · "+esc(l.by):"")+(note?"<br>"+note:"");
+      note=`Son belirme ${t0>now?dk((t0-now)/1e3)+" sonra":ago(t0)}`+(l.by?" · "+esc(l.by):"")+(note?"<br>"+note:"");
     }
     const nx=el.querySelector(".nx");nx.className="nx "+cls;nx.textContent=st;
     el.querySelector(".nt").innerHTML=note;
@@ -198,13 +204,13 @@ $("tm").addEventListener("click",async e=>{
   const b=e.target.closest("button[data-k]");if(!b||!window.aoSb)return;
   let ofs=0;
   if(b.dataset.m){
-    // Oyundaki sayaç: "X dk sonra açılacak" -> açılış şimdi+X; "X dk sonra kapanacak" -> açılış şimdi+X-açık kalma
+    // Oyundaki sayaç: "X dk sonra açılacak" -> belirme şimdi+X-kilit; "X dk sonra kapanacak" -> ayrıca - açık kalma
     const row=b.parentElement,inp=row.querySelector("input"),m=parseFloat(inp.value);
     if(!(m>=0&&m<=180)){inp.focus();return}
     const sz=b.dataset.k.split("_").pop();
-    ofs=Math.round(m*60-(row.querySelector("select").value==="close"?LIFE[sz]:0));
+    ofs=Math.round(m*60-LOCK(b.dataset.k)-(row.querySelector("select").value==="close"?LIFE[sz]:0));
     inp.value="";
-  }
+  }else ofs=-LOCK(b.dataset.k);  // "Şimdi açıldı": kilit şimdi bitti
   const t=b.textContent;b.disabled=true;b.textContent="Kaydediliyor…";
   const {error}=await window.aoSb.rpc("mark_portal_time",{k:b.dataset.k,ofs});
   b.disabled=false;b.textContent=error?"Olmadı: "+error.message:t;
@@ -216,7 +222,7 @@ async function load(){
   const {data:{session}}=await sb.auth.getSession();
   if(!session){$("list").innerHTML='<tr><td colspan="6" class="empty">Portalları görmek için giriş yap.</td></tr>';return}
   loadTimes(sb).then(renderTimes,()=>{});
-  const {data,error}=await sb.from("dragon_portals").select("id,zone,kind,x,y,closes_at,exact,gone_at,first_seen,seen_name")
+  const {data,error}=await sb.from("dragon_portals").select("id,zone,kind,x,y,opens_at,closes_at,exact,gone_at,first_seen,seen_name")
     .gt("gone_at",new Date().toISOString()).order("first_seen",{ascending:false}).limit(200);
   if(error){$("info").textContent="Liste okunamadı: "+error.message;return}
   rows=data||[];
@@ -235,7 +241,8 @@ function render(){
   $("list").innerHTML=L.length?L.map(r=>{
     const k=parse(r.kind),sz=SIZE[k.s],co=COLOR[k.c],cl=Date.parse(r.closes_at),gn=Date.parse(r.gone_at),zn=zname(r.zone);
     const est=r.exact?"":"~";
-    const st=cl>now?`<span class="ok">Açık · ${est}${mmss((cl-now)/1e3)} kaldı</span>`:`<span class="wn">Kapandı</span><small>${mmss((gn-now)/1e3)} sonra kaybolur</small>`;
+    const op=r.opens_at?Date.parse(r.opens_at):0;
+    const st=op>now?`<span class="wn">Kilitli · ${mmss((op-now)/1e3)} sonra açılıyor</span>`:cl>now?`<span class="ok">Açık · ${est}${mmss((cl-now)/1e3)} kaldı</span>`:`<span class="wn">Kapandı</span><small>${mmss((gn-now)/1e3)} sonra kaybolur</small>`;
     return `<tr class="${fresh.has(r.id+"@"+r.first_seen)?"new":""}">
       <td><span class="bd ${k.c||""}"><i></i>${sz?sz[0]:"Bilinmiyor"}</span><small>${co?co[0]+" · "+co[1]:esc(r.kind||"tür okunamadı")}</small></td>
       <td>${sz?sz[1]:"?"}</td>

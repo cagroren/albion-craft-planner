@@ -566,7 +566,7 @@ declare
   k text := left(p->>'kind', 40);
   px real := (p->>'x')::real;
   py real := (p->>'y')::real;
-  cl timestamptz := least(coalesce(to_timestamp((p->>'closes')::double precision), to_timestamp((p->>'est')::double precision), now() + interval '10 minutes'), now() + interval '30 minutes');
+  cl timestamptz := least(coalesce(to_timestamp((p->>'closes')::double precision), to_timestamp((p->>'est')::double precision), now() + interval '10 minutes'), now() + interval '4 hours');
   op timestamptz := to_timestamp((p->>'opens')::double precision);
   pid text;
 begin
@@ -591,7 +591,7 @@ end $$;
 revoke all on function public.report_dragon_portal(jsonb) from public, anon;
 grant execute on function public.report_dragon_portal(jsonb) to authenticated;
 
--- PORTAL ZAMANLARI (yeni eklendi): her portal türü oyunda tek bir global sayaçla açılır; Portallar sekmesi
+-- PORTAL ZAMANLARI (yeni eklendi): her portal türü oyunda tek bir global sayaçla belirir; Portallar sekmesi
 -- son açılıştan sonrakini tahmin eder. Toplayıcının gördükleri dragon_portals'tan, elle "Şimdi açıldı" buradan gelir.
 create table if not exists public.dragon_portal_times (
   kind text primary key check (kind ~ '^DRAGON_AREA_(ORANGE|BLACK)_(SMALL|MEDIUM|LARGE)$'),
@@ -602,18 +602,19 @@ alter table public.dragon_portal_times enable row level security;
 drop policy if exists "portal zamanı okuma" on public.dragon_portal_times;
 create policy "portal zamanı okuma" on public.dragon_portal_times for select using (public.is_member());
 
--- ofs: açılışın şu andan kaç saniye sonra/önce olduğu (oyundaki "açılıyor/kapanıyor" sayacından); 0 = şimdi açıldı
+-- last_at: son belirme (portal belirir, kilitli bekler, açılır). ofs: belirmenin şu andan kaç saniye önce/sonra olduğu;
+-- sayfa bunu oyundaki "açılıyor/kapanıyor" sayacından ve kilit süresinden hesaplar
 drop function if exists public.mark_portal_time(text);
 create or replace function public.mark_portal_time(k text, ofs integer default 0) returns void
 language plpgsql security definer set search_path = public as $$
-declare when_at timestamptz := now() + make_interval(secs => greatest(-10800, least(10800, coalesce(ofs, 0))));
+declare when_at timestamptz := now() + make_interval(secs => greatest(-14400, least(14400, coalesce(ofs, 0))));
 begin
   if not public.is_member() or k !~ '^DRAGON_AREA_(ORANGE|BLACK)_(SMALL|MEDIUM|LARGE)$' then return; end if;
   insert into public.dragon_portal_times as t (kind, last_at, by_name)
   values (k, when_at, (select name from public.profiles where id = auth.uid()))
-  -- "Şimdi açıldı"ya aynı açılışta birkaç kişi basarsa ilk basış geçerli kalır; dakikayla girilen her zaman yazılır
+  -- Aynı portalı birkaç kişi işaretlerse (2 dk içinde) ilk kayıt kalır
   on conflict (kind) do update set last_at = excluded.last_at, by_name = excluded.by_name
-  where coalesce(ofs, 0) <> 0 or t.last_at < now() - interval '3 minutes';
+  where abs(extract(epoch from t.last_at - excluded.last_at)) > 120;
 end $$;
 revoke all on function public.mark_portal_time(text, integer) from public, anon;
 grant execute on function public.mark_portal_time(text, integer) to authenticated;

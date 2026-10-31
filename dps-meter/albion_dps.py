@@ -23,7 +23,7 @@ import webbrowser
 import zlib
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-VERSION = 21                 # GitHub'daki dps-vN sürümüyle aynı olmalı (güncelleme kontrolü bunu karşılaştırır)
+VERSION = 22                 # GitHub'daki dps-vN sürümüyle aynı olmalı (güncelleme kontrolü bunu karşılaştırır)
 PORT = int(os.environ.get("ALBION_DPS_PORT") or 47700)
 COMBAT_GAP_SECONDS = 5       # vuruşlar arası bundan uzun boşluk "savaş süresi"ne sayılmaz
 FP = 10000.0                 # oyunun sabit noktalı sayı çarpanı
@@ -87,8 +87,13 @@ PORTAL_NAME = re.compile(r"DragonArea|DragonIncursion")
 PORTAL_EV = {687: "DragonIncursionClusterState", 694: "NewDragonAreaEntrance", 699: "UsingDragonAreaEntranceStateUpdate",
              700: "DragonAreaEntranceBindingStateUpdate"}
 PORTAL_OP = {197: "GetClusterMapInfo", 549: "UseDragonAreaEntrance", 550: "EnterDragonAreaEntrance"}
-PORTAL_KIND = re.compile(r"DRAGON_AREA_(ORANGE|BLACK)_(SMALL|MEDIUM|LARGE)")
-PORTAL_LIFE = {"SMALL": 600, "MEDIUM": 300, "LARGE": 300}  # dragonarea.xml lifetime: açık kalma (sn)
+# Oyunun gönderdiği tür adı: <BİYOM>_<BÖLGE RENGİ>_DRAGON_AREA_ENTRANCE_PORTAL_<BOYUT>
+# (örn. HIGHLAND_RED_..._PORTAL_LARGE). Sarı bölgedekiler turuncu (T6), diğerleri siyah (T7) Ancient Lands'e açılır.
+PORTAL_KIND = re.compile(r"PORTAL_(SMALL|MEDIUM|LARGE)|DRAGON_AREA_(ORANGE|BLACK)_(SMALL|MEDIUM|LARGE)")
+PORTAL_SIZES = ("SMALL", "MEDIUM", "LARGE")  # olayın 1. alanı: boyut sırası
+# Portal belirince önce kilitli durur (dragonarea.xml locktime), sonra açılır (lifetime), kapanınca 5 dk görünür kalır
+PORTAL_LOCK = {"ORANGE_SMALL": 300, "BLACK_SMALL": 900, "MEDIUM": 3600, "LARGE": 10800}
+PORTAL_LIFE = {"SMALL": 600, "MEDIUM": 300, "LARGE": 300}
 PORTAL_DESPAWN = 300         # kapandıktan sonra görünür kalma (sn)
 MAX_PORTALS = 200
 TICKS_EPOCH = 62135596800    # .NET tick (100 ns, 0001-01-01) -> unix
@@ -172,33 +177,36 @@ def ticks_to_unix(v):
 
 
 def parse_portal(p, zone):
-    """NewDragonAreaEntrance: paket düzeni bilinmediği için alanlar türüne göre aranır.
-    0: nesne numarası; ilk [x, y] konum; DRAGON_AREA_<RENK>_<BOYUT> türü; gelecekteki tick kapanış zamanı."""
+    """NewDragonAreaEntrance (31 Ekim 2026 kaydı): 0 nesne, 1 boyut sırası, 2 [x, y], 4 tür adı,
+    6 açılış zamanı (tick; gelecekteyse portal kilitli). Alanlar yine de türüne göre aranır."""
     now = time.time()
-    kind, pos, times = None, None, []
+    color, size, pos, times = None, None, None, []
     for k in sorted(p, key=lambda x: x if isinstance(x, int) else 999):
         if k in (252, 253):
             continue
         v = p[k]
         if isinstance(v, str):
-            m = PORTAL_KIND.search(v.upper())
-            if m and not kind:
-                kind = m.group(0)
+            u = v.upper()
+            m = PORTAL_KIND.search(u)
+            if m and not size:
+                size = m.group(1) or m.group(3)
+                color = m.group(2) or ("ORANGE" if "YELLOW" in u else "BLACK")
         elif isinstance(v, (list, tuple)):
             if len(v) == 2 and pos is None and all(isinstance(a, (int, float)) for a in v):
                 pos = [round(float(v[0]), 1), round(float(v[1]), 1)]
         else:
             t = ticks_to_unix(v)
-            if t and now - 86400 < t < now + 86400:
+            if t and now - 4 * 3600 < t < now + 4 * 3600:
                 times.append(t)
-    size = kind.rsplit("_", 1)[1] if kind else None
-    fut = [t for t in times if t > now + 5]
-    past = [t for t in times if t <= now + 5]
-    return {"oid": to_int(p.get(0)), "zone": zone, "kind": kind, "size": size,
-            "color": kind.split("_")[2] if kind else None,
+    if not size and to_int(p.get(1)) in (0, 1, 2):
+        size = PORTAL_SIZES[to_int(p.get(1))]
+    kind = f"DRAGON_AREA_{color or 'BLACK'}_{size}" if size else None
+    life = PORTAL_LIFE.get(size, 600)
+    opens = times[0] if times else None
+    return {"oid": to_int(p.get(0)), "zone": zone, "kind": kind, "size": size, "color": color,
             "x": pos[0] if pos else None, "y": pos[1] if pos else None,
-            "opens": max(past) if past else None, "closes": min(fut) if fut else None,
-            "est": now + PORTAL_LIFE.get(size, 600), "seen": now, "last": now, "raw": jsonable(p)}
+            "opens": opens, "closes": opens + life if opens else None,
+            "est": now + life, "seen": now, "last": now, "raw": jsonable(p)}
 
 
 def first_int(v):
@@ -1112,7 +1120,7 @@ class Tracker:
                     self.board.progress(self.local_name, p)
         if code in PORTAL_EV:
             name = PORTAL_EV[code]
-            PORTAL_REC.write("event", code, name, p)
+            PORTAL_REC.write("event", code, name, dict(p, zone=self.zone))
             if name == "NewDragonAreaEntrance":
                 with self.lock:
                     self.on_portal(p)
@@ -1310,7 +1318,7 @@ class Tracker:
         if code in DESTINY_OP:
             DESTINY.write("request", code, DESTINY_OP[code], p)
         if code in PORTAL_OP:
-            PORTAL_REC.write("request", code, PORTAL_OP[code], p)
+            PORTAL_REC.write("request", code, PORTAL_OP[code], dict(p, zone=self.zone))
         if code == OP["ContainerOpen"]:
             # 0: sandık/ceset nesnesi, 2: sandığın guid'i. İçerik cevaptan sonra AttachItemContainer ile gelir.
             g = guid_key(p.get(2))
@@ -1322,7 +1330,7 @@ class Tracker:
     def on_response(self, _code, p):
         code = to_int(p.get(253))
         if code in PORTAL_OP:
-            PORTAL_REC.write("response", code, PORTAL_OP[code], p)
+            PORTAL_REC.write("response", code, PORTAL_OP[code], dict(p, zone=self.zone))
         if code in DESTINY_OP:
             DESTINY.write("response", code, DESTINY_OP[code], p)
         elif code == OP["Join"]:
