@@ -70,6 +70,9 @@ td.n,th.n{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
 .dd div{display:flex;gap:8px;align-items:center;padding:6px 8px;border-radius:8px;cursor:pointer;font-size:14px}
 .dd div.on,.dd div:hover{background:var(--acc2);color:var(--accT)}
 .dd img{width:28px;height:28px}
+.pill.q2{border-color:#4d6b3a;color:#b9e3a6}.pill.q3{border-color:#2f5d8a;color:#9cc7f0}.pill.q4{border-color:#6a4a8f;color:#d2b6f5}.pill.q5{border-color:#8f7a2a;color:#f3dc85}
+.pn .pill{margin-left:6px;font-size:11px;padding:0 7px}
+.bon{display:block;color:var(--mut);font-size:12px;font-weight:500;white-space:normal}
 .warn{border:1px solid rgba(227,179,65,.5);background:rgba(227,179,65,.06);border-radius:12px;padding:10px 14px;font-size:14px;margin-top:10px}
 @media(max-width:700px){body{padding:12px 16px}section{padding:16px}h1{font-size:24px}.ov{padding:12px}}
 </style>
@@ -90,18 +93,18 @@ td.n,th.n{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
 
 <section><div class="row" style="margin-bottom:12px"><h2 style="margin:0">Depolar</h2><span class="sp"></span><span class="st" id="sSum"></span></div><div id="stores"></div><div id="others"></div></section>
 
-<section><div class="row" style="margin-bottom:12px"><h2 style="margin:0">Toplam stok</h2><span class="sp"></span><input id="tq" type="search" placeholder="Eşya ara" aria-label="Stokta ara" style="min-width:220px"></div><div class="t" id="tot"></div></section>
+<section><div class="row" style="margin-bottom:12px"><h2 style="margin:0">Toplam stok</h2><span class="sp"></span><label class="st" style="display:flex;gap:6px;align-items:center" title="Adadaki ya da şehir dışındaki depoların fiyatı bu şehirden alınır">Ada/şehir dışı depolar için fiyat<select id="pCity"></select></label><input id="tq" type="search" placeholder="Eşya ara" aria-label="Stokta ara" style="min-width:220px"></div><div class="t" id="tot"></div><p class="st" id="tSt" style="margin:10px 0 0"></p></section>
 
 <section>
   <h2>Bununla ne craftlayabilirim?</h2>
   <div class="g">
     <label>Sunucu<select id="cSrv"><option value="europe">Europe</option><option value="west">Americas</option><option value="east">Asia</option></select></label>
-    <label>Fiyat şehri<select id="cCity"></select></label>
-    <label>Return rate (%)<input id="cRr" type="number" min="0" max="60" step="0.1" placeholder="0"></label>
+    <label class="c"><input type="checkbox" id="cFoc"> Use focus</label>
     <label class="c"><input type="checkbox" id="cPrem"> Premium (vergi %4)</label>
     <label class="c"><input type="checkbox" id="cNeg"> Zarar edenleri gizle</label>
   </div>
-  <div class="row" style="margin-bottom:12px"><button class="p" id="calc">Hesapla</button><span class="st" id="cSt">Depodaki malzemelerle yapılabilecek her şeyi bulur, o şehrin fiyatlarıyla kâra göre sıralar.</span></div>
+  <div class="row" style="margin-bottom:12px"><button class="p" id="calc">Hesapla</button><span class="st" id="cSt">Depodaki malzemelerle yapılabilecek her şeyi bulur; her biri için 7 şehirde craftlayıp satmayı dener, en kârlı şehri gösterir.</span></div>
+  <div class="st" id="cDay" style="margin:-4px 0 12px"></div>
   <div id="cOut"></div>
 </section>
 </main>
@@ -111,13 +114,16 @@ td.n,th.n{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
 const $=id=>document.getElementById(id);
 const esc=t=>String(t==null?"":t).replace(/&/g,"&amp;").replace(/"/g,"&quot;").replace(/</g,"&lt;");
 const API="http://127.0.0.1:47700",DUMP="https://raw.githubusercontent.com/ao-data/ao-bin-dumps/master/items.json";
-const CITIES=["Martlock","Bridgewatch","Lymhurst","Fort Sterling","Thetford","Caerleon","Brecilien","Black Market"];
+const CITIES=["Martlock","Bridgewatch","Lymhurst","Fort Sterling","Thetford","Caerleon","Brecilien"];
+const QN=["","Normal","Good","Outstanding","Excellent","Masterpiece"];
 const fmt=n=>Math.round(n).toLocaleString("tr-TR");
 const arr=x=>x==null?[]:Array.isArray(x)?x:[x];
 const img=(id,s)=>`<img loading="lazy" src="https://render.albiononline.com/v1/item/${encodeURIComponent(id)}.png?size=${s||64}" alt="" onerror="this.style.visibility='hidden'">`;
 const ago=t=>{if(!t)return "";const m=(Date.now()/1e3-t)/60;return m<60?Math.max(1,Math.round(m))+" dk önce":m<1440?Math.round(m/60)+" sa önce":Math.round(m/1440)+" gün önce"};
 const S=window.aoStock;
-let D=S.load();D.stores=D.stores||{};D.hidden=D.hidden||{};D.set=Object.assign({srv:"europe",city:"Martlock",prem:true,rr:0,neg:true},D.set||{});
+let D;
+const initD=()=>{D=S.load();D.stores=D.stores||{};D.hidden=D.hidden||{};D.set=Object.assign({srv:"europe",prem:true,foc:false,neg:true},D.set||{});if(!D.set.pcity)D.set.pcity=CITIES.includes(D.set.city)?D.set.city:"Martlock"};
+initD();
 const save=()=>S.save(D);
 let NM={},ZN={},OTHER=[],REC=null,LAST=null;
 
@@ -126,6 +132,12 @@ const tierOf=id=>{const m=id.match(/^T(\d)_.*?(?:@(\d))?$/);return m?"T"+m[1]+(m
 const nm=id=>NM[id]||NM[id.replace(/@\d$/,"")]||id;
 const PRE=/^((Beginner's|Novice's|Journeyman's|Adept's|Expert's|Master's|Grandmaster's|Elder's|Uncommon|Rare|Exceptional|Pristine) )+/;
 const label=id=>{const t=tierOf(id),n=nm(id).replace(PRE,"");return t?`${n} (${t})`:n};
+// Depo anahtarı kaliteli olabilir: "T4_MAIN_SWORD#3"
+const bid=S.base,qOf=k=>+((String(k).match(/#(\d)$/)||[])[1]||0);
+const isGear=id=>/^T\d_(MAIN|2H|OFF|ARMOR|HEAD|SHOES|BAG|CAPE)/.test(id);
+const qPill=k=>{const q=qOf(k);return q?`<span class="pill q${q}">${QN[q]}</span>`:""};
+const zoneCity=z=>{const n=ZN[String(z||"").split("@").pop()]||"",m=n.match(/^(?:Bank of )?(Martlock|Bridgewatch|Lymhurst|Fort Sterling|Thetford|Caerleon|Brecilien)(?: Market| Bank)?$/);return m?m[1]:""};
+const storeCity=s=>s.city||zoneCity(s.zone)||D.set.pcity;
 const zoneName=z=>{z=String(z||"");if(/ISLAND/i.test(z))return "Ada";if(/^TNL-/.test(z))return "Avalon yolu";return (ZN[z]||z||"?").replace(/ Market$/,"")};
 async function loadNames(){
   if(Object.keys(NM).length)return;
@@ -152,11 +164,11 @@ async function sync(manual){
   (j.stores||[]).forEach(s=>{
     if(D.hidden[s.key]&&s.t<=D.hidden[s.key])return;
     delete D.hidden[s.key];
-    const items={};(s.items||[]).forEach(x=>items[x.item]=(items[x.item]||0)+x.qty);
+    const items={};(s.items||[]).forEach(x=>{const k=x.q?x.item+"#"+x.q:x.item;items[k]=(items[k]||0)+x.qty});
     const old=D.stores[s.key];
     if(!old&&s.kind==="chest"&&!s.island){OTHER.push({...s,items});return}  // dünyadaki sandıklar sorulur
     if(old&&old.t>=s.t)return;
-    D.stores[s.key]={name:old&&old.rn?old.name:s.name,rn:old&&old.rn,zone:s.zone,kind:s.kind,t:s.t,on:old?old.on:true,items};n++;
+    D.stores[s.key]={name:old&&old.rn?old.name:s.name,rn:old&&old.rn,zone:s.zone,kind:s.kind,t:s.t,on:old?old.on:true,city:old&&old.city,items};n++;
   });
   save();
   $("cInfo").textContent=(j.character?j.character+" · ":"")+(n?n+" depo güncellendi":"Yeni bir şey yok")+". Bankada her sekmeye tıklayınca o sekme gelir.";
@@ -169,8 +181,8 @@ function storeCard(k,s){
   const its=Object.entries(s.items||{}).filter(([,q])=>q>0),tot=its.reduce((a,[,q])=>a+q,0);
   const kind=s.kind==="bank"?'<span class="pill b">Banka</span>':s.kind==="manual"?'<span class="pill m">Elle</span>':'<span class="pill i">Sandık</span>';
   return `<div class="card${s.on?"":" off"}"><div class="row" style="gap:8px">${kind}<b>${esc(s.name||"Depo")}</b></div>
-  <div class="st">${esc(s.kind==="manual"?"Elle girildi":zoneName(s.zone))}${s.t?" · "+ago(s.t):""} · ${its.length} çeşit, ${fmt(tot)} adet</div>
-  <div class="ic">${its.sort((a,b)=>b[1]-a[1]).slice(0,10).map(([i])=>img(i,48)).join("")}</div>
+  <div class="st">${esc(s.kind==="manual"?"Elle girildi":zoneName(s.zone))}${s.t?" · "+ago(s.t):""} · fiyat: ${esc(storeCity(s))} · ${its.length} çeşit, ${fmt(tot)} adet</div>
+  <div class="ic">${its.sort((a,b)=>b[1]-a[1]).slice(0,10).map(([i])=>img(bid(i),48)).join("")}</div>
   <div class="row" style="gap:8px"><label class="tg"><input type="checkbox" data-on="${esc(k)}"${s.on?" checked":""}> Hesaba kat</label><span class="sp"></span><button data-ed="${esc(k)}">Düzenle</button><button class="bad" data-del="${esc(k)}" aria-label="Sil">Sil</button></div></div>`;
 }
 function renderStores(){
@@ -187,13 +199,46 @@ function renderStores(){
 function confirm2(b,label,fn){let armed=false,tm=0;b.onclick=()=>{clearTimeout(tm);if(!armed){armed=true;b.textContent="Emin misin?";tm=setTimeout(()=>{armed=false;b.textContent=label},3500);return}fn()}}
 
 // ---------- toplam
+// ---------- fiyatlar (Albion Data Project, şehirdeki en düşük satış ilanı)
+let PX={},PXF={},PXS="";
+const pxOf=(id,q,c)=>(PX[id+"|"+(q||1)]||{})[c]||0;
+async function getJ(u){let r=await fetch(u);if(r.status===429){await new Promise(z=>setTimeout(z,3000));r=await fetch(u)}if(!r.ok)throw new Error("API "+r.status);return r.json()}
+// need: [[eşya, kalite]]; daha önce sorulanlar tekrar sorulmaz
+async function loadPx(need,st){
+  if(PXS!==D.set.srv){PX={};PXF={};PXS=D.set.srv}
+  const by={};need.forEach(([id,q])=>{q=q||1;if(!PXF[id+"|"+q])(by[q]=by[q]||new Set()).add(id)});
+  const loc=CITIES.map(c=>c.replace(" ","")).join(","),cn=c=>CITIES.find(x=>x.replace(" ","")===String(c).replace(" ",""));
+  for(const q of Object.keys(by)){const ids=[...by[q]];
+    for(let i=0;i<ids.length;i+=40){
+      if(st)st(Math.min(i+40,ids.length),ids.length);
+      const part=ids.slice(i,i+40),d=await getJ(`https://${D.set.srv}.albion-online-data.com/api/v2/stats/prices/${part.join(",")}.json?locations=${loc}&qualities=${q}`);
+      d.forEach(o=>{const c=cn(o.city),k=o.item_id+"|"+o.quality;if(!c||!o.sell_price_min)return;PX[k]=PX[k]||{};if(!PX[k][c]||o.sell_price_min<PX[k][c])PX[k][c]=o.sell_price_min});
+      part.forEach(id=>PXF[id+"|"+q]=1);
+    }}
+}
+let totBusy=false;
+async function totPx(){
+  if(totBusy)return;
+  const need=[];Object.values(D.stores).forEach(s=>{if(s.on)Object.keys(s.items||{}).forEach(k=>{const q=qOf(k)||1;if(!PXF[bid(k)+"|"+q])need.push([bid(k),q])})});
+  if(!need.length)return;
+  totBusy=true;
+  try{await loadPx(need,(a,b)=>$("tSt").textContent=`Fiyatlar çekiliyor... ${a}/${b}`)}catch(e){$("tSt").textContent="Fiyatlar alınamadı: "+e.message;totBusy=false;return}
+  totBusy=false;renderTot();
+}
 function renderTot(){
-  const T=S.total(),q=($("tq").value||"").trim().toLowerCase();
-  const where={};Object.values(D.stores).forEach(s=>{if(!s.on)return;Object.entries(s.items||{}).forEach(([i,n])=>{if(n>0)(where[i]=where[i]||[]).push(`${s.name} ${fmt(n)}`)})});
-  const L=Object.entries(T).filter(([i,n])=>n>0&&(!q||label(i).toLowerCase().includes(q)||i.toLowerCase().includes(q))).sort((a,b)=>label(a[0]).localeCompare(label(b[0])));
-  $("tot").innerHTML=L.length?`<table><thead><tr><th>Eşya</th><th class="n">Adet</th><th>Nerede</th></tr></thead><tbody>${L.map(([i,n])=>`<tr><td><span class="pn">${img(i)}<span>${esc(label(i))}</span></span></td><td class="n"><b>${fmt(n)}</b></td><td class="st">${esc(where[i].join(" · "))}</td></tr>`).join("")}</tbody></table>`:`<div class="empty">${Object.keys(T).length?"Eşleşen eşya yok.":"Hesaba katılan depolarda eşya yok."}</div>`;
+  const q=($("tq").value||"").trim().toLowerCase(),A={};
+  Object.values(D.stores).forEach(s=>{if(!s.on)return;const c=storeCity(s);Object.entries(s.items||{}).forEach(([k,n])=>{if(!(n>0))return;
+    const a=A[k]=A[k]||{n:0,w:[],c:{},v:0,miss:0};a.n+=n;a.w.push(`${s.name} ${fmt(n)}`);const p=pxOf(bid(k),qOf(k)||1,c);a.c[c]=p;if(p)a.v+=p*n;else a.miss=1})});
+  const L=Object.entries(A).filter(([k])=>{const i=bid(k);return !q||label(i).toLowerCase().includes(q)||i.toLowerCase().includes(q)||(QN[qOf(k)]||"").toLowerCase().includes(q)}).sort((a,b)=>label(bid(a[0])).localeCompare(label(bid(b[0])))||qOf(a[0])-qOf(b[0]));
+  const any=Object.keys(A).length,sum=L.reduce((t,[,a])=>t+a.v,0);
+  const unit=a=>{const e=Object.entries(a.c);return e.length===1?(e[0][1]?fmt(e[0][1])+`<small class="st" style="display:block">${esc(e[0][0])}</small>`:'<span class="st">—</span>'):e.map(([c,p])=>`<small style="display:block">${esc(c)} ${p?fmt(p):"—"}</small>`).join("")};
+  $("tot").innerHTML=L.length?`<table><thead><tr><th>Eşya</th><th class="n">Adet</th><th class="n">Birim fiyat</th><th class="n">Değer</th><th>Nerede</th></tr></thead><tbody>${L.map(([k,a])=>`<tr><td><span class="pn">${img(bid(k))}<span>${esc(label(bid(k)))}${qPill(k)}</span></span></td><td class="n"><b>${fmt(a.n)}</b></td><td class="n">${unit(a)}</td><td class="n">${a.v?fmt(a.v):'<span class="st">—</span>'}</td><td class="st">${esc(a.w.join(" · "))}</td></tr>`).join("")}</tbody><tfoot><tr><th>Toplam</th><td></td><td></td><td class="n"><b>${fmt(sum)}</b></td><td></td></tr></tfoot></table>`:`<div class="empty">${any?"Eşleşen eşya yok.":"Hesaba katılan depolarda eşya yok."}</div>`;
+  if(!totBusy)$("tSt").textContent=any?`Fiyat: eşyanın bulunduğu deponun şehrindeki en düşük satış ilanı (${$("cSrv").selectedOptions[0].text}). Silah ve setlerde kendi kalitesinin, kalitesi bilinmeyenlerde Normal fiyatı. Fiyatı olmayanlar değere katılmaz.`:"";
+  totPx();
 }
 $("tq").oninput=renderTot;
+$("pCity").innerHTML=CITIES.map(c=>`<option${c===D.set.pcity?" selected":""}>${c}</option>`).join("");
+$("pCity").onchange=()=>{D.set.pcity=$("pCity").value;save();render()};
 
 // ---------- düzenleme penceresi
 function modal(html){$("md").innerHTML=html;$("ov").hidden=false;document.body.style.overflow="hidden"}
@@ -201,17 +246,22 @@ function closeM(){$("ov").hidden=true;$("md").innerHTML="";document.body.style.o
 $("ov").onclick=e=>{if(e.target===$("ov"))closeM()};
 document.addEventListener("keydown",e=>{if(e.key==="Escape"&&!$("ov").hidden)closeM()});
 async function edit(k){
-  const isNew=!k,s=isNew?{name:"Elle girilen",kind:"manual",on:true,items:{}}:D.stores[k],W={name:s.name,items:Object.assign({},s.items)};
+  const isNew=!k,s=isNew?{name:"Elle girilen",kind:"manual",on:true,items:{}}:D.stores[k],W={name:s.name,city:s.city||"",ql:"1",items:Object.assign({},s.items)};
   const draw=()=>{
-    const L=Object.entries(W.items).sort((a,b)=>label(a[0]).localeCompare(label(b[0])));
+    const L=Object.entries(W.items).sort((a,b)=>label(bid(a[0])).localeCompare(label(bid(b[0])))||qOf(a[0])-qOf(b[0]));
+    const qSel=(v,attr)=>`<select ${attr} aria-label="Kalite">${QN.map((n,x)=>x?`<option value="${x}"${x==v?" selected":""}>${n}</option>`:"").join("")}</select>`;
     modal(`<div class="row" style="margin-bottom:12px"><h2 style="margin:0">${isNew?"Elle depo ekle":"Depoyu düzenle"}</h2><span class="sp"></span><button id="mX" aria-label="Kapat">✕</button></div>
-    <label class="st" style="display:flex;flex-direction:column;gap:4px;margin-bottom:12px">Depo adı<input id="mN" value="${esc(W.name)}" maxlength="40"></label>
+    <div class="row" style="margin-bottom:12px;align-items:end"><label class="st" style="display:flex;flex-direction:column;gap:4px;flex:1;min-width:180px">Depo adı<input id="mN" value="${esc(W.name)}" maxlength="40"></label>
+    <label class="st" style="display:flex;flex-direction:column;gap:4px">Fiyat şehri<select id="mCity"><option value="">Otomatik (${esc(zoneCity(s.zone)||D.set.pcity)})</option>${CITIES.map(c=>`<option${c===W.city?" selected":""}>${c}</option>`).join("")}</select></label></div>
     ${s.kind!=="manual"?'<div class="st" style="margin-bottom:10px">Oyundan tekrar güncellenince bu depo oyundaki hâliyle değişir.</div>':""}
-    <div class="row" style="margin-bottom:10px"><div class="ac"><input id="mQ" placeholder="Eşya ekle: adını yaz (örn. Planks T5.1)" autocomplete="off" aria-label="Eşya ara"><div class="dd" id="mD" hidden></div></div><input id="mC" type="number" min="1" value="1" style="width:100px" aria-label="Adet"></div>
-    <div class="t" style="max-height:50vh;overflow:auto">${L.length?`<table><tbody>${L.map(([i,n])=>`<tr><td><span class="pn">${img(i)}<span>${esc(label(i))}</span></span></td><td class="n"><input type="number" min="0" data-q="${esc(i)}" value="${n}" style="width:110px"></td><td class="n"><button class="bad" data-rm="${esc(i)}" aria-label="Çıkar">✕</button></td></tr>`).join("")}</tbody></table>`:'<div class="empty">Henüz eşya yok.</div>'}</div>
+    <div class="row" style="margin-bottom:10px"><div class="ac"><input id="mQ" placeholder="Eşya ekle: adını yaz (örn. Planks T5.1)" autocomplete="off" aria-label="Eşya ara"><div class="dd" id="mD" hidden></div></div><input id="mC" type="number" min="1" value="1" style="width:100px" aria-label="Adet">${qSel(W.ql,'id="mQl" title="Silah ve set eşyalarında kalite"')}</div>
+    <div class="t" style="max-height:50vh;overflow:auto">${L.length?`<table><tbody>${L.map(([i,n])=>`<tr><td><span class="pn">${img(bid(i))}<span>${esc(label(bid(i)))}</span></span></td><td>${isGear(bid(i))?qSel(qOf(i)||1,`data-ql="${esc(i)}"`):""}</td><td class="n"><input type="number" min="0" data-q="${esc(i)}" value="${n}" style="width:110px"></td><td class="n"><button class="bad" data-rm="${esc(i)}" aria-label="Çıkar">✕</button></td></tr>`).join("")}</tbody></table>`:'<div class="empty">Henüz eşya yok.</div>'}</div>
     <div class="row" style="margin-top:14px"><button class="p" id="mS">Kaydet</button><button id="mX2">Vazgeç</button></div>`);
     $("mX").onclick=$("mX2").onclick=closeM;
     $("mN").oninput=e=>W.name=e.target.value;
+    $("mCity").onchange=e=>W.city=e.target.value;
+    $("mQl").onchange=e=>W.ql=e.target.value;
+    $("md").querySelectorAll("[data-ql]").forEach(e=>e.onchange=()=>{const o=e.dataset.ql,nk=bid(o)+"#"+e.value;if(nk!==o){W.items[nk]=(W.items[nk]||0)+W.items[o];delete W.items[o]}draw()});
     $("md").querySelectorAll("[data-q]").forEach(e=>e.oninput=()=>W.items[e.dataset.q]=Math.max(0,+e.value||0));
     $("md").querySelectorAll("[data-rm]").forEach(b=>b.onclick=()=>{delete W.items[b.dataset.rm];draw()});
     let hl=0,M=[];
@@ -219,12 +269,12 @@ async function edit(k){
       const ws=q.split(/\s+/);M=Object.keys(NM).filter(i=>/^T\d_/.test(i)).filter(i=>{const h=(label(i)+" "+i).toLowerCase();return ws.every(w=>h.includes(w))}).slice(0,14);hl=0;
       $("mD").innerHTML=M.map((i,x)=>`<div data-i="${x}" class="${x===hl?"on":""}">${img(i,48)}<span>${esc(label(i))}</span></div>`).join("")||'<div>Bulunamadı</div>';$("mD").hidden=false;
       $("mD").querySelectorAll("[data-i]").forEach(d=>d.onmousedown=ev=>{ev.preventDefault();add(M[+d.dataset.i])})};
-    const add=i=>{if(!i)return;W.items[i]=(W.items[i]||0)+Math.max(1,+$("mC").value||1);draw();$("mQ").focus()};
+    const add=i=>{if(!i)return;if(isGear(i))i+="#"+W.ql;W.items[i]=(W.items[i]||0)+Math.max(1,+$("mC").value||1);draw();$("mQ").focus()};
     $("mQ").oninput=sug;$("mQ").onblur=()=>setTimeout(()=>{const d=$("mD");if(d)d.hidden=true},150);
     $("mQ").onkeydown=e=>{if(e.key==="ArrowDown"||e.key==="ArrowUp"){e.preventDefault();hl=Math.max(0,Math.min(M.length-1,hl+(e.key==="ArrowDown"?1:-1)));$("mD").querySelectorAll("[data-i]").forEach((d,x)=>d.classList.toggle("on",x===hl))}else if(e.key==="Enter"){e.preventDefault();add(M[hl])}};
     $("mS").onclick=()=>{const it={};Object.entries(W.items).forEach(([i,n])=>{if(n>0)it[i]=n});
-      if(isNew)D.stores["m:"+Date.now()]={name:W.name.trim()||"Elle girilen",kind:"manual",on:true,t:Date.now()/1e3,items:it};
-      else Object.assign(D.stores[k],{name:W.name.trim()||s.name,rn:W.name.trim()&&W.name.trim()!==s.name?1:s.rn,items:it});
+      if(isNew)D.stores["m:"+Date.now()]={name:W.name.trim()||"Elle girilen",kind:"manual",on:true,t:Date.now()/1e3,city:W.city||undefined,items:it};
+      else Object.assign(D.stores[k],{name:W.name.trim()||s.name,rn:W.name.trim()&&W.name.trim()!==s.name?1:s.rn,city:W.city||undefined,items:it});
       save();closeM();render()};
   };
   if(!Object.keys(NM).length){modal('<div class="empty">Eşya adları yükleniyor...</div>');await loadNames()}
@@ -239,13 +289,14 @@ async function loadRecipes(){
   const r=await fetch(DUMP);if(!r.ok)throw new Error("HTTP "+r.status);
   const j=(await r.json()).items,L=[],F=[];
   const mats=c=>arr(c.craftresource).filter(x=>x["@uniquename"]).map(x=>{const e=+x["@enchantmentlevel"]||0;return [x["@uniquename"]+(e?"@"+e:""),+x["@count"]||0,x["@maxreturnamount"]==="0"]});
-  const add=(id,reqs,cat)=>{const R=arr(reqs).map(c=>({m:mats(c),out:+(c["@amountcrafted"]||1)})).filter(x=>x.m.length);if(R.length)L.push({id,cat,alts:R})};
+  const add=(id,reqs,cat,sub)=>{const R=arr(reqs).map(c=>({m:mats(c),out:+(c["@amountcrafted"]||1)})).filter(x=>x.m.length);if(R.length)L.push({id,cat,sub,alts:R})};
   const gear=it=>{const id=it["@uniquename"],sc=it["@shopcategory"];if(!/^T\d_/.test(id)||["vanity","other","furniture"].includes(sc)||/_ROYAL$|_PROTOTYPE$/.test(id))return;
-    add(id,it.craftingrequirements,"craft");arr(it.enchantments&&it.enchantments.enchantment).forEach(e=>add(id+"@"+e["@enchantmentlevel"],e.craftingrequirements,"craft"))};
+    const sub=sc==="bags"?"bags":sc==="capes"&&/^accessoires_capes/.test(it["@shopsubcategory1"]||"")?"capes":it["@shopsubcategory1"]||"";
+    add(id,it.craftingrequirements,"craft",sub);arr(it.enchantments&&it.enchantments.enchantment).forEach(e=>add(id+"@"+e["@enchantmentlevel"],e.craftingrequirements,"craft",sub))};
   ["weapon","equipmentitem","transformationweapon"].forEach(k=>arr(j[k]).forEach(gear));
   arr(j.consumableitem).forEach(it=>{const id=it["@uniquename"],cat=/_MEAL_/.test(id)?"food":/_POTION_/.test(id)?"alch":null;if(!cat||!/^T\d_/.test(id))return;
     add(id,it.craftingrequirements,cat);arr(it.enchantments&&it.enchantments.enchantment).forEach(e=>add(id+"@"+e["@enchantmentlevel"],e.craftingrequirements,cat))});
-  arr(j.simpleitem).forEach(it=>{const id=it["@uniquename"],m=id.match(/^T\d_(METALBAR|PLANKS|CLOTH|LEATHER|STONEBLOCK)(_LEVEL(\d))?$/);if(!m)return;add(id+(m[3]?"@"+m[3]:""),it.craftingrequirements,"ref")});
+  arr(j.simpleitem).forEach(it=>{const id=it["@uniquename"],m=id.match(/^T\d_(METALBAR|PLANKS|CLOTH|LEATHER|STONEBLOCK)(_LEVEL(\d))?$/);if(!m)return;add(id+(m[3]?"@"+m[3]:""),it.craftingrequirements,"ref",m[1])});
   arr(j.farmableitem).forEach(it=>{const id=it["@uniquename"];
     if(it["@kind"]==="plant"&&it.harvest)F.push({id,cat:"farm",kind:"seed",out:String(it.harvest["@lootlist"]).replace(/_LOOT$/,""),ret:+(it.harvest.seed&&it.harvest.seed["@chance"])||0});
     if(it["@kind"]==="animal"&&it.grownitem&&/_BABY$/.test(id))F.push({id,cat:"farm",kind:"baby",out:it.grownitem["@uniquename"],ret:+(it.grownitem.offspring&&it.grownitem.offspring["@chance"])||0})});
@@ -253,15 +304,49 @@ async function loadRecipes(){
 }
 const CAT={all:"Tümü",craft:"Craft",food:"Cooking",alch:"Alchemy",ref:"Refining",farm:"Farming"};
 let ctab="all",LIM=50;
-async function getJ(u){let r=await fetch(u);if(r.status===429){await new Promise(z=>setTimeout(z,3000));r=await fetch(u)}if(!r.ok)throw new Error("API "+r.status);return r.json()}
-async function prices(ids){
-  const P={},srv=D.set.srv,loc=D.set.city.replace(" ","");
-  for(let i=0;i<ids.length;i+=40){
-    $("cSt").textContent=`Fiyatlar çekiliyor... ${Math.min(i+40,ids.length)}/${ids.length}`;
-    const d=await getJ(`https://${srv}.albion-online-data.com/api/v2/stats/prices/${ids.slice(i,i+40).join(",")}.json?locations=${loc}&qualities=1`);
-    d.forEach(o=>{if(o.sell_price_min&&(!P[o.item_id]||o.sell_price_min<P[o.item_id]))P[o.item_id]=o.sell_price_min});
-  }
-  return P;
+// Şehir bonusları Craft/Cooking/Alchemy/Refining sekmeleriyle aynı (LPB: taban 18, şehir +15, refine şehri +40, focus +59)
+const CATN={sword:"Sword",axe:"Axe",mace:"Mace",hammer:"Hammer",knuckles:"War Gloves",spear:"Spear",dagger:"Dagger",quarterstaff:"Quarterstaff",shapeshifterstaff:"Shapeshifter Staff",bow:"Bow",crossbow:"Crossbow",firestaff:"Fire Staff",froststaff:"Frost Staff",arcanestaff:"Arcane Staff",holystaff:"Holy Staff",naturestaff:"Nature Staff",cursestaff:"Cursed Staff",shieldtype:"Shield",booktype:"Tome",torchtype:"Torch",plate_armor:"Plate Armor",leather_armor:"Leather Armor",cloth_armor:"Cloth Armor",plate_helmet:"Plate Helmet",leather_helmet:"Leather Helmet",cloth_helmet:"Cloth Helmet",plate_shoes:"Plate Shoes",leather_shoes:"Leather Shoes",cloth_shoes:"Cloth Shoes",bags:"Bag",capes:"Cape"};
+const CBON={"Fort Sterling":["cloth_armor","plate_helmet","hammer","spear","holystaff"],"Lymhurst":["bow","sword","arcanestaff","leather_helmet","leather_shoes"],"Bridgewatch":["plate_armor","crossbow","dagger","cursestaff","cloth_shoes"],"Martlock":["axe","quarterstaff","froststaff","plate_shoes","shieldtype","booktype","torchtype"],"Thetford":["mace","firestaff","naturestaff","leather_armor","cloth_helmet"],"Caerleon":["knuckles","shapeshifterstaff"],"Brecilien":["capes","bags"]};
+const RBON={METALBAR:"Thetford",PLANKS:"Fort Sterling",CLOTH:"Lymhurst",LEATHER:"Martlock",STONEBLOCK:"Bridgewatch"},RKEY={METALBAR:"ore",PLANKS:"wood",CLOTH:"fiber",LEATHER:"hide",STONEBLOCK:"rock"};
+const cityBon=(o,c)=>o.cat==="craft"?((CBON[c]||[]).includes(o.sub)?15:0):o.cat==="food"?(c==="Caerleon"?15:0):o.cat==="alch"?(c==="Brecilien"?15:0):o.cat==="ref"?(RBON[o.sub]===c?40:0):0;
+// Günlük üretim bonusu: elle girilen (daily_bonus) + oyundan otomatik (festivities), Craft sekmesindeki gibi
+const normN=t=>String(t).toLowerCase().replace(/[^a-z]/g,"");
+const FEST_NAME={offhand:"Off-hand",bag:"Bag",cape:"Cape",gatherergear:"Gathering Gear",tools:"Tools",potion:"Potion",food:"Food",fiber:"Fiber (refine)",wood:"Wood (refine)",rock:"Stone (refine)",ore:"Ore (refine)",hide:"Hide (refine)"};
+const FEST_KEYS={offhand:["shieldtype","booktype","torchtype"],bag:["bags"],cape:["capes"]};
+let DAILY=null,dailyP=null;
+const dayStr=()=>{const d=new Date();return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0")};
+async function autoDaily(){
+  const ck="aofest1";
+  try{const c=JSON.parse(sessionStorage.getItem(ck)||"null");if(c&&Date.now()-c.t<6e5)return c.rows}catch(e){}
+  const xml=await fetch("https://raw.githubusercontent.com/ao-data/ao-bin-dumps/master/festivities.xml").then(r=>{if(!r.ok)throw 0;return r.text()});
+  const defs={};
+  new DOMParser().parseFromString(xml,"text/xml").querySelectorAll("craftbonusevent").forEach(e=>defs[e.getAttribute("uniquename")]={cat:e.getAttribute("category"),pct:Math.round(parseFloat(e.getAttribute("value"))*100)});
+  const now=Date.now(),ms=t=>(t-621355968000000000)/1e4,rows=[];
+  const res=await Promise.allSettled(["europe","west","east"].map(s=>fetch(`https://${s}.albion-online-data.com/api/v2/stats/festivities.json`).then(r=>r.ok?r.json():null).then(j=>({s,j}))));
+  res.forEach(x=>{if(x.status!=="fulfilled"||!x.value.j)return;
+    (x.value.j.Events||[]).forEach(ev=>{const d=defs[ev.UniqueName];if(!d||!(ms(ev.StartTime)<=now&&now<ms(ev.EndTime)))return;
+      rows.push({server:x.value.s,name:CATN[d.cat]||FEST_NAME[d.cat]||d.cat,pct:d.pct,kind:d.cat==="potion"?"potion":d.cat==="food"?"food":"other",keys:FEST_KEYS[d.cat]||[d.cat],auto:true})})});
+  try{sessionStorage.setItem(ck,JSON.stringify({t:Date.now(),rows}))}catch(e){}
+  return rows;
+}
+function loadDaily(){
+  return dailyP=dailyP||(async()=>{
+    const [a,m]=await Promise.allSettled([autoDaily(),window.aoSb?window.aoSb.from("daily_bonus").select("server,name,pct,kind").eq("day",dayStr()):Promise.resolve(null)]);
+    const auto=a.status==="fulfilled"?a.value||[]:[],man=m.status==="fulfilled"&&m.value&&!m.value.error?m.value.data||[]:[];
+    DAILY=man.concat(auto.filter(r=>!man.some(x=>x.server===r.server&&normN(x.name)===normN(r.name))));
+    drawDaily();
+  })();
+}
+function dailyOf(o){
+  if(!DAILY)return 0;
+  // Craft'ta bonus silah/zırh türüne göre; toplama ekipmanı ve aletlerin kendi bonusu var
+  const k=o.cat!=="craft"?"":CATN[o.sub]?o.sub:/_GATHERER_/.test(o.id)?"gatherergear":/_TOOL_/.test(o.id)?"tools":"";
+  const l=DAILY.filter(r=>r.server===D.set.srv&&(o.cat==="food"?r.kind==="food":o.cat==="alch"?r.kind==="potion":o.cat==="craft"?!!k&&([normN(k),normN(CATN[k]||FEST_NAME[k]||"")].includes(normN(r.name))||(r.keys||[]).includes(k)):o.cat==="ref"?(r.keys||[]).includes(RKEY[o.sub])||normN(r.name).startsWith(RKEY[o.sub]):false));
+  return l.length?Math.max(...l.map(r=>+r.pct||0)):0;
+}
+function drawDaily(){
+  const l=(DAILY||[]).filter(r=>r.server===D.set.srv);
+  $("cDay").innerHTML=DAILY===null?"Günlük bonus yükleniyor...":l.length?`Bugünkü günlük bonus (${esc($("cSrv").selectedOptions[0].text)}): ${l.map(r=>`<b>${esc(r.name)} +%${r.pct}</b>`).join(" · ")}. Uyan ürünlerin return rate'ine kendiliğinden eklenir.`:"Bugün bu sunucuda canlı günlük bonus yok.";
 }
 async function calc(){
   const T=S.total();
@@ -270,23 +355,29 @@ async function calc(){
   try{
     $("cSt").textContent="Tarifler yükleniyor (dosya büyük, ilk seferde biraz sürebilir)...";
     await Promise.all([loadRecipes(),loadNames()]);
-    const rr=Math.min(.6,Math.max(0,(+D.set.rr||0)/100)),out=[];
-    REC.L.forEach(r=>{let best=null;
-      r.alts.forEach(a=>{let n=Infinity;a.m.forEach(([m,c,nr])=>{const need=c*(nr?1:1-rr);n=Math.min(n,need>0?Math.floor((T[m]||0)/need+1e-9):Infinity)});
-        if(n>=1&&n<Infinity&&(!best||n>best.n))best={n,a}});
-      if(best)out.push({id:r.id,cat:r.cat,n:best.n,outN:best.n*best.a.out,mats:best.a.m,per:best.a.out})});
-    REC.F.forEach(f=>{const n=T[f.id]||0;if(n>=1)out.push({id:f.out,src:f.id,cat:"farm",kind:f.kind,n,ret:f.ret,mats:[[f.id,1,true]],per:f.kind==="seed"?4.5*(D.set.prem?2:1):1})});
-    if(!out.length){LAST={out,P:{}};$("cSt").textContent="Depodaki malzemelerle tamamlanabilecek bir tarif bulunamadı.";drawCalc();return}
-    const ids=[...new Set(out.flatMap(o=>[o.id,...o.mats.map(m=>m[0])]))];
-    const P=await prices(ids);
+    await loadDaily().catch(()=>{});
+    // Her ürün her şehirde denenir: return rate = 1 - 1/(1 + LPB/100), LPB = 18 + şehir bonusu + focus + günlük bonus
+    const foc=!!D.set.foc,out=[];
+    REC.L.forEach(r=>{const day=dailyOf(r),res=[];
+      CITIES.forEach(c=>{const cb=cityBon(r,c),rr=1-1/(1+(18+cb+(foc?59:0)+day)/100);let best=null;
+        r.alts.forEach(a=>{let n=Infinity;a.m.forEach(([m,cn,nr])=>{const need=cn*(nr?1:1-rr);n=Math.min(n,need>0?Math.floor((T[m]||0)/need+1e-9):Infinity)});
+          if(n>=1&&n<Infinity&&(!best||n>best.n))best={n,a}});
+        if(best)res.push({c,cb,rr,n:best.n,mats:best.a.m,per:best.a.out})});
+      if(res.length)out.push({id:r.id,cat:r.cat,sub:r.sub,day,res})});
+    REC.F.forEach(f=>{const n=T[f.id]||0;if(n>=1)out.push({id:f.out,src:f.id,cat:"farm",kind:f.kind,ret:f.ret,day:0,res:CITIES.map(c=>({c,cb:0,rr:0,n,mats:[[f.id,1,true]],per:f.kind==="seed"?4.5*(D.set.prem?2:1):1}))})});
+    if(!out.length){LAST={out};$("cSt").textContent="Depodaki malzemelerle tamamlanabilecek bir tarif bulunamadı.";drawCalc();return}
+    const ids=[...new Set(out.flatMap(o=>[o.id,o.src,...o.res.flatMap(x=>x.mats.map(m=>m[0]))].filter(Boolean)))];
+    await loadPx(ids.map(i=>[i,1]),(a,b)=>$("cSt").textContent=`Fiyatlar çekiliyor... ${a}/${b}`);
     const tax=(D.set.prem?4:8)+2.5;
     out.forEach(o=>{
-      const matV=o.mats.reduce((a,[m,c,nr])=>a+c*(nr?1:1-rr)*(P[m]||0),0)+(o.kind?-(o.ret*(P[o.src]||0)):0);
-      const sell=o.per*(P[o.id]||0)*(1-tax/100);
-      o.miss=!P[o.id]||o.mats.some(([m])=>!P[m]);o.matV=matV;o.sell=sell;o.pr=sell-matV;o.tot=o.pr*o.n});
+      o.res.forEach(x=>{const P=m=>pxOf(m,1,x.c);
+        x.matV=x.mats.reduce((a,[m,cn,nr])=>a+cn*(nr?1:1-x.rr)*P(m),0)+(o.kind?-(o.ret*P(o.src)):0);
+        x.sell=x.per*P(o.id)*(1-tax/100);x.miss=!P(o.id)||x.mats.some(([m])=>!P(m));x.pr=x.sell-x.matV;x.tot=x.pr*x.n});
+      const ok=o.res.filter(x=>!x.miss).sort((a,b)=>b.tot-a.tot);
+      o.miss=!ok.length;o.alt=ok;Object.assign(o,o.miss?o.res.slice().sort((a,b)=>b.cb-a.cb||b.n-a.n)[0]:ok[0])});
     out.sort((a,b)=>(a.miss-b.miss)||b.tot-a.tot);
-    LAST={out,P};
-    $("cSt").textContent=`${out.length} şey yapılabiliyor · ${D.set.city} fiyatları, satışta %${tax} vergi + kurulum ücreti düşüldü${rr?", malzemede %"+(rr*100).toFixed(1)+" return":""}. İstasyon ücreti dahil değil.`;
+    LAST={out};
+    $("cSt").textContent=`${out.length} şey yapılabiliyor · her biri 7 şehirde craftlanıp satılarak denendi, en kârlısı gösteriliyor. Satışta %${tax} vergi + kurulum ücreti düşüldü; return rate${foc?" focus'lu,":""} şehir ve günlük bonusla. İstasyon ücreti${foc?" ve focus maliyeti":""} dahil değil.`;
     drawCalc();
   }catch(e){$("cSt").textContent="Hesaplanamadı: "+e.message}
   finally{$("calc").disabled=false}
@@ -295,20 +386,20 @@ function drawCalc(){
   if(!LAST)return;const out=LAST.out.filter(o=>!D.set.neg||o.miss||o.pr>0),cnt={all:out.length};out.forEach(o=>cnt[o.cat]=(cnt[o.cat]||0)+1);
   const AL=out.filter(o=>ctab==="all"||o.cat===ctab),L=AL.slice(0,LIM);
   $("cOut").innerHTML=`<div class="tabs">${Object.keys(CAT).map(k=>`<button data-ct="${k}" class="${k===ctab?"on":""}">${CAT[k]} <span class="st">${cnt[k]||0}</span></button>`).join("")}</div>
-  ${L.length?`<div class="t"><table><thead><tr><th>Ürün</th><th class="n">Yapılabilir</th><th>Kullanılan (1 adet için)</th><th class="n">Malzeme değeri</th><th class="n">Satış</th><th class="n">Kâr / adet</th><th class="n">Toplam kâr</th></tr></thead><tbody>${L.map(o=>`<tr><td><span class="pn">${img(o.id)}<span>${esc(label(o.id))}<small>${CAT[o.cat]}${o.kind==="seed"?" · ekersen (ort. "+o.per+" ürün)":o.kind==="baby"?" · büyütürsen (yem hariç)":""}</small></span></span></td><td class="n"><b>${fmt(o.n)}</b>${o.per!==1&&!o.kind?`<br><small class="st">${fmt(o.n*o.per)} ürün</small>`:""}</td><td><span class="mats">${o.mats.map(([m,c])=>`<span title="${esc(label(m))}">${img(m,48)}${c}</span>`).join("")}</span></td>${o.miss?'<td class="n st" colspan="4">fiyat eksik</td>':`<td class="n">${fmt(o.matV)}</td><td class="n">${fmt(o.sell)}</td><td class="n ${o.pr>=0?"pos":"neg"}">${fmt(o.pr)}</td><td class="n ${o.tot>=0?"pos":"neg"}"><b>${fmt(o.tot)}</b></td>`}</tr>`).join("")}</tbody></table></div>${AL.length>LIM?`<div class="row" style="margin-top:10px"><button id="cMore">Daha fazla göster (${AL.length-LIM} tane daha)</button></div>`:""}`:`<div class="empty">${D.set.neg&&LAST.out.length?"Bu bölümde kârlı bir şey yok. Zarar edenleri gizle'yi kapatırsan hepsini görürsün.":"Bu bölümde yapılabilecek bir şey yok."}</div>`}
-  <p class="st" style="margin:10px 0 0">Malzeme değeri: kullandığın malzemeleri ${esc(D.set.city)}'ta satsan alacağın para. Kâr bunun üstüne kazandığın. Return rate girdiysen geri dönen malzeme düşülür ve o kadar fazla yapabilirsin.</p>`;
+  ${L.length?`<div class="t"><table><thead><tr><th>Ürün</th><th class="n">Yapılabilir</th><th>Kullanılan (1 adet için)</th><th>En kârlı şehir</th><th class="n">Malzeme değeri</th><th class="n">Satış</th><th class="n">Kâr / adet</th><th class="n">Toplam kâr</th></tr></thead><tbody>${L.map(o=>`<tr><td><span class="pn">${img(o.id)}<span>${esc(label(o.id))}<small>${CAT[o.cat]}${o.kind==="seed"?" · ekersen (ort. "+o.per+" ürün)":o.kind==="baby"?" · büyütürsen (yem hariç)":""}</small></span></span></td><td class="n"><b>${fmt(o.n)}</b>${o.per!==1&&!o.kind?`<br><small class="st">${fmt(o.n*o.per)} ürün</small>`:""}</td><td><span class="mats">${o.mats.map(([m,c])=>`<span title="${esc(label(m))}">${img(m,48)}${c}</span>`).join("")}</span></td><td${o.alt.length>1?` title="${esc(o.alt.map(x=>x.c+": "+fmt(x.tot)).join("\n"))}"`:""}><b>${esc(o.c)}</b>${o.cat==="farm"?"":`<span class="bon">RR %${(o.rr*100).toFixed(1)}${o.cb?` · <span class="pos">şehir bonusu +%${o.cb}</span>`:""}${o.day?` · <span class="pos">günlük +%${o.day}</span>`:""}${D.set.foc?" · focus":""}</span>`}${o.alt.length>1?`<span class="bon">sonraki: ${esc(o.alt[1].c)} ${fmt(o.alt[1].tot)}</span>`:""}</td>${o.miss?'<td class="n st" colspan="4">fiyat eksik</td>':`<td class="n">${fmt(o.matV)}</td><td class="n">${fmt(o.sell)}</td><td class="n ${o.pr>=0?"pos":"neg"}">${fmt(o.pr)}</td><td class="n ${o.tot>=0?"pos":"neg"}"><b>${fmt(o.tot)}</b></td>`}</tr>`).join("")}</tbody></table></div>${AL.length>LIM?`<div class="row" style="margin-top:10px"><button id="cMore">Daha fazla göster (${AL.length-LIM} tane daha)</button></div>`:""}`:`<div class="empty">${D.set.neg&&LAST.out.length?"Bu bölümde kârlı bir şey yok. Zarar edenleri gizle'yi kapatırsan hepsini görürsün.":"Bu bölümde yapılabilecek bir şey yok."}</div>`}
+  <p class="st" style="margin:10px 0 0">Malzeme değeri: kullandığın malzemeleri o şehirde satsan alacağın para. Kâr bunun üstüne kazandığın. Geri dönen malzeme (return rate) düşülür ve o kadar fazla yapabilirsin. Şehir adının üstüne gelince diğer şehirlerin toplam kârı görünür.</p>`;
   $("cOut").querySelectorAll("[data-ct]").forEach(b=>b.onclick=()=>{ctab=b.dataset.ct;LIM=50;drawCalc()});
   if($("cMore"))$("cMore").onclick=()=>{LIM+=100;drawCalc()};
 }
 $("calc").onclick=calc;
-$("cCity").innerHTML=CITIES.map(c=>`<option${c===D.set.city?" selected":""}>${c}</option>`).join("");
-$("cSrv").value=D.set.srv;$("cRr").value=D.set.rr||"";$("cPrem").checked=!!D.set.prem;$("cNeg").checked=!!D.set.neg;
+$("cSrv").value=D.set.srv;$("cFoc").checked=!!D.set.foc;$("cPrem").checked=!!D.set.prem;$("cNeg").checked=!!D.set.neg;
 $("cNeg").addEventListener("change",()=>{D.set.neg=$("cNeg").checked;save();drawCalc()});
-[["cSrv","srv"],["cCity","city"],["cRr","rr"],["cPrem","prem"]].forEach(([id,k])=>$(id).addEventListener("change",()=>{const e=$(id);D.set[k]=e.type==="checkbox"?e.checked:e.type==="number"?+e.value||0:e.value;save();if(LAST)calc()}));
+[["cSrv","srv"],["cFoc","foc"],["cPrem","prem"]].forEach(([id,k])=>$(id).addEventListener("change",()=>{const e=$(id);D.set[k]=e.type==="checkbox"?e.checked:e.value;save();if(k==="srv"){drawDaily();renderTot()}if(LAST)calc()}));
+loadDaily().catch(()=>{});
 
 function render(){renderStores();renderTot();if(LAST)drawCalc()}
 // Bulut eşitlemesi başka sekmeden veriyi değiştirirse yeniden oku
-window.addEventListener("storage",e=>{if(e.key===S.K){D=S.load();D.stores=D.stores||{};D.hidden=D.hidden||{};D.set=Object.assign({srv:"europe",city:"Martlock",prem:true,rr:0,neg:true},D.set||{});render()}});
+window.addEventListener("storage",e=>{if(e.key===S.K){initD();render()}});
 fetch("data/zones.json").then(r=>r.json()).then(z=>{ZN=z;render()}).catch(()=>{});
 loadNames().then(render);
 render();sync(false);

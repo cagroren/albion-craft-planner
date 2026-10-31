@@ -23,7 +23,7 @@ import webbrowser
 import zlib
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-VERSION = 16                 # GitHub'daki dps-vN sürümüyle aynı olmalı (güncelleme kontrolü bunu karşılaştırır)
+VERSION = 17                 # GitHub'daki dps-vN sürümüyle aynı olmalı (güncelleme kontrolü bunu karşılaştırır)
 PORT = int(os.environ.get("ALBION_DPS_PORT") or 47700)
 COMBAT_GAP_SECONDS = 5       # vuruşlar arası bundan uzun boşluk "savaş süresi"ne sayılmaz
 FP = 10000.0                 # oyunun sabit noktalı sayı çarpanı
@@ -770,7 +770,7 @@ class Tracker:
         self.started = time.time()
         # Loot sekmesi: oyun eşyaları önce nesne olarak (numara, adet, tahmini değer) gönderir,
         # sonra sandık açılınca içindeki nesne numaralarını. Açtığın sandıkların içeriği o anki hâliyle saklanır.
-        self.items = {}          # eşya objectId -> (eşya numarası, adet, oyunun tahmini değeri)
+        self.items = {}          # eşya objectId -> (eşya numarası, adet, oyunun tahmini değeri, kalite ya da None)
         self.containers = {}     # sandık guid -> [eşya objectId, ...] (boş slot 0)
         self.corpses = {}        # ceset objectId -> ölen oyuncunun adı
         self.opening = {}        # açmak istediğin sandık guid -> {"t", "name"}
@@ -918,7 +918,7 @@ class Tracker:
         for i in st["ids"]:
             k = str(i)
             if i in self.items and ITEM_NAMES.get(self.items[i][0]):
-                res[k] = [ITEM_NAMES[self.items[i][0]], self.items[i][1]]
+                res[k] = [ITEM_NAMES[self.items[i][0]], self.items[i][1], self.items[i][3]]
             elif k in st["res"]:
                 res[k] = st["res"][k]
         if res != st["res"]:
@@ -930,12 +930,15 @@ class Tracker:
             for st in reversed(list(self.stores.values())):
                 self.resolve_store(st)
                 agg = {}
-                for name, qty in st["res"].values():
-                    agg[name] = agg.get(name, 0) + qty
+                # eski kayıtlarda kalite yok: [ad, adet]
+                for v in st["res"].values():
+                    q = v[2] if len(v) > 2 else None
+                    agg[(v[0], q)] = agg.get((v[0], q), 0) + v[1]
                 out.append({"key": st["key"], "kind": st["kind"], "zone": st["zone"], "name": st["name"], "t": st["t"],
                             "island": "ISLAND" in str(st["zone"] or "").upper(), "slots": len(st["ids"]),
                             "unknown": len(st["ids"]) - len(st["res"]),
-                            "items": [{"item": k, "qty": v} for k, v in sorted(agg.items())]})
+                            "items": [dict({"item": k[0], "qty": v}, **({"q": k[1]} if k[1] else {}))
+                                      for k, v in sorted(agg.items(), key=lambda x: (x[0][0], x[0][1] or 0))]})
             return {"stores": out, "character": self.local_name, "zone": self.zone}
 
     def delete_store(self, key=None):
@@ -967,7 +970,7 @@ class Tracker:
         for i in c["ids"]:
             k = str(i)
             if k not in c["res"] and i in self.items:
-                idx, qty, est = self.items[i]
+                idx, qty, est = self.items[i][:3]
                 if ITEM_NAMES.get(idx):
                     c["res"][k] = [ITEM_NAMES[idx], qty, est]
                     self.loot_dirty = True
@@ -1152,10 +1155,15 @@ class Tracker:
                 self.note("party", text="Parti dağıldı")
             elif code in (EV["NewSimpleItem"], EV["NewEquipmentItem"]):
                 # 0: nesne, 1: eşya numarası, 2: adet, 4: oyunun tahmini pazar değeri (birim, sabit noktalı)
+                # Ekipmanda kalite 6'da (6 metinse, yani craftlayanın adıysa 7'de): 1 Normal ... 5 Masterpiece
                 oid, idx = to_int(p.get(0)), to_int(p.get(1))
                 if oid is not None and idx:
+                    q = None
+                    if code == EV["NewEquipmentItem"]:
+                        q = to_int(p.get(7 if isinstance(p.get(6), str) else 6))
+                        q = q if q in (1, 2, 3, 4, 5) else None
                     self.items.pop(oid, None)
-                    self.items[oid] = (idx, to_int(p.get(2)) or 1, round((to_int(p.get(4)) or 0) / FP))
+                    self.items[oid] = (idx, to_int(p.get(2)) or 1, round((to_int(p.get(4)) or 0) / FP), q)
                     if len(self.items) > 30000:
                         for k in list(self.items)[:5000]:
                             del self.items[k]
