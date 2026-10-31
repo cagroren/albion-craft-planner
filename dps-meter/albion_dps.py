@@ -23,7 +23,7 @@ import webbrowser
 import zlib
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-VERSION = 18                 # GitHub'daki dps-vN sürümüyle aynı olmalı (güncelleme kontrolü bunu karşılaştırır)
+VERSION = 19                 # GitHub'daki dps-vN sürümüyle aynı olmalı (güncelleme kontrolü bunu karşılaştırır)
 PORT = int(os.environ.get("ALBION_DPS_PORT") or 47700)
 COMBAT_GAP_SECONDS = 5       # vuruşlar arası bundan uzun boşluk "savaş süresi"ne sayılmaz
 FP = 10000.0                 # oyunun sabit noktalı sayı çarpanı
@@ -1483,6 +1483,9 @@ class Tracker:
                 "taken": st["taken"],
                 "hit": st.get("hit", 0), "burst5": st.get("b5", 0), "burst10": st.get("b10", 0),
                 "targets": len(st.get("tg", {})), "dtype": st.get("dtype", [0, 0, 0]),
+                # ilk/son vuruş ya da heal (ms): Kill / Death sekmesi API'den gelen ölümleri bu aralıkla süzer
+                "first": int(st["first"] * 1000) if st.get("first") else None,
+                "last": int(st["last"] * 1000) if st.get("last") else None,
                 "dps": round(st["damage"] / act, 1), "hps": round(st["heal"] / act, 1),
                 "spells": [{"key": k, "damage": v[0], "heal": v[1], "hits": v[2]} for k, v in
                            sorted(st.get("spells", {}).items(), key=lambda kv: -(kv[1][0] + kv[1][1]))

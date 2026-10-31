@@ -695,11 +695,22 @@ async function kFetch(f){
 function kMerge(f){
   const low=s=>String(s||"").toLowerCase(),ns=new Set(kNames(f).map(low));
   const rows=(f.kills||[]).map(x=>({...x,k:{...x.k},v:{...x.v}})),a=KA[f.id];
+  const mp=(f.players||[]).find(p=>p.me),me=low(mp?mp.name:party&&party.character);
+  // API oyuncunun bütün kill/death'lerini verir; sadece sen partideyken olanlar kalır.
+  // Kill: sen öldürensin ya da öldürenin grubunda/katkı verenlerdesin. Ölüm: ölen sensin ya da ölen arkadaş o sırada
+  // partide seninle vuruşuyordu (toplayıcının gördüğü ilk/son vuruşu ±5 dk).
+  const inParty=(e,k,v)=>{
+    if(!me)return true;
+    if(k.party)return k.me||(e.g||[]).some(n=>low(n)===me);
+    if(v.me)return true;
+    const p=(f.players||[]).find(p=>low(p.name)===low(v.name));
+    return !!(p&&p.first&&e.t>=p.first-300000&&e.t<=p.last+300000);
+  };
   for(const e of a?a.rows:[]){
     const m=rows.find(x=>!x.api&&low(x.v.name)===low(e.v.name)&&low(x.k.name)===low(e.k.name)&&Math.abs(x.t-e.t)<300000);
     if(m){m.api=1;for(const s of ["k","v"]){const x=m[s],y=e[s];if(!x.eq||!Object.keys(x.eq).length)x.eq=y.eq;x.ip=x.ip||y.ip;x.guild=x.guild||y.guild}continue}
-    const me=low(party&&party.character),k={...e.k,party:ns.has(low(e.k.name)),me:low(e.k.name)===me},v={...e.v,party:ns.has(low(e.v.name)),me:low(e.v.name)===me};
-    if(k.party||v.party)rows.push({t:e.t,k,v,src:"api",api:1});
+    const k={...e.k,party:ns.has(low(e.k.name)),me:low(e.k.name)===me},v={...e.v,party:ns.has(low(e.v.name)),me:low(e.v.name)===me};
+    if(k.party||v.party?inParty(e,k,v):false)rows.push({t:e.t,k,v,src:"api",api:1});
   }
   return rows.sort((a,b)=>a.t-b.t);
 }

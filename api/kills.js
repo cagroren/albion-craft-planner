@@ -43,7 +43,9 @@ export async function GET(req) {
     for (const e of [...(k || []), ...(d || [])]) {
       const t = Date.parse(e.TimeStamp);
       if (!(t >= since && t <= until) || ev.has(e.EventId)) continue;
-      ev.set(e.EventId, { id: e.EventId, t, k: side(e.Killer || {}), v: side(e.Victim || {}) });
+      // g: öldürenin grubundakiler ve katkı verenler; sayfa senin o anda partide olup olmadığını buradan anlar
+      const g = [...new Set([...(e.GroupMembers || []), ...(e.Participants || [])].map(x => x.Name).filter(Boolean))];
+      ev.set(e.EventId, { id: e.EventId, t, k: side(e.Killer || {}), v: side(e.Victim || {}), g });
     }
   }));
   return json({ ids, kills: [...ev.values()].sort((a, b) => a.t - b.t) });
