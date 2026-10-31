@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Dragon Portalları</title><link rel="manifest" href="manifest.webmanifest"><link rel="icon" href="icon-192.png"><meta name="theme-color" content="#0b0f14"><link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap">
+<script src="config.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<script src="auth.js"></script>
+<style>
+:root{--bg:#0b0f14;--card:#11161d;--card2:#151b23;--in:#0d1218;--ink:#e6e9ee;--mut:#8b95a3;--line:#252d38;--line2:#323c49;--acc:#f0883e;--acc2:#7a3e16;--accT:#ffd6b3;--good:#3fb950;--bad:#f85149;--warn:#e3b341;color-scheme:dark}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 "Inter",system-ui,-apple-system,"Segoe UI",sans-serif;padding:20px 16px;-webkit-font-smoothing:antialiased}
+main{max-width:1240px;margin:auto}
+h1{font:800 30px/1.2 "Inter",system-ui,sans-serif;letter-spacing:-.01em;margin:0}
+h2{font:700 12px/1.4 "Inter",system-ui,sans-serif;letter-spacing:.12em;text-transform:uppercase;color:var(--acc);margin:0 0 12px}
+section{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:20px;margin-bottom:16px}
+button{font:inherit;padding:8px 12px;border:1px solid #5a3a24;border-radius:9px;background:transparent;color:var(--acc);cursor:pointer;font-weight:700}
+button:hover{background:rgba(240,136,62,.08);border-color:var(--acc)}
+button:focus-visible,a:focus-visible,input:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
+a{color:var(--acc)}
+.st{color:var(--mut);font-size:13px}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.sp{flex:1}
+.tg{display:inline-flex;align-items:center;gap:6px;font-size:13px;font-weight:600;cursor:pointer;padding:5px 10px;border:1px solid var(--line2);border-radius:20px}
+.tg input{width:15px;height:15px;accent-color:var(--acc);margin:0}
+.t{overflow-x:auto}
+table{width:100%;border-collapse:collapse}
+th,td{text-align:left;padding:8px 6px;border-bottom:1px solid var(--line);font-size:14px;vertical-align:middle}
+th{color:var(--mut);font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;white-space:nowrap}
+td small{display:block;color:var(--mut);font-size:12px;font-weight:500}
+.bd{display:inline-flex;align-items:center;gap:6px;font-weight:800;white-space:nowrap}
+.bd i{width:12px;height:12px;border-radius:50%;flex:none}
+.ORANGE i{background:#f0883e}.BLACK i{background:#0b0f14;border:2px solid #b6bfcc}
+.ok{color:var(--good);font-weight:700}.wn{color:var(--warn);font-weight:700}
+tr.new td{background:rgba(240,136,62,.08)}
+.empty{color:var(--mut);padding:18px 6px;text-align:center}
+.note{border:1px solid rgba(227,179,65,.5);background:rgba(227,179,65,.06);border-radius:12px;padding:10px 14px;font-size:14px;margin:0 0 12px}
+details summary{cursor:pointer;font-weight:700;color:var(--acc)}
+.how{margin:8px 0 0;padding-left:20px;color:#c3cad4;font-size:14px}.how li{margin:3px 0}
+@media(max-width:700px){body{padding:12px 16px}section{padding:16px}h1{font-size:24px}}
+</style>
+</head>
+<body>
+<main>
+<nav id="topnav"></nav><script src="nav.js"></script>
+<div style="display:flex;align-items:center;gap:12px;margin:14px 0 16px"><img src="logo.png" alt="KVF" width="48" height="48"><h1>Dragon Portalları</h1></div>
+
+<section>
+  <div class="row">
+    <h2 style="margin:0">Açık portallar</h2><span class="sp"></span>
+    <label class="tg"><input type="checkbox" data-f="ORANGE" checked> Turuncu</label>
+    <label class="tg"><input type="checkbox" data-f="BLACK" checked> Siyah</label>
+    <label class="tg"><input type="checkbox" data-f="SMALL" checked> Small</label>
+    <label class="tg"><input type="checkbox" data-f="MEDIUM" checked> Medium</label>
+    <label class="tg"><input type="checkbox" data-f="LARGE" checked> Large</label>
+    <button type="button" id="ntf">Bildirimleri aç</button>
+  </div>
+  <div class="st" id="col" style="margin:10px 0">Toplayıcı kontrol ediliyor...</div>
+  <div class="t"><table>
+    <thead><tr><th>Portal</th><th>Grup</th><th>Harita</th><th>Konum</th><th>Durum</th><th>Gören</th></tr></thead>
+    <tbody id="list"><tr><td colspan="6" class="empty">Yükleniyor...</td></tr></tbody>
+  </table></div>
+  <div class="st" id="info" style="margin-top:8px"></div>
+</section>
+
+<section>
+  <details>
+    <summary>Bu portallar ne, ne zaman açılır?</summary>
+    <ul class="how">
+      <li>Dragon güncellemesiyle gelen <b>Ancient Lands</b> girişleri. Oyun bunları hazine gibi rastgele haritalara dağıtıyor ve dünya haritasında gösteriyor.</li>
+      <li><b>Turuncu</b> (T6): Royal kıtanın sarı bölgelerinde. <b>Siyah</b> (T7): Royal kırmızı bölgeler, Outlands ve Avalon yollarının hideout kurulabilen tünelleri.</li>
+      <li><b>Small</b>: turuncu yaklaşık 15 dakikada, siyah 35-55 dakikada bir açılır, 10 dakika açık kalır. İçeri 1, 2-3 ya da 4-5 kişilik gruplar girer (eşleşme giren kişi sayısına göre).</li>
+      <li><b>Medium</b>: 60-70 dakikada bir, 5 dakika açık. 5-7 kişi.</li>
+      <li><b>Large</b>: 2,5-3 saatte bir, 5 dakika açık. 15-20 kişi.</li>
+      <li>Kapanan portal 5 dakika daha görünür, sonra kaybolur. İçeri giren tekrar girmek için bekler: turuncu small 5 dk, siyah small 15 dk, medium 1 saat, large 3 saat.</li>
+    </ul>
+    <p class="st" style="margin:10px 0 0">Kaynak: oyunun açık dökümleri, <a href="https://github.com/ao-data/ao-bin-dumps" target="_blank" rel="noopener">ao-data/ao-bin-dumps</a> (dragonarea.xml, treasuredistribution.xml). Süreler oyun güncellemeleriyle değişebilir.</p>
+  </details>
+  <details style="margin-top:10px">
+    <summary>Liste nasıl doluyor?</summary>
+    <ul class="how">
+      <li>DPS Meter toplayıcısı açık olan guild üyesi portalın olduğu haritaya girince oyun portalı ona bildirir. Sitenin herhangi bir sayfası açıksa portal buraya otomatik eklenir.</li>
+      <li>Toplayıcı portalı görmek için <b>v20 ya da üstü</b> olmalı (kendini günceller).</li>
+      <li>Kapanma süresi oyunun bildirdiği zamandan, okunamazsa portalın ilk görüldüğü andan hesaplanır (yaklaşık, <b>~</b> ile gösterilir).</li>
+      <li>Bu sayfa açıkken yeni portal gelince ses çalar; "Bildirimleri aç" dersen sekme arka plandayken de haber verir.</li>
+    </ul>
+  </details>
+</section>
+</main>
+<script>
+(function(){
+const $=id=>document.getElementById(id);
+const esc=t=>String(t==null?"":t).replace(/&/g,"&amp;").replace(/"/g,"&quot;").replace(/</g,"&lt;");
+const API="http://127.0.0.1:47700",NEED=20;
+const SIZE={SMALL:["Small","1 · 2-3 · 4-5 kişi"],MEDIUM:["Medium","5-7 kişi"],LARGE:["Large","15-20 kişi"]};
+const COLOR={ORANGE:["Turuncu","T6"],BLACK:["Siyah","T7"]};
+const F=(()=>{try{return JSON.parse(localStorage.getItem("aoportal1")||"{}")}catch(e){return {}}})();
+const saveF=()=>{try{localStorage.setItem("aoportal1",JSON.stringify(F))}catch(e){}};
+let rows=[],known=null,fresh=new Set(),Z={},AVA={};
+
+document.querySelectorAll("[data-f]").forEach(c=>{
+  c.checked=!(F.off||[]).includes(c.dataset.f);
+  c.onchange=()=>{F.off=[...document.querySelectorAll("[data-f]")].filter(x=>!x.checked).map(x=>x.dataset.f);saveF();render()};
+});
+const shown=r=>{const k=parse(r.kind),off=F.off||[];return !(k.c&&off.includes(k.c))&&!(k.s&&off.includes(k.s))};
+const parse=kind=>{const m=/(ORANGE|BLACK)_(SMALL|MEDIUM|LARGE)/.exec(kind||"");return m?{c:m[1],s:m[2]}:{}};
+
+// Harita adları: Royal/Outlands zones.json'dan, Avalon yolları maps.json'dan
+Promise.all([fetch("data/zones.json").then(r=>r.json()).catch(()=>({})),fetch("data/maps.json").then(r=>r.json()).catch(()=>({S:[]}))])
+  .then(([z,m])=>{Z=z;(m.S||[]).forEach(r=>AVA[r[0]]=r[1]);render()});
+const zname=z=>AVA[z]||(Z[z]&&!/_/.test(Z[z])?Z[z]:null)||z;
+
+const ntf=$("ntf");
+const ntfUi=()=>{const p=window.Notification&&Notification.permission;ntf.hidden=!window.Notification||p==="granted";if(p==="denied")ntf.textContent="Bildirim engelli (tarayıcı ayarı)"};
+ntf.onclick=()=>Notification.requestPermission().then(ntfUi);ntfUi();
+function beep(){
+  try{const a=new (window.AudioContext||window.webkitAudioContext)(),o=a.createOscillator(),g=a.createGain();
+    o.frequency.value=880;g.gain.setValueAtTime(.15,a.currentTime);g.gain.exponentialRampToValueAtTime(.001,a.currentTime+.6);
+    o.connect(g).connect(a.destination);o.start();o.stop(a.currentTime+.6)}catch(e){}
+}
+function announce(list){
+  const L=list.filter(shown);if(!L.length)return;
+  beep();
+  if(window.Notification&&Notification.permission==="granted"&&document.hidden){
+    const r=L[0],k=parse(r.kind);
+    try{new Notification("Dragon portalı: "+(SIZE[k.s]?SIZE[k.s][0]:"portal")+(COLOR[k.c]?" · "+COLOR[k.c][0]:""),{body:zname(r.zone)+(L.length>1?` (+${L.length-1} portal daha)`:""),icon:"icon-192.png"})}catch(e){}
+  }
+}
+
+async function load(){
+  const sb=window.aoSb;if(!sb)return;
+  const {data:{session}}=await sb.auth.getSession();
+  if(!session){$("list").innerHTML='<tr><td colspan="6" class="empty">Portalları görmek için giriş yap.</td></tr>';return}
+  const {data,error}=await sb.from("dragon_portals").select("id,zone,kind,x,y,closes_at,exact,gone_at,first_seen,seen_name")
+    .gt("gone_at",new Date().toISOString()).order("first_seen",{ascending:false}).limit(200);
+  if(error){$("info").textContent="Liste okunamadı: "+error.message;return}
+  rows=data||[];
+  const ids=rows.map(r=>r.id+"@"+r.first_seen);
+  if(known){const nw=rows.filter((r,i)=>!known.has(ids[i]));nw.forEach(r=>fresh.add(r.id+"@"+r.first_seen));announce(nw)}
+  known=new Set(ids);
+  render();
+}
+
+const mmss=s=>{s=Math.max(0,Math.round(s));const h=Math.floor(s/3600),m=Math.floor(s%3600/60),x=s%60;return (h?h+":"+String(m).padStart(2,"0"):m)+":"+String(x).padStart(2,"0")};
+const ago=t=>{const s=(Date.now()-t)/1e3;return s<60?"az önce":s<3600?Math.floor(s/60)+" dk önce":Math.floor(s/3600)+" sa önce"};
+function render(){
+  const now=Date.now(),L=rows.filter(r=>Date.parse(r.gone_at)>now&&shown(r));
+  // Önce açık olanlar (en az süresi kalan üstte), sonra kapananlar
+  L.sort((a,b)=>{const ca=Date.parse(a.closes_at),cb=Date.parse(b.closes_at),oa=ca>now,ob=cb>now;return oa!==ob?(oa?-1:1):ca-cb});
+  $("list").innerHTML=L.length?L.map(r=>{
+    const k=parse(r.kind),sz=SIZE[k.s],co=COLOR[k.c],cl=Date.parse(r.closes_at),gn=Date.parse(r.gone_at),zn=zname(r.zone);
+    const est=r.exact?"":"~";
+    const st=cl>now?`<span class="ok">Açık · ${est}${mmss((cl-now)/1e3)} kaldı</span>`:`<span class="wn">Kapandı</span><small>${mmss((gn-now)/1e3)} sonra kaybolur</small>`;
+    return `<tr class="${fresh.has(r.id+"@"+r.first_seen)?"new":""}">
+      <td><span class="bd ${k.c||""}"><i></i>${sz?sz[0]:"Bilinmiyor"}</span><small>${co?co[0]+" · "+co[1]:esc(r.kind||"tür okunamadı")}</small></td>
+      <td>${sz?sz[1]:"?"}</td>
+      <td>${AVA[r.zone]?`<a href="maps.html#${encodeURIComponent(zn)}">${esc(zn)}</a>`:esc(zn)}${zn!==r.zone?`<small>${esc(r.zone)}</small>`:""}</td>
+      <td>${r.x!=null?Math.round(r.x)+", "+Math.round(r.y):"?"}</td>
+      <td>${st}</td>
+      <td>${esc(r.seen_name||"?")}<small>${ago(Date.parse(r.first_seen))}</small></td></tr>`;
+  }).join(""):`<tr><td colspan="6" class="empty">${rows.length?"Filtreye uyan açık portal yok.":"Şu an bilinen açık portal yok. Toplayıcısı açık bir guild üyesi portalın olduğu haritaya girince burada görünür."}</td></tr>`;
+}
+
+// Kendi toplayıcın: portal paylaşabiliyor mu?
+async function collector(){
+  let t="Toplayıcın kapalı: portal paylaşmak için DPS Meter'ı aç (liste diğer üyelerden yine gelir).";
+  try{
+    const c=new AbortController();setTimeout(()=>c.abort(),2500);
+    const s=await (await fetch(API+"/status",{signal:c.signal,cache:"no-store"})).json();
+    if((s.version||0)<NEED)t=`Toplayıcın v${s.version}: portalları görmesi için v${NEED} gerekir, DPS Meter sekmesinden güncelle.`;
+    else{
+      const p=await (await fetch(API+"/portals",{cache:"no-store"})).json();
+      t=`Toplayıcın açık${s.character?" · "+s.character:""}${p.zone?" · "+zname(p.zone):""}: gördüğün portallar guild'le paylaşılıyor.`;
+      const n=Object.values((p.rec&&p.rec.counts)||{}).reduce((a,b)=>a+b,0);
+      if(n)t+=` Bu oturumda ${n} portal mesajı kaydedildi.`;
+    }
+  }catch(e){}
+  $("col").textContent=t;
+}
+
+window.addEventListener("aoportals",load);
+document.addEventListener("DOMContentLoaded",()=>{setTimeout(load,1200);collector()});
+setInterval(load,15e3);setInterval(collector,30e3);setInterval(render,1e3);
+})();
+</script>
+</body>
+</html>

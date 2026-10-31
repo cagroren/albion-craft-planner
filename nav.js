@@ -5,13 +5,13 @@
     ["Craft",[["craft","Craft","./#craft",1],["alchemy","Alchemy","./#alchemy"],["food","Cooking","./#food"],["enchant","Enchant Yükseltme","./#enchant"],["depo","Depo","depo.html"]]],
     ["Toplama",[["farm","Farming","./#farm"],["refine","Refining","./#refine"],["gather","Gathering","gather.html"]]],
     ["Pazar",[["bm","Black Market Flips","./#bm"],["db","Item Database","./#db"]]],
-    ["Oyuncu",[["builds","Builds","builds.html"],["destiny","Destiny Board","destiny.html"],["dps","DPS Meter","dps.html"],["maps","Maps","maps.html"]]]
+    ["Oyuncu",[["builds","Builds","builds.html"],["destiny","Destiny Board","destiny.html"],["dps","DPS Meter","dps.html"],["maps","Maps","maps.html"],["portals","Portallar","portals.html"]]]
   ];
   var URL_OF={};GROUPS.forEach(function(g){g[1].forEach(function(t){URL_OF[t[0]]=t[2]})});
   var HASH={"#food":"food","#craft":"craft","#bm":"bm","#db":"db","#farm":"farm","#refine":"refine","#enchant":"enchant","#alchemy":"alchemy"};
   var path=location.pathname.replace(/\.html$/,"");
-  var page=/\/depo$/.test(path)?"depo":/\/gather$/.test(path)?"gather":/\/builds$/.test(path)?"builds":/\/destiny$/.test(path)?"destiny":/\/dps$/.test(path)?"dps":/\/maps$/.test(path)?"maps":(HASH[location.hash]||"alchemy");
-  var isIndex=!/\/(builds|destiny|dps|maps|depo|gather)$/.test(path);
+  var page=/\/depo$/.test(path)?"depo":/\/gather$/.test(path)?"gather":/\/builds$/.test(path)?"builds":/\/destiny$/.test(path)?"destiny":/\/dps$/.test(path)?"dps":/\/maps$/.test(path)?"maps":/\/portals$/.test(path)?"portals":(HASH[location.hash]||"alchemy");
+  var isIndex=!/\/(builds|destiny|dps|maps|portals|depo|gather)$/.test(path);
   var store=function(k,v){try{v===undefined?localStorage.removeItem(k):localStorage.setItem(k,v)}catch(e){}};
   var load=function(k){try{return localStorage.getItem(k)}catch(e){return null}};
 

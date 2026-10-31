@@ -533,3 +533,60 @@ begin
 end $$;
 drop trigger if exists feedback_stamp on public.feedback;
 create trigger feedback_stamp before insert on public.feedback for each row execute function public.feedback_stamp();
+
+-- DRAGON PORTALLARI (yeni eklendi): üyelerin toplayıcılarının gördüğü Ancient Lands portalları (Portallar sekmesi).
+-- closes: paketten okunan kapanış; est: okunamadıysa görülme + açık kalma süresi (tahmin).
+-- Yazma sadece report_dragon_portal() ile: aynı yerdeki aynı portal tek satır, süresi dolan yeniden açılınca baştan başlar.
+create table if not exists public.dragon_portals (
+  id text primary key check (length(id) <= 120),
+  zone text not null check (length(zone) <= 40),
+  kind text check (length(kind) <= 40),
+  x real,
+  y real,
+  opens_at timestamptz,
+  closes_at timestamptz not null,
+  exact boolean not null default false,
+  gone_at timestamptz not null,
+  first_seen timestamptz not null default now(),
+  last_seen timestamptz not null default now(),
+  seen_by uuid references auth.users on delete set null,
+  seen_name text,
+  raw jsonb
+);
+alter table public.dragon_portals add column if not exists exact boolean not null default false;
+alter table public.dragon_portals enable row level security;
+drop policy if exists "portal okuma" on public.dragon_portals;
+create policy "portal okuma" on public.dragon_portals for select using (public.is_member());
+create index if not exists dragon_portals_gone on public.dragon_portals (gone_at);
+
+create or replace function public.report_dragon_portal(p jsonb) returns void
+language plpgsql security definer set search_path = public as $$
+declare
+  z text := left(p->>'zone', 40);
+  k text := left(p->>'kind', 40);
+  px real := (p->>'x')::real;
+  py real := (p->>'y')::real;
+  cl timestamptz := least(coalesce(to_timestamp((p->>'closes')::double precision), to_timestamp((p->>'est')::double precision), now() + interval '10 minutes'), now() + interval '30 minutes');
+  op timestamptz := to_timestamp((p->>'opens')::double precision);
+  pid text;
+begin
+  if not public.is_member() or z is null then return; end if;
+  pid := z || '|' || coalesce(k, '?') || '|' || coalesce(round(px)::text, '?') || '|' || coalesce(round(py)::text, '?');
+  insert into public.dragon_portals as d (id, zone, kind, x, y, opens_at, closes_at, exact, gone_at, seen_by, seen_name, raw)
+  values (pid, z, k, px, py, op, cl, (p->>'closes') is not null, cl + interval '5 minutes', auth.uid(),
+          (select name from public.profiles where id = auth.uid()), case when length(p->>'raw') < 4000 then p->'raw' end)
+  on conflict (id) do update set
+    -- Eski portalın süresi dolduysa bu yeni bir portal: ilk görülme ve görenler baştan
+    first_seen = case when d.gone_at < now() then now() else d.first_seen end,
+    seen_by = case when d.gone_at < now() then excluded.seen_by else d.seen_by end,
+    seen_name = case when d.gone_at < now() then excluded.seen_name else d.seen_name end,
+    opens_at = coalesce(excluded.opens_at, case when d.gone_at < now() then null else d.opens_at end),
+    closes_at = case when (p->>'closes') is not null or d.gone_at < now() then excluded.closes_at else d.closes_at end,
+    exact = case when (p->>'closes') is not null then true when d.gone_at < now() then false else d.exact end,
+    gone_at = case when (p->>'closes') is not null or d.gone_at < now() then excluded.gone_at else d.gone_at end,
+    last_seen = now(),
+    raw = coalesce(excluded.raw, d.raw);
+  delete from public.dragon_portals where gone_at < now() - interval '1 day';
+end $$;
+revoke all on function public.report_dragon_portal(jsonb) from public, anon;
+grant execute on function public.report_dragon_portal(jsonb) to authenticated;

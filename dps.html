@@ -266,7 +266,7 @@ h3{font:700 12px/1.4 "Inter",system-ui,sans-serif;letter-spacing:.08em;text-tran
 
 <section id="logSec" hidden>
   <div class="dh"><h2>Olay günlüğü</h2><span class="st" id="logInfo"></span><span class="sp"></span>
-    <select id="logK"><option value="">Hepsi</option><option value="loot">Loot</option><option value="chest">Sandık</option><option value="party">Parti</option><option value="zone">Bölge</option><option value="fight">Oturum</option></select>
+    <select id="logK"><option value="">Hepsi</option><option value="loot">Loot</option><option value="chest">Sandık</option><option value="party">Parti</option><option value="zone">Bölge</option><option value="portal">Portal</option><option value="fight">Oturum</option></select>
     <button class="l" id="logClear" style="padding:4px 10px;font-size:12px">Temizle</button></div>
   <div style="overflow-x:auto"><table class="lg"><tbody id="logBody"></tbody></table></div>
 </section>
@@ -631,6 +631,7 @@ function logText(e){
   if(e.k==="kill")return `<b>${esc(e.killer||"?")}</b> → <b>${esc(e.victim)}</b> oyuncusunu kesti`;
   if(e.k==="chest")return `${esc(e.name?e.name+" cesedi":"Sandık")} açıldı · ${e.n} eşya`;
   if(e.k==="zone")return `Bölgeye girildi${e.zone?` · <span class="st">${esc(e.zone)}</span>`:""}${e.character?` · ${esc(e.character)}`:""}`;
+  if(e.k==="portal")return `Dragon portalı görüldü${e.type?` · ${esc(e.type.replace("DRAGON_AREA_","").replace("_"," ").toLowerCase())}`:""}${e.zone?` · <span class="st">${esc(e.zone)}</span>`:""}`;
   if(e.k==="fight")return `Oturum kaydedildi · ${dur(e.dur||0)} · hasar ${fmt(e.dmg)} · en yüksek ${esc(e.top)}`;
   return esc(e.text||"");
 }

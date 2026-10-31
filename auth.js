@@ -169,9 +169,29 @@
   async function collector(){
     try{const c=new AbortController();setTimeout(()=>c.abort(),2500);const r=await fetch("http://127.0.0.1:47700/status",{signal:c.signal,cache:"no-store"});return r.ok?await r.json():null}catch(e){return null}
   }
+  // Dragon portalları: toplayıcı açıksa gördüğü portallar guild'le paylaşılır (Portallar sekmesi okur).
+  // Toplayıcı açıkken 20 saniyede bir, kapalı ya da eski sürümse 5 dakikada bir bakılır.
+  const sentP={};
+  async function portalShare(){
+    let wait=300e3;
+    try{
+      const c=new AbortController();setTimeout(()=>c.abort(),2500);
+      const r=await fetch("http://127.0.0.1:47700/portals",{signal:c.signal,cache:"no-store"});
+      if(r.ok){
+        wait=20e3;let n=0;
+        for(const p of (await r.json()).portals||[]){
+          const sig=[p.kind,p.x,p.y,p.closes].join();if(sentP[p.key]===sig)continue;
+          const {error}=await sb.rpc("report_dragon_portal",{p:{zone:p.zone,kind:p.kind,x:p.x,y:p.y,opens:p.opens,closes:p.closes,est:p.est,raw:p.raw}});
+          if(!error){sentP[p.key]=sig;n++}
+        }
+        if(n)window.dispatchEvent(new Event("aoportals"));
+      }
+    }catch(e){}
+    setTimeout(portalShare,wait);
+  }
   async function infoPopup(){
     const page=window.aoNav&&window.aoNav.page;if(!page||page==="builds"||page==="maps"||page==="depo")return;
-    const kind=page==="dps"||page==="destiny"?"dps":"data";
+    const kind=page==="dps"||page==="destiny"||page==="portals"?"dps":"data";
     try{if(LS.getItem("aoPopNo_"+kind)||sessionStorage.getItem("aoPop_"+kind))return}catch(e){return}
     let st=null;
     if(kind==="dps"){
@@ -269,6 +289,7 @@
         sb.rpc("touch").then(()=>{},()=>{});
         feedbackUI();
         setTimeout(()=>infoPopup().catch(()=>{}),2000);
+        setTimeout(portalShare,3000);
         // Panel istatistikleri için sayfa açılışı (ana sayfada sekme: #craft, #farm...)
         const pg=location.pathname.replace(/^\/|\.html$/g,"").replace(/^index$/,"")||"#"+(location.hash.slice(1).split(/[=&]/)[0]||"alchemy");
         sb.rpc("track",{p:pg}).then(()=>{},()=>{});

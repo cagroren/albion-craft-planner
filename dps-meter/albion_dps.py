@@ -23,7 +23,7 @@ import webbrowser
 import zlib
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-VERSION = 19                 # GitHub'daki dps-vN sürümüyle aynı olmalı (güncelleme kontrolü bunu karşılaştırır)
+VERSION = 20                 # GitHub'daki dps-vN sürümüyle aynı olmalı (güncelleme kontrolü bunu karşılaştırır)
 PORT = int(os.environ.get("ALBION_DPS_PORT") or 47700)
 COMBAT_GAP_SECONDS = 5       # vuruşlar arası bundan uzun boşluk "savaş süresi"ne sayılmaz
 FP = 10000.0                 # oyunun sabit noktalı sayı çarpanı
@@ -80,6 +80,19 @@ DESTINY_EV = {83: "UpdateLearningPoints", 84: "UpdateReSpecPoints", 150: "FullAc
               155: "FullAutoLearnAchievementInfo"}
 DESTINY_OP = {147: "ReSpecAchievement", 311: "TrackAchievements", 312: "SetAchievementsAutoLearn"}
 
+# Dragon portalları (Ancient Lands girişleri): StatisticsAnalysis bunları henüz çözmüyor. Portal olayı
+# (NewDragonAreaEntrance) tahminle okunur; ilgili bütün mesajlar ham hâliyle portal-kayit/ klasörüne de yazılır.
+# Dünya haritası açılınca gelen GetClusterMapInfo da kaydedilir (oyun portalları haritada da gösteriyor).
+PORTAL_NAME = re.compile(r"DragonArea|DragonIncursion")
+PORTAL_EV = {687: "DragonIncursionClusterState", 694: "NewDragonAreaEntrance", 699: "UsingDragonAreaEntranceStateUpdate",
+             700: "DragonAreaEntranceBindingStateUpdate"}
+PORTAL_OP = {197: "GetClusterMapInfo", 549: "UseDragonAreaEntrance", 550: "EnterDragonAreaEntrance"}
+PORTAL_KIND = re.compile(r"DRAGON_AREA_(ORANGE|BLACK)_(SMALL|MEDIUM|LARGE)")
+PORTAL_LIFE = {"SMALL": 600, "MEDIUM": 300, "LARGE": 300}  # dragonarea.xml lifetime: açık kalma (sn)
+PORTAL_DESPAWN = 300         # kapandıktan sonra görünür kalma (sn)
+MAX_PORTALS = 200
+TICKS_EPOCH = 62135596800    # .NET tick (100 ns, 0001-01-01) -> unix
+
 CODES_URL = "https://raw.githubusercontent.com/Triky313/AlbionOnline-StatisticsAnalysis/main/src/StatisticsAnalysisTool/Network/{}.cs"
 # Ekipman dizisindeki sıra; anahtarlar sitedeki build slotlarıyla aynı (w o h a s c b m f p)
 GEAR_SLOTS = ("w", "o", "h", "a", "s", "b", "c", "m", "p", "f")
@@ -115,8 +128,9 @@ class DestinyRecorder:
     """Board mesajlarını destiny-kayit/<başlangıç>.jsonl dosyasına satır satır yazar (dosya başına en çok 40 MB)."""
     MAX_BYTES = 40 * 1024 * 1024
 
-    def __init__(self):
-        self.dir = os.path.join(HERE, "destiny-kayit")
+    def __init__(self, sub="destiny-kayit", label="Destiny Board"):
+        self.label = label
+        self.dir = os.path.join(HERE, sub)
         self.path = os.path.join(self.dir, time.strftime("%Y%m%d-%H%M%S") + ".jsonl")
         self.size = 0
         self.counts = {}
@@ -136,9 +150,9 @@ class DestinyRecorder:
                 first = name not in self.counts
                 self.counts[name] = self.counts.get(name, 0) + 1
                 if first:
-                    log(f"Destiny Board verisi kaydedildi: {name} ({os.path.basename(self.path)})")
+                    log(f"{self.label} verisi kaydedildi: {name} ({os.path.basename(self.path)})")
             except Exception as e:
-                log("Destiny kaydı yazılamadı:", e)
+                log(self.label, "kaydı yazılamadı:", e)
 
     def status(self):
         return {"file": os.path.basename(self.path) if self.counts else None, "counts": dict(self.counts),
@@ -146,6 +160,45 @@ class DestinyRecorder:
 
 
 DESTINY = DestinyRecorder()
+PORTAL_REC = DestinyRecorder("portal-kayit", "Portal")
+
+
+def ticks_to_unix(v):
+    """Oyunun .NET tick zamanını unix saniyeye çevirir; tick değilse None."""
+    v = to_int(v)
+    if v is None or v < 6 * 10 ** 17:
+        return None
+    return v / 1e7 - TICKS_EPOCH
+
+
+def parse_portal(p, zone):
+    """NewDragonAreaEntrance: paket düzeni bilinmediği için alanlar türüne göre aranır.
+    0: nesne numarası; ilk [x, y] konum; DRAGON_AREA_<RENK>_<BOYUT> türü; gelecekteki tick kapanış zamanı."""
+    now = time.time()
+    kind, pos, times = None, None, []
+    for k in sorted(p, key=lambda x: x if isinstance(x, int) else 999):
+        if k in (252, 253):
+            continue
+        v = p[k]
+        if isinstance(v, str):
+            m = PORTAL_KIND.search(v.upper())
+            if m and not kind:
+                kind = m.group(0)
+        elif isinstance(v, (list, tuple)):
+            if len(v) == 2 and pos is None and all(isinstance(a, (int, float)) for a in v):
+                pos = [round(float(v[0]), 1), round(float(v[1]), 1)]
+        else:
+            t = ticks_to_unix(v)
+            if t and now - 86400 < t < now + 86400:
+                times.append(t)
+    size = kind.rsplit("_", 1)[1] if kind else None
+    fut = [t for t in times if t > now + 5]
+    past = [t for t in times if t <= now + 5]
+    return {"oid": to_int(p.get(0)), "zone": zone, "kind": kind, "size": size,
+            "color": kind.split("_")[2] if kind else None,
+            "x": pos[0] if pos else None, "y": pos[1] if pos else None,
+            "opens": max(past) if past else None, "closes": min(fut) if fut else None,
+            "est": now + PORTAL_LIFE.get(size, 600), "seen": now, "last": now, "raw": jsonable(p)}
 
 
 def first_int(v):
@@ -278,6 +331,10 @@ def update_codes():
             if d:
                 DESTINY_EV.clear()
                 DESTINY_EV.update(d)
+            d = {v: k for k, v in e.items() if PORTAL_NAME.search(k)}
+            if "NewDragonAreaEntrance" in d.values():
+                PORTAL_EV.clear()
+                PORTAL_EV.update(d)
         if ot:
             o = parse_enum(ot)
             if all(k in o for k in OP):
@@ -286,6 +343,10 @@ def update_codes():
             if d:
                 DESTINY_OP.clear()
                 DESTINY_OP.update(d)
+            d = {v: k for k, v in o.items() if PORTAL_NAME.search(k) or k == "GetClusterMapInfo"}
+            if "GetClusterMapInfo" in d.values():
+                PORTAL_OP.clear()
+                PORTAL_OP.update(d)
         log("Olay kodları hazır:", ", ".join(f"{k}={v}" for k, v in EV.items()))
     except Exception as e:
         log("Kod listesi okunamadı, yerleşik değerler kullanılıyor:", e)
@@ -786,6 +847,7 @@ class Tracker:
         self.stores = {}         # depo anahtarı -> {"key","kind","zone","name","t","g","ids","res"}
         self.store_dirty = False
         self.burst = {}          # oyuncu adı -> son 10 sn'deki vuruşlar [(zaman, hasar)] (Top Stats: burst hasar)
+        self.portals = {}        # "bölge|nesne" -> görülen Dragon portalı (Portallar sekmesi /portals'tan okur)
         self.load_saved()
         self.load_live()
         self.load_loot()
@@ -1040,6 +1102,12 @@ class Tracker:
                     self.board.full_info(self.local_name, p)
                 elif name == "FullAchievementProgressInfo":
                     self.board.progress(self.local_name, p)
+        if code in PORTAL_EV:
+            name = PORTAL_EV[code]
+            PORTAL_REC.write("event", code, name, p)
+            if name == "NewDragonAreaEntrance":
+                with self.lock:
+                    self.on_portal(p)
         with self.lock:
             if code == EV["HealthUpdate"]:
                 self.health(to_int(p.get(0)), p.get(2), p.get(3), to_int(p.get(6)), 3 in p, p.get(7), p.get(4))
@@ -1227,6 +1295,8 @@ class Tracker:
         code = to_int(p.get(253))
         if code in DESTINY_OP:
             DESTINY.write("request", code, DESTINY_OP[code], p)
+        if code in PORTAL_OP:
+            PORTAL_REC.write("request", code, PORTAL_OP[code], p)
         if code == OP["ContainerOpen"]:
             # 0: sandık/ceset nesnesi, 2: sandığın guid'i. İçerik cevaptan sonra AttachItemContainer ile gelir.
             g = guid_key(p.get(2))
@@ -1237,6 +1307,8 @@ class Tracker:
 
     def on_response(self, _code, p):
         code = to_int(p.get(253))
+        if code in PORTAL_OP:
+            PORTAL_REC.write("response", code, PORTAL_OP[code], p)
         if code in DESTINY_OP:
             DESTINY.write("response", code, DESTINY_OP[code], p)
         elif code == OP["Join"]:
@@ -1285,6 +1357,31 @@ class Tracker:
                     self.credits_total = (to_int(rs[1]) or 0) / FP
                 log(f"Bölgeye girildi. Karakter: {self.local_name}")
                 self.note("zone", zone=self.zone, character=self.local_name)
+
+    def on_portal(self, p):
+        if not self.zone:
+            return
+        pt = parse_portal(p, self.zone)
+        key = f"{self.zone}|{pt['oid']}"
+        old = self.portals.get(key)
+        # Bölgeye yeniden girince oyun aynı portalı tekrar gönderir: ilk görülme korunur
+        if old and old.get("kind") == pt["kind"] and old.get("x") == pt["x"] and pt["seen"] < old["est"] + PORTAL_DESPAWN:
+            pt["seen"], pt["est"] = old["seen"], old["est"]
+        else:
+            log(f"Dragon portalı: {pt['kind'] or 'tür okunamadı'} · {self.zone} · konum {pt['x']}, {pt['y']}")
+            self.note("portal", zone=self.zone, type=pt["kind"])
+        self.portals[key] = pt
+        if len(self.portals) > MAX_PORTALS:
+            for k in sorted(self.portals, key=lambda k: self.portals[k]["last"])[:len(self.portals) - MAX_PORTALS]:
+                del self.portals[k]
+
+    def portal_data(self):
+        now = time.time()
+        with self.lock:
+            out = [dict(v, key=k) for k, v in self.portals.items()
+                   if (v["closes"] or v["est"]) + PORTAL_DESPAWN > now]
+        return {"portals": sorted(out, key=lambda v: -v["seen"]), "zone": self.zone, "character": self.local_name,
+                "now": now, "rec": PORTAL_REC.status()}
 
     def mark_packet(self):
         now = time.time()
@@ -1714,6 +1811,8 @@ def make_handler(tracker):
                     self.send_json(list(reversed(tracker.evlog)))
             elif path == "/storage":
                 self.send_json(tracker.storage_data())
+            elif path == "/portals":
+                self.send_json(tracker.portal_data())
             else:
                 self.send_json({"error": "bulunamadı"}, 404)
 
