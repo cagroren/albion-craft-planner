@@ -85,13 +85,13 @@ td.n,th.n{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
 <section>
   <div class="row"><span class="live" id="cState">Bağlanıyor</span><span class="st" id="cInfo"></span><span class="sp"></span><button class="p" id="sync">Oyundan güncelle</button><button id="addM">+ Elle depo ekle</button></div>
   <ol class="how">
-    <li>DPS Meter toplayıcısı açıkken oyunda <b>bankayı aç ve her sekmeye bir kez tıkla</b>. Ada ya da evdeki <b>sandıkları aç</b>. İçerikleri kendiliğinden buraya gelir.</li>
+    <li>DPS Meter toplayıcısı açıkken oyunda <b>bankayı aç ve her sekmeye bir kez tıkla</b>; her şehrin bankası ayrı açılır. Ada ya da evdeki <b>sandıkları aç</b>. İçerikleri kendiliğinden buraya gelir.</li>
     <li>Hangi deponun hesaba katılacağını aşağıdan seç. Seçtiklerin <b>Craft, Cooking, Alchemy, Refining ve Farming</b> sekmelerinde "depoda" olarak düşülür.</li>
     <li>Toplayıcı yoksa ya da bir şey eksik kaldıysa depoyu <b>elle</b> de girip düzeltebilirsin.</li>
   </ol>
 </section>
 
-<section><div class="row" style="margin-bottom:12px"><h2 style="margin:0">Depolar</h2><span class="sp"></span><span class="st" id="sSum"></span></div><div id="stores"></div><div id="others"></div></section>
+<section><div class="row" style="margin-bottom:12px"><h2 style="margin:0">Depolar</h2><span class="sp"></span><span class="st" id="sSum"></span></div><div id="sTabs"></div><div id="stores"></div><div id="others"></div></section>
 
 <section><div class="row" style="margin-bottom:12px"><h2 style="margin:0">Toplam stok</h2><span class="sp"></span><label class="st" style="display:flex;gap:6px;align-items:center" title="Adadaki ya da şehir dışındaki depoların fiyatı bu şehirden alınır">Ada/şehir dışı depolar için fiyat<select id="pCity"></select></label><input id="tq" type="search" placeholder="Eşya ara" aria-label="Stokta ara" style="min-width:220px"></div><div class="t" id="tot"></div><p class="st" id="tSt" style="margin:10px 0 0"></p></section>
 
@@ -185,10 +185,17 @@ function storeCard(k,s){
   <div class="ic">${its.sort((a,b)=>b[1]-a[1]).slice(0,10).map(([i])=>img(bid(i),48)).join("")}</div>
   <div class="row" style="gap:8px"><label class="tg"><input type="checkbox" data-on="${esc(k)}"${s.on?" checked":""}> Hesaba kat</label><span class="sp"></span><button data-ed="${esc(k)}">Düzenle</button><button class="bad" data-del="${esc(k)}" aria-label="Sil">Sil</button></div></div>`;
 }
+// Depoların yeri: şehir, ada ya da elle girilenlerde seçilen şehir
+const locOf=s=>s.kind==="manual"?(s.city||"Elle girilen"):/ISLAND/i.test(String(s.zone||""))?"Ada":zoneCity(s.zone)||zoneName(s.zone);
 function renderStores(){
-  const ks=Object.keys(D.stores).sort((a,b)=>(D.stores[a].kind==="bank"?0:1)-(D.stores[b].kind==="bank"?0:1)||zoneName(D.stores[a].zone).localeCompare(zoneName(D.stores[b].zone))||String(D.stores[a].name).localeCompare(D.stores[b].name));
+  const all=Object.keys(D.stores),cnt={};all.forEach(k=>{const l=locOf(D.stores[k]);cnt[l]=(cnt[l]||0)+1});
+  const locs=Object.keys(cnt).sort((a,b)=>(CITIES.indexOf(a)<0?99:CITIES.indexOf(a))-(CITIES.indexOf(b)<0?99:CITIES.indexOf(b))||a.localeCompare(b));
+  if(D.set.sf&&!cnt[D.set.sf])D.set.sf="";
+  $("sTabs").innerHTML=locs.length>1?`<div class="tabs">${["",...locs].map(l=>`<button data-sf="${esc(l)}" class="${l===(D.set.sf||"")?"on":""}">${l?esc(l):"Tümü"} <span class="st">${l?cnt[l]:all.length}</span></button>`).join("")}</div>`:"";
+  $("sTabs").querySelectorAll("[data-sf]").forEach(b=>b.onclick=()=>{D.set.sf=b.dataset.sf;save();renderStores()});
+  const ks=all.filter(k=>!D.set.sf||locOf(D.stores[k])===D.set.sf).sort((a,b)=>(D.stores[a].kind==="bank"?0:1)-(D.stores[b].kind==="bank"?0:1)||zoneName(D.stores[a].zone).localeCompare(zoneName(D.stores[b].zone))||String(D.stores[a].name).localeCompare(D.stores[b].name));
   $("stores").innerHTML=ks.length?`<div class="cards">${ks.map(k=>storeCard(k,D.stores[k])).join("")}</div>`:'<div class="empty">Henüz depo yok. Oyunda bankayı ya da bir sandığı aç, ya da <b>+ Elle depo ekle</b>.</div>';
-  $("sSum").textContent=ks.length?`${ks.filter(k=>D.stores[k].on).length}/${ks.length} depo hesaba katılıyor`:"";
+  $("sSum").textContent=all.length?`${all.filter(k=>D.stores[k].on).length}/${all.length} depo hesaba katılıyor`:"";
   $("others").innerHTML=OTHER.length?`<div class="warn">Ada dışında açtığın ${OTHER.length} sandık daha var (ör. dünyadaki ya da guild sandığı). Senin deponsa ekle:<div class="row" style="margin-top:8px">${OTHER.map((s,i)=>`<button data-oth="${i}">${esc(zoneName(s.zone))} · ${Object.keys(s.items).length} çeşit</button>`).join("")}</div></div>`:"";
   $("stores").querySelectorAll("[data-on]").forEach(c=>c.onchange=()=>{D.stores[c.dataset.on].on=c.checked;save();render()});
   $("stores").querySelectorAll("[data-ed]").forEach(b=>b.onclick=()=>edit(b.dataset.ed));

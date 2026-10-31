@@ -23,7 +23,7 @@ import webbrowser
 import zlib
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-VERSION = 20                 # GitHub'daki dps-vN sürümüyle aynı olmalı (güncelleme kontrolü bunu karşılaştırır)
+VERSION = 21                 # GitHub'daki dps-vN sürümüyle aynı olmalı (güncelleme kontrolü bunu karşılaştırır)
 PORT = int(os.environ.get("ALBION_DPS_PORT") or 47700)
 COMBAT_GAP_SECONDS = 5       # vuruşlar arası bundan uzun boşluk "savaş süresi"ne sayılmaz
 FP = 10000.0                 # oyunun sabit noktalı sayı çarpanı
@@ -844,6 +844,7 @@ class Tracker:
         # Depo sekmesi: banka açılınca oyun sekmelerin guid'lerini ve adlarını gönderir (BankVaultInfo),
         # sekme açılınca içeriği AttachItemContainer ile gelir (2: sekmenin guid'i). Ada sandıkları ContainerOpen ile.
         self.vault_tabs = {}     # sekme guid -> {"name", "zone"}
+        self.pending_tabs = {}   # banka bilgisinden önce gelen sekme içeriği: sekme guid -> kap guid
         self.stores = {}         # depo anahtarı -> {"key","kind","zone","name","t","g","ids","res"}
         self.store_dirty = False
         self.burst = {}          # oyuncu adı -> son 10 sn'deki vuruşlar [(zaman, hasar)] (Top Stats: burst hasar)
@@ -956,6 +957,13 @@ class Tracker:
                 self.vault_tabs[g] = {"name": "Banka" if not n or n.startswith("@BUILDINGS") else n, "zone": zone}
         if gs:
             log(f"Banka açıldı: {len(gs)} sekme ({zone})")
+        for g in gs:
+            c = self.pending_tabs.pop(g, None) if g else None
+            if c and c in self.containers:
+                self.snapshot_store("b:" + g, "bank", zone, self.vault_tabs[g]["name"], c)
+        if gs and not any(("b:" + g) in self.stores for g in gs if g):
+            log("Banka sekmeleri:", ", ".join(g[:8] for g in gs if g), "| eşleşmeyen içerik:",
+                ", ".join(k[:8] for k in self.pending_tabs) or "yok")
 
     def snapshot_store(self, key, kind, zone, name, g):
         ids = [i for i in self.containers.get(g, []) if i]
@@ -1252,6 +1260,12 @@ class Tracker:
                     if pg and pg in self.vault_tabs:
                         tab = self.vault_tabs[pg]
                         self.snapshot_store("b:" + pg, "bank", tab["zone"], tab["name"], g)
+                    elif pg:
+                        # bazı bankalarda açılan sekmenin içeriği BankVaultInfo'dan önce gelir; sonra eşlenir
+                        self.pending_tabs.pop(pg, None)
+                        self.pending_tabs[pg] = g
+                        for k in list(self.pending_tabs)[:max(0, len(self.pending_tabs) - 50)]:
+                            del self.pending_tabs[k]
             elif code == EV["InventoryPutItem"]:
                 oid, g = to_int(p.get(0)), guid_key(p.get(2))
                 if oid is not None and g in self.containers:
