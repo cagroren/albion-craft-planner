@@ -167,6 +167,11 @@ button.chip2 small{color:var(--mut)}
 button.chip2:hover{border-color:var(--acc);background:var(--card2)}
 button.chip2.on{background:var(--acc2);border-color:#c0662a;color:var(--accT)}
 button.chip2.on small{color:var(--accT)}
+.hcity{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}.hcity i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:6px;vertical-align:-1px}
+button.chip2.hcc:not(.on){color:var(--mut)}button.chip2.hcc:not(.on) i{opacity:.35}
+.hplot{position:relative;margin-top:12px;touch-action:pan-y}.hplot svg{display:block;width:100%;overflow:visible}.hplot text{font-size:11px;fill:var(--mut);font-variant-numeric:tabular-nums}
+.htip{position:absolute;pointer-events:none;background:var(--card2);border:1px solid var(--line2);border-radius:10px;padding:8px 10px;font-size:12px;line-height:1.5;min-width:170px;box-shadow:0 6px 20px rgba(0,0,0,.4);z-index:5}
+.htip b{color:var(--ink)}.htip .hr{display:flex;gap:8px;align-items:center}.htip .hr i{width:8px;height:8px;border-radius:2px;flex:none}.htip .hr span{margin-left:auto;color:var(--ink);font-variant-numeric:tabular-nums}.htip small{color:var(--mut)}
 .idgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:10px;margin-top:14px}
 .idcard{display:flex;flex-direction:column;align-items:center;gap:4px;text-align:center;background:var(--card2);border:1px solid var(--line);color:var(--ink);padding:12px 8px;font-weight:600;font-size:13px}
 .idcard img{margin:0!important}
@@ -384,6 +389,13 @@ section{padding:16px;border-radius:14px}
 <div class="row" style="align-items:center"><button id="idFetch">Fiyatları çek</button><span class="st" id="idPSt" style="margin:0"></span></div>
 <div class="r" id="idSum" style="margin-top:14px"></div>
 <div class="t" style="margin-top:14px"><table id="idTbl"><thead><tr><th>Şehir</th><th>Kalite</th><th>Satış (en düşük)</th><th>Alış emri (en yüksek)</th><th>7 gün ort. fiyat</th><th>Günlük satış</th></tr></thead><tbody id="idRows"><tr><td colspan="6">Fiyatları görmek için Fiyatları çek'e bas.</td></tr></tbody></table></div>
+<div id="hWrap" style="margin-top:20px">
+<div class="row" style="align-items:center;gap:8px;margin-top:0"><h3>Fiyat ve satış geçmişi</h3><span class="chips" id="hPer" role="group" aria-label="Dönem"></span><select id="hQ" aria-label="Grafik kalitesi"></select><button class="l" id="hTblB" aria-pressed="false">Tablo</button></div>
+<div class="hcity" id="hCity" role="group" aria-label="Şehirler"></div>
+<div class="hplot" id="hPlot"></div>
+<div class="t" id="hTbl" style="margin-top:12px" hidden></div>
+<div class="st" id="hSt"></div>
+</div>
 <div id="idRecipe" style="margin-top:16px"></div>
 </section>
 </main>
@@ -1494,7 +1506,7 @@ function initDB(){
   }
   async function fetchItem(){
     const n=++reqN,id=curId(),qs=quals(),loc=LOCS.map(c=>c.replace(/\s/g,"")).join(",");
-    $("idPSt").textContent="Fiyatlar çekiliyor...";$("idFetch").disabled=true;
+    $("idPSt").textContent="Fiyatlar çekiliyor...";$("idFetch").disabled=true;fetchHist();
     try{
       const [p,h]=await Promise.all([api(`prices/${id}.json?locations=${loc}&qualities=${qs.join(",")}`),api(`history/${id}.json?locations=${loc}&qualities=${qs.join(",")}&time-scale=24`).catch(()=>[])]);
       if(n!==reqN)return;
@@ -1513,6 +1525,83 @@ function initDB(){
     }catch(e){if(n===reqN)$("idPSt").textContent="Fiyat çekilemedi ("+e.message+")."}
     if(n===reqN)$("idFetch").disabled=false;
   }
+  // fiyat ve satış geçmişi: üstte şehir başına ortalama fiyat çizgisi, altta aynı zaman ekseninde satılan adet (yığılmış çubuk)
+  const HP={1:[1,1,"24 saat"],7:[6,7,"7 gün"],30:[24,30,"30 gün"]};// dönem: [time-scale, gün, ad]
+  const HCOL=["#3987e5","#d95926","#199e70","#c98500","#d55181","#008300","#9085e9","#e66767"];// LOCS sırasıyla sabit; dataviz paleti, #11161d üzerinde doğrulandı
+  const hcol=c=>HCOL[LOCS.indexOf(c)];
+  if(!HP[st.hp])st.hp=7;
+  let hs={id:null,q:1,on:null,D:null,tbl:false},hReq=0;const hCache={};
+  const sh=v=>v>=1e6?+(v/1e6).toFixed(v>=1e7?0:1)+"M":v>=1e3?+(v/1e3).toFixed(v>=1e4?0:1)+"k":String(Math.round(v));
+  const nice=(lo,hi,n)=>{const r=hi-lo||Math.abs(hi)||1,s0=r/n,p=10**Math.floor(Math.log10(s0)),s=[1,2,2.5,5,10].map(m=>m*p).find(v=>v>=s0),t=[];for(let v=Math.floor(lo/s)*s;v<=Math.ceil(hi/s)*s+s/2;v+=s)t.push(v);return t};
+  const p2=n=>String(n).padStart(2,"0"),hday=t=>{const d=new Date(t);return p2(d.getDate())+"."+p2(d.getMonth()+1)},hhr=t=>{const d=new Date(t);return p2(d.getHours())+":"+p2(d.getMinutes())};
+  async function fetchHist(){
+    const id=curId(),n=++hReq;
+    if(hs.id!==id){hs={id,q:quals()[0],on:null,D:null,tbl:hs.tbl}}
+    const q=hs.q,sc=HP[st.hp][0],loc=LOCS.map(c=>c.replace(/\s/g,"")).join(","),k=[st.srv,id,q,sc].join("|");
+    $("hPer").innerHTML=Object.entries(HP).map(([p,v])=>`<button class="chip2${+p===st.hp?" on":""}" data-p="${p}" aria-pressed="${+p===st.hp}">${v[2]}</button>`).join("");
+    $("hPer").querySelectorAll("[data-p]").forEach(b=>b.onclick=()=>{st.hp=+b.dataset.p;saveSt();hs.on=null;fetchHist()});
+    $("hQ").innerHTML=[1,2,3,4,5].filter(x=>x<=cur.mq).map(x=>`<option value="${x}"${x===q?" selected":""}>${QN[x]}</option>`).join("");$("hQ").hidden=cur.mq<2;
+    $("hSt").textContent="Geçmiş çekiliyor...";
+    try{
+      let h=hCache[k];if(!h){h=await api(`history/${id}.json?locations=${loc}&qualities=${q}&time-scale=${sc}`);hCache[k]=h}
+      if(n!==hReq)return;
+      const cut=Date.now()-HP[st.hp][1]*864e5,S={},V={};
+      h.forEach(x=>{if(+x.quality!==q)return;const c=LOCS.find(l=>locKey(l)===locKey(x.location||""));if(!c)return;const m=S[c]||(S[c]={});(x.data||[]).forEach(d=>{const t=Date.parse(d.timestamp+"Z");if(t>=cut&&d.item_count>0&&d.avg_price>0){m[t]={p:d.avg_price,n:d.item_count};V[c]=(V[c]||0)+d.item_count}})});
+      Object.keys(S).forEach(c=>{if(!V[c])delete S[c]});
+      if(!hs.on)hs.on=new Set(Object.keys(V).sort((a,b)=>V[b]-V[a]).slice(0,3));
+      hs.D={S,V};drawHist();
+    }catch(e){if(n===hReq){hs.D=null;$("hPlot").innerHTML="";$("hCity").innerHTML="";$("hTbl").hidden=true;$("hSt").textContent="Geçmiş çekilemedi ("+e.message+")."}}
+  }
+  $("hQ").onchange=()=>{hs.q=+$("hQ").value;hs.on=null;fetchHist()};
+  $("hTblB").onclick=()=>{hs.tbl=!hs.tbl;$("hTblB").setAttribute("aria-pressed",hs.tbl);$("hTblB").textContent=hs.tbl?"Grafik":"Tablo";drawHist()};
+  function drawHist(){
+    const D=hs.D;if(!D)return;
+    const cs=LOCS.filter(c=>D.S[c]),on=cs.filter(c=>hs.on.has(c)),day=st.hp!==1,sc=HP[st.hp][0];
+    $("hCity").innerHTML=cs.map(c=>`<button class="chip2 hcc${hs.on.has(c)?" on":""}" data-c="${esc(c)}" aria-pressed="${hs.on.has(c)}"><i style="background:${hcol(c)}"></i>${esc(c)} <small>${fmt(D.V[c])} adet</small></button>`).join("");
+    $("hCity").querySelectorAll("[data-c]").forEach(b=>b.onclick=()=>{const c=b.dataset.c;hs.on.has(c)?hs.on.delete(c):hs.on.add(c);drawHist()});
+    const T=[...new Set(on.flatMap(c=>Object.keys(D.S[c]).map(Number)))].sort((a,b)=>a-b);
+    const tl=t=>sc===24?hday(t)+"."+new Date(t).getFullYear():hday(t)+" "+hhr(t);
+    if(!cs.length){$("hPlot").innerHTML="";$("hTbl").hidden=true;$("hSt").textContent=`Son ${HP[st.hp][2]} içinde bu kalitede satış verisi yok. Başka dönem ya da kalite dene.`;return}
+    if(!T.length){$("hPlot").innerHTML="";$("hTbl").hidden=true;$("hSt").textContent="Grafikte görmek için yukarıdan şehir seç.";return}
+    const all=on.reduce((a,c)=>a+D.V[c],0),avg=on.reduce((a,c)=>a+Object.values(D.S[c]).reduce((x,d)=>x+d.p*d.n,0),0)/all;
+    $("hSt").textContent=`Son ${HP[st.hp][2]}: seçili şehirlerde ${fmt(all)} adet satıldı, ağırlıklı ortalama fiyat ${fmt(avg)}. ${sc===24?"Günlük veri.":(sc===6?"6 saatlik":"Saatlik")+" veri, saatler senin saat diliminde."} Fiyat = o dilimdeki ortalama satış fiyatı.`;
+    $("hTbl").hidden=!hs.tbl;$("hPlot").hidden=hs.tbl;
+    if(hs.tbl){
+      $("hTbl").innerHTML=`<table><thead><tr><th>Zaman</th>${on.map(c=>`<th class="n">${esc(c)}</th>`).join("")}<th class="n">Toplam adet</th></tr></thead><tbody>${[...T].reverse().map(t=>`<tr><td>${tl(t)}</td>${on.map(c=>{const d=D.S[c][t];return `<td class="n">${d?fmt(d.p)+` <small class="st">× ${fmt(d.n)}</small>`:'<span class="st">-</span>'}</td>`}).join("")}<td class="n">${fmt(on.reduce((a,c)=>a+((D.S[c][t]||{}).n||0),0))}</td></tr>`).join("")}</tbody></table>`;
+      return;
+    }
+    const W=Math.max(280,$("hPlot").clientWidth),Lm=48,Rm=W<560?6:104,pw=W-Lm-Rm,bw=pw/T.length,X=i=>Lm+bw*(i+.5);
+    const H1=200,H2=96,G=26;// fiyat yüksekliği, hacim yüksekliği, aradaki boşluk
+    const ps=on.flatMap(c=>Object.values(D.S[c]).map(d=>d.p)),pt=nice(Math.min(...ps),Math.max(...ps),4),p0=pt[0],p1=pt[pt.length-1],Y1=v=>8+(H1-8)*(1-(v-p0)/((p1-p0)||1));
+    const tots=T.map(t=>on.reduce((a,c)=>a+((D.S[c][t]||{}).n||0),0)),vt=nice(0,Math.max(...tots),2),v1=vt[vt.length-1]||1,top2=H1+G,Y2=v=>top2+H2*(1-v/v1);
+    let g="";
+    pt.forEach(v=>{g+=`<line x1="${Lm}" x2="${Lm+pw}" y1="${Y1(v)}" y2="${Y1(v)}" stroke="var(--line)"/><text x="${Lm-6}" y="${Y1(v)+4}" text-anchor="end">${sh(v)}</text>`});
+    vt.forEach(v=>{g+=`<line x1="${Lm}" x2="${Lm+pw}" y1="${Y2(v)}" y2="${Y2(v)}" stroke="${v?"var(--line)":"var(--line2)"}"/><text x="${Lm-6}" y="${Y2(v)+4}" text-anchor="end">${sh(v)}</text>`});
+    g+=`<text x="${Lm}" y="${top2-8}">Satılan adet</text>`;
+    // hacim: şehirler LOCS sırasıyla alttan üste yığılır, dilimler arasında 2px boşluk
+    const bwd=Math.max(1,bw-Math.max(2,bw*.3));
+    T.forEach((t,i)=>{let y=Y2(0);const seg=on.filter(c=>D.S[c][t]);seg.forEach((c,j)=>{const hgt=Y2(0)-Y2(D.S[c][t].n),x=X(i)-bwd/2;if(j===seg.length-1){const r=Math.min(3,bwd/2,hgt);g+=`<path d="M${x},${y}V${y-hgt+r}Q${x},${y-hgt} ${x+r},${y-hgt}H${x+bwd-r}Q${x+bwd},${y-hgt} ${x+bwd},${y-hgt+r}V${y}Z" fill="${hcol(c)}"/>`}else if(hgt>2)g+=`<rect x="${x}" y="${y-hgt+2}" width="${bwd}" height="${hgt-2}" fill="${hcol(c)}"/>`;y-=hgt})});
+    // fiyat çizgileri (eksik dilimler atlanıp bağlanır) ve sağda doğrudan etiketler
+    const lab=[];
+    on.forEach(c=>{const pts=T.map((t,i)=>D.S[c][t]?[X(i),Y1(D.S[c][t].p)]:null).filter(Boolean);
+      g+=pts.length>1?`<path d="M${pts.map(p=>p.join(",")).join("L")}" fill="none" stroke="${hcol(c)}" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>`:`<circle cx="${pts[0][0]}" cy="${pts[0][1]}" r="4" fill="${hcol(c)}"/>`;
+      lab.push({c,y:pts[pts.length-1][1]})});
+    if(Rm>50){lab.sort((a,b)=>a.y-b.y);for(let i=1;i<lab.length;i++)lab[i].y=Math.max(lab[i].y,lab[i-1].y+14);lab.forEach(l=>{g+=`<line x1="${Lm+pw+6}" x2="${Lm+pw+16}" y1="${l.y}" y2="${l.y}" stroke="${hcol(l.c)}" stroke-width="2"/><text x="${Lm+pw+20}" y="${l.y+4}" style="fill:var(--ink)">${esc(l.c)}</text>`})}
+    // zaman ekseni: etiketi değişen dilimler, genişliğe göre seyreltilir
+    const fx=day?hday:hhr;let ti=T.map((t,i)=>i).filter(i=>!i||fx(T[i])!==fx(T[i-1]));const mx=Math.max(2,Math.floor(pw/64));if(ti.length>mx){const st2=Math.ceil(ti.length/mx);ti=ti.filter((x,j)=>j%st2===0)}
+    const yb=top2+H2;ti.forEach(i=>{g+=`<text x="${X(i)}" y="${yb+16}" text-anchor="middle">${fx(T[i])}</text>`});
+    g+=`<g id="hHov"></g><rect id="hHit" x="${Lm}" y="0" width="${pw}" height="${yb}" fill="transparent"/>`;
+    $("hPlot").innerHTML=`<svg width="${W}" height="${yb+22}" viewBox="0 0 ${W} ${yb+22}" role="img" aria-label="${esc(on.join(", "))} için ${HP[st.hp][2]} fiyat ve satış adedi grafiği; Tablo düğmesi aynı veriyi tablo olarak gösterir">${g}</svg><div class="htip" id="hTip" hidden></div>`;
+    const hit=$("hHit"),tip=$("hTip"),hov=$("hHov");
+    const show=e=>{const r=$("hPlot").getBoundingClientRect(),mx=e.clientX-r.left,i=Math.max(0,Math.min(T.length-1,Math.floor((mx-Lm)/bw))),t=T[i];
+      let o=`<line x1="${X(i)}" x2="${X(i)}" y1="4" y2="${yb}" stroke="var(--mut)" stroke-dasharray="3 3"/>`;
+      on.forEach(c=>{const d=D.S[c][t];if(d)o+=`<circle cx="${X(i)}" cy="${Y1(d.p)}" r="4.5" fill="${hcol(c)}" stroke="var(--card)" stroke-width="2"/>`});hov.innerHTML=o;
+      tip.innerHTML=`<b>${tl(t)}</b>`+on.map(c=>{const d=D.S[c][t];return `<div class="hr"><i style="background:${hcol(c)}"></i>${esc(c)}<span>${d?fmt(d.p)+` <small>× ${fmt(d.n)}</small>`:"-"}</span></div>`}).join("")+`<div class="hr" style="border-top:1px solid var(--line);margin-top:4px;padding-top:4px"><small>Toplam satılan</small><span>${fmt(tots[i])}</span></div>`;
+      tip.hidden=false;const tw=tip.offsetWidth;tip.style.left=(X(i)+14+tw>W?X(i)-14-tw:X(i)+14)+"px";tip.style.top=Math.max(0,Math.min(e.clientY-r.top-20,yb-tip.offsetHeight))+"px"};
+    hit.addEventListener("pointermove",show);hit.addEventListener("pointerdown",show);
+    hit.addEventListener("pointerleave",()=>{hov.innerHTML="";tip.hidden=true});
+  }
+  let hRz=0;window.addEventListener("resize",()=>{cancelAnimationFrame(hRz);hRz=requestAnimationFrame(()=>{if(cur&&!$("idItem").hidden&&!hs.tbl)drawHist()})});
   $("idFetch").onclick=fetchItem;
   $("idSrv").onchange=()=>{st.srv=$("idSrv").value;saveSt();if(cur&&!$("idItem").hidden)fetchItem()};
   build();
