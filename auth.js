@@ -206,6 +206,26 @@
     try{sessionStorage.setItem("aoPop_"+kind,"1")}catch(e){}
     showInfo(kind,st);
   }
+  // DPS Meter güncelleme uyarısı: toplayıcıyı kullanan her sayfada (DPS Meter sayfasının kendi uyarısı var) üstte şerit.
+  // Sadece toplayıcıyı daha önce kurmuş kişilerde yoklanır (yerel ağ izni sormasın diye).
+  async function updBanner(){
+    const page=window.aoNav&&window.aoNav.page;
+    if(!page||page==="dps"||!appFlag())return;
+    try{if(sessionStorage.getItem("aoUpdX"))return}catch(e){}
+    const st=await collector();const u=st&&st.update;if(!u||!u.version)return;
+    const nav=document.getElementById("topnav");if(!nav||document.getElementById("aoUpd"))return;
+    const b=document.createElement("div");b.id="aoUpd";b.setAttribute("role","status");
+    b.style.cssText="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:12px 0 0;padding:10px 14px;border:1px solid #b8602a;border-radius:12px;background:rgba(240,136,62,.12);color:var(--ink,#e6e9ee);font:600 14px/1.4 Inter,system-ui,sans-serif";
+    const btn="font:inherit;font-weight:700;padding:7px 14px;border-radius:9px;border:1px solid #b8602a;background:var(--acc2,#7a3e16);color:var(--accT,#ffd6b3);cursor:pointer";
+    const draw=(t,go)=>{b.innerHTML=`<span style="flex:1;min-width:200px">${t}</span>${go?`<button type="button" data-go style="${btn}">Güncelle</button>`:""}<button type="button" data-x aria-label="Kapat" style="${btn};background:transparent;color:var(--acc,#f0883e);border-color:#5a3a24;padding:7px 10px">✕</button>`;
+      b.querySelector("[data-x]").onclick=()=>{try{sessionStorage.setItem("aoUpdX","1")}catch(e){}b.remove()};
+      const g=b.querySelector("[data-go]");if(g)g.onclick=async()=>{g.disabled=true;
+        try{const r=await fetch("http://127.0.0.1:47700/update",{method:"POST"});if(!r.ok)throw 0;draw("DPS Meter güncelleniyor; birazdan kendini yeniden açacak, sayfayı yenilemene gerek yok.",false)}
+        catch(e){draw("Güncelleme başlatılamadı. DPS Meter sayfasından tekrar dene.",true)}}};
+    draw(u.state==="iniyor"?`DPS Meter dps-v${u.version} indiriliyor…`:`<b>DPS Meter'ın yeni sürümü var: dps-v${u.version}</b> (sende v${st.version}). Bu sekme toplayıcıyı kullanıyor; güncel sürüm daha doğru veri verir.`,u.state!=="iniyor");
+    nav.after(b);
+  }
+
   // Yenilikler: data/changelog.json'daki en yeni not görülmediyse bir kez pencere; menüdeki noktayı da günceller
   async function notesPopup(){
     let L;try{L=await fetch("data/changelog.json",{cache:"no-cache"}).then(r=>r.json())}catch(e){return false}
@@ -317,6 +337,7 @@
         feedbackUI();
         // Önce yenilikler; o açıldıysa kurulum penceresi bu açılışta çıkmaz (iki pencere üst üste binmesin)
         setTimeout(async()=>{const shown=await notesPopup().catch(()=>false);if(!shown)infoPopup().catch(()=>{})},1500);
+        setTimeout(()=>updBanner().catch(()=>{}),2500);
         setTimeout(portalShare,3000);
         // Panel istatistikleri için sayfa açılışı (ana sayfada sekme: #craft, #farm...)
         const pg=location.pathname.replace(/^\/|\.html$/g,"").replace(/^index$/,"")||"#"+(location.hash.slice(1).split(/[=&]/)[0]||"alchemy");

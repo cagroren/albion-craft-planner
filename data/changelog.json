@@ -1,5 +1,8 @@
 [
-  {"date": "2026-10-31", "title": "Gathering sekmesi, fiyat grafikleri ve savaş raporu", "items": [
+  {"date": "2026-10-31", "title": "Gathering, Portallar, fiyat grafikleri ve savaş raporu", "items": [
+    "Yeni Portallar sekmesi: guild'in gördüğü Dragon (Ancient Lands) portalları canlı listede; bir sonraki small, medium ve large portalın açılmasına kalan süre.",
+    "DPS Meter'ın yeni sürümü çıkınca, toplayıcıyı kullanan bütün sekmelerin üstünde \"Güncelle\" uyarısı çıkıyor.",
+    "Güncelleme notları: menüdeki \"Yenilikler\" sayfası; yeni bir şey eklenince bir kez pencere olarak da gösterilir.",
     "Yeni Gathering sekmesi: Destiny Board'daki toplama spec'lerine göre saatlik kazanç ve en kârlı kaynak sıralaması.",
     "Item Database'te bir eşya açınca son günlerin fiyat ve satış adedi grafiği.",
     "DPS Meter'a Kill / Death sekmesi: partideyken kimi kestiğin ve kime öldüğün, iki tarafın seti ikonlarla ve IP'leriyle. Toplayıcının görmediği ölümler resmî killboard'dan tamamlanır.",
