@@ -44,6 +44,11 @@ tr.new td{background:rgba(240,136,62,.08)}
 .tm .ac{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-top:6px}
 .tm input,.tm select{font:inherit;font-size:13px;border:1px solid var(--line2);border-radius:9px;background:var(--in);color:var(--ink)}
 .tm input{width:64px;text-align:right}
+.add{display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;background:var(--card2);border:1px solid var(--line);border-radius:12px;padding:12px;margin:10px 0}
+.add label{display:flex;flex-direction:column;gap:4px;font-size:12px;font-weight:700;color:var(--mut)}
+.add input,.add select{font:inherit;font-size:14px;padding:7px 9px;border:1px solid var(--line2);border-radius:9px;background:var(--in);color:var(--ink)}
+#aZone{width:230px}#aMin{width:80px;text-align:right}
+td button.x{padding:2px 8px;font-size:12px;margin-top:4px}
 .note{border:1px solid rgba(227,179,65,.5);background:rgba(227,179,65,.06);border-radius:12px;padding:10px 14px;font-size:14px;margin:0 0 12px}
 details summary{cursor:pointer;font-weight:700;color:var(--acc)}
 .how{margin:8px 0 0;padding-left:20px;color:#c3cad4;font-size:14px}.how li{margin:3px 0}
@@ -57,7 +62,7 @@ details summary{cursor:pointer;font-weight:700;color:var(--acc)}
 
 <section>
   <h2>Sonraki portallar</h2>
-  <p class="st" style="margin:0 0 12px">Her portal türü oyunda tek bir sayaçla birçok haritada aynı anda belirir, önce kilitli durur, sonra açılır. Son belirme biliniyorsa sonrakinin aralığı oyun dosyalarındaki sürelerden hesaplanır. Oyunda bir portal görürsen üstündeki sayacı ("açılıyor" ya da "kapanıyor") buraya dakika olarak gir ya da yeni açıldıysa "Şimdi açıldı"ya bas; herkesin sayacı düzelir. Toplayıcısı açık üyelerin gördükleri kendiliğinden sayılır.</p>
+  <p class="st" style="margin:0 0 12px">Her portal türü oyunda tek bir sayaçla birçok haritada aynı anda belirir, önce kilitli durur, sonra açılır. Son belirme biliniyorsa sonrakinin aralığı oyun dosyalarındaki sürelerden hesaplanır. Oyunda bir portal görürsen üstündeki sayacı ("açılıyor" ya da "kapanıyor") buraya dakika olarak gir ya da yeni belirdiyse "Şimdi belirdi"ye bas; herkesin sayacı düzelir. Toplayıcısı açık üyelerin gördükleri kendiliğinden sayılır.</p>
   <div class="tm" id="tm"></div>
 </section>
 
@@ -72,6 +77,20 @@ details summary{cursor:pointer;font-weight:700;color:var(--acc)}
     <button type="button" id="ntf">Bildirimleri aç</button>
   </div>
   <div class="st" id="col" style="margin:10px 0">Toplayıcı kontrol ediliyor...</div>
+  <details id="addBox"><summary>Portal ekle (dünya haritasında gördüğün)</summary>
+    <form class="add" id="addF" autocomplete="off">
+      <label>Harita<input id="aZone" list="aZones" placeholder="Harita adı yaz" required></label>
+      <datalist id="aZones"></datalist>
+      <label>Portal<select id="aKind">
+        <option value="DRAGON_AREA_ORANGE_SMALL">Small · Turuncu (sarı bölge)</option><option value="DRAGON_AREA_BLACK_SMALL">Small · Siyah</option>
+        <option value="DRAGON_AREA_ORANGE_MEDIUM">Medium · Turuncu</option><option value="DRAGON_AREA_BLACK_MEDIUM">Medium · Siyah</option>
+        <option value="DRAGON_AREA_ORANGE_LARGE">Large · Turuncu</option><option value="DRAGON_AREA_BLACK_LARGE">Large · Siyah</option></select></label>
+      <label>Oyundaki sayaç<input id="aMin" type="number" min="0" max="240" step="1" placeholder="dk" required></label>
+      <label>&nbsp;<select id="aMode"><option value="open">dk sonra açılıyor</option><option value="close">dk sonra kapanıyor</option></select></label>
+      <button type="submit" id="aGo">Ekle</button>
+      <span class="st" id="aSt"></span>
+    </form>
+  </details>
   <div class="t"><table>
     <thead><tr><th>Portal</th><th>Grup</th><th>Harita</th><th>Konum</th><th>Durum</th><th>Gören</th></tr></thead>
     <tbody id="list"><tr><td colspan="6" class="empty">Yükleniyor...</td></tr></tbody>
@@ -112,7 +131,7 @@ const SIZE={SMALL:["Small","1 · 2-3 · 4-5 kişi"],MEDIUM:["Medium","5-7 kişi"
 const COLOR={ORANGE:["Turuncu","T6"],BLACK:["Siyah","T7"]};
 const F=(()=>{try{return JSON.parse(localStorage.getItem("aoportal1")||"{}")}catch(e){return {}}})();
 const saveF=()=>{try{localStorage.setItem("aoportal1",JSON.stringify(F))}catch(e){}};
-let rows=[],known=null,fresh=new Set(),Z={},AVA={};
+let me=null,rows=[],known=null,fresh=new Set(),Z={},AVA={};
 
 document.querySelectorAll("[data-f]").forEach(c=>{
   c.checked=!(F.off||[]).includes(c.dataset.f);
@@ -123,7 +142,13 @@ const parse=kind=>{const m=/(ORANGE|BLACK)_(SMALL|MEDIUM|LARGE)/.exec(kind||"");
 
 // Harita adları: Royal/Outlands zones.json'dan, Avalon yolları maps.json'dan
 Promise.all([fetch("data/zones.json").then(r=>r.json()).catch(()=>({})),fetch("data/maps.json").then(r=>r.json()).catch(()=>({S:[]}))])
-  .then(([z,m])=>{Z=z;(m.S||[]).forEach(r=>AVA[r[0]]=r[1]);render()});
+  .then(([z,m])=>{Z=z;(m.S||[]).forEach(r=>AVA[r[0]]=r[1]);fillZones();render()});
+const BYNAME={};
+function fillZones(){
+  const add=(id,n)=>{if(n&&!/_/.test(n)&&!/^ISLAND|^Debug/i.test(id)&&!BYNAME[n.toLowerCase()])BYNAME[n.toLowerCase()]=id};
+  Object.entries(AVA).forEach(([id,n])=>add(id,n));Object.entries(Z).forEach(([id,n])=>add(id,n));
+  $("aZones").innerHTML=Object.keys(BYNAME).sort().map(n=>`<option value="${esc(zname(BYNAME[n]))}">`).join("");
+}
 const zname=z=>AVA[z]||(Z[z]&&!/_/.test(Z[z])?Z[z]:null)||z;
 
 const ntf=$("ntf");
@@ -170,8 +195,8 @@ function renderTimes(){
     return `<div data-c="${k}"><span class="bd ${c}"><i></i>${SIZE[sz][0]} · ${COLOR[c][0]}</span>
       <small class="st">${mx<=4200?mn/60+"–"+mx/60+" dk'da":String(mn/3600).replace(".",",")+"–"+mx/3600+" saatte"} bir · ${dk(lock)} kilitli, ${life/60} dk açık · ${SIZE[sz][1]}</small>
       <span class="nx"></span><small class="st nt"></small>
-      <div class="ac"><button type="button" data-k="${k}">Şimdi açıldı</button></div>
-      <div class="ac"><input type="number" min="0" max="180" step="1" placeholder="dk" aria-label="Dakika"><select aria-label="Ne olacak"><option value="open">dk sonra açılacak</option><option value="close">dk sonra kapanacak</option></select><button type="button" data-k="${k}" data-m="1">Kaydet</button></div></div>`;
+      <div class="ac"><button type="button" data-k="${k}">Şimdi belirdi</button></div>
+      <div class="ac"><input type="number" min="0" max="180" step="1" placeholder="dk" aria-label="Dakika"><select aria-label="Ne olacak"><option value="open">dk sonra açılıyor</option><option value="close">dk sonra kapanıyor</option></select><button type="button" data-k="${k}" data-m="1">Kaydet</button></div></div>`;
   }).join("");
   KINDS.forEach(([c,sz,mn,mx])=>{
     const k=`DRAGON_AREA_${c}_${sz}`,l=last[k],life=LIFE[sz],el=box.querySelector(`[data-c="${k}"]`);
@@ -210,11 +235,26 @@ $("tm").addEventListener("click",async e=>{
     const sz=b.dataset.k.split("_").pop();
     ofs=Math.round(m*60-LOCK(b.dataset.k)-(row.querySelector("select").value==="close"?LIFE[sz]:0));
     inp.value="";
-  }else ofs=-LOCK(b.dataset.k);  // "Şimdi açıldı": kilit şimdi bitti
+  }  // "Şimdi belirdi": ofs 0
   const t=b.textContent;b.disabled=true;b.textContent="Kaydediliyor…";
   const {error}=await window.aoSb.rpc("mark_portal_time",{k:b.dataset.k,ofs});
   b.disabled=false;b.textContent=error?"Olmadı: "+error.message:t;
   if(!error)await load();
+});
+
+// Elle portal: açılış = şimdi + X (açılıyor) ya da şimdi + X - açık kalma (kapanıyor)
+$("aZone").addEventListener("change",()=>{const id=BYNAME[$("aZone").value.trim().toLowerCase()];if(id&&AVA[id])$("aKind").value=$("aKind").value.replace("ORANGE","BLACK")});
+$("addF").addEventListener("submit",async e=>{
+  e.preventDefault();
+  const S=$("aSt"),id=BYNAME[$("aZone").value.trim().toLowerCase()],k=$("aKind").value,m=parseFloat($("aMin").value);
+  if(!id){S.textContent="Haritayı listeden seç.";$("aZone").focus();return}
+  if(!(m>=0&&m<=240)){S.textContent="Dakikayı gir.";$("aMin").focus();return}
+  const life=LIFE[parse(k).s],opens=Date.now()/1e3+m*60-($("aMode").value==="close"?life:0);
+  $("aGo").disabled=true;S.textContent="Ekleniyor…";
+  const {error}=await window.aoSb.rpc("add_dragon_portal",{z:id,k,opens});
+  $("aGo").disabled=false;
+  if(error){S.textContent=error.message;return}
+  S.textContent="Eklendi: "+zname(id);$("aMin").value="";await load();
 });
 
 async function load(){
@@ -222,7 +262,8 @@ async function load(){
   const {data:{session}}=await sb.auth.getSession();
   if(!session){$("list").innerHTML='<tr><td colspan="6" class="empty">Portalları görmek için giriş yap.</td></tr>';return}
   loadTimes(sb).then(renderTimes,()=>{});
-  const {data,error}=await sb.from("dragon_portals").select("id,zone,kind,x,y,opens_at,closes_at,exact,gone_at,first_seen,seen_name")
+  me=session.user&&session.user.id;
+  const {data,error}=await sb.from("dragon_portals").select("id,zone,kind,x,y,opens_at,closes_at,exact,manual,gone_at,first_seen,seen_by,seen_name")
     .gt("gone_at",new Date().toISOString()).order("first_seen",{ascending:false}).limit(200);
   if(error){$("info").textContent="Liste okunamadı: "+error.message;return}
   rows=data||[];
@@ -236,8 +277,9 @@ const mmss=s=>{s=Math.max(0,Math.round(s));const h=Math.floor(s/3600),m=Math.flo
 const ago=t=>{const s=(Date.now()-t)/1e3;return s<60?"az önce":s<3600?Math.floor(s/60)+" dk önce":Math.floor(s/3600)+" sa önce"};
 function render(){
   const now=Date.now(),L=rows.filter(r=>Date.parse(r.gone_at)>now&&shown(r));
-  // Önce açık olanlar (en az süresi kalan üstte), sonra kapananlar
-  L.sort((a,b)=>{const ca=Date.parse(a.closes_at),cb=Date.parse(b.closes_at),oa=ca>now,ob=cb>now;return oa!==ob?(oa?-1:1):ca-cb});
+  // Önce açık olanlar, sonra kilitliler, sonra kapananlar; her grupta en yakın zaman üstte
+  const stage=r=>Date.parse(r.opens_at||0)>now?1:Date.parse(r.closes_at)>now?0:2;
+  L.sort((a,b)=>stage(a)-stage(b)||Date.parse(a.closes_at)-Date.parse(b.closes_at));
   $("list").innerHTML=L.length?L.map(r=>{
     const k=parse(r.kind),sz=SIZE[k.s],co=COLOR[k.c],cl=Date.parse(r.closes_at),gn=Date.parse(r.gone_at),zn=zname(r.zone);
     const est=r.exact?"":"~";
@@ -249,9 +291,17 @@ function render(){
       <td>${AVA[r.zone]?`<a href="maps.html#${encodeURIComponent(zn)}">${esc(zn)}</a>`:esc(zn)}${zn!==r.zone?`<small>${esc(r.zone)}</small>`:""}</td>
       <td>${r.x!=null?Math.round(r.x)+", "+Math.round(r.y):"?"}</td>
       <td>${st}</td>
-      <td>${esc(r.seen_name||"?")}<small>${ago(Date.parse(r.first_seen))}</small></td></tr>`;
-  }).join(""):`<tr><td colspan="6" class="empty">${rows.length?"Filtreye uyan açık portal yok.":"Şu an bilinen açık portal yok. Toplayıcısı açık bir guild üyesi portalın olduğu haritaya girince burada görünür."}</td></tr>`;
+      <td>${esc(r.seen_name||"?")}<small>${r.manual?"elle · ":""}${ago(Date.parse(r.first_seen))}</small>${r.manual&&r.seen_by===me?`<button type="button" class="x" data-del="${esc(r.id)}">Sil</button>`:""}</td></tr>`;
+  }).join(""):`<tr><td colspan="6" class="empty">${rows.length?"Filtreye uyan açık portal yok.":"Şu an bilinen açık portal yok. Toplayıcısı açık bir guild üyesi portalın olduğu haritaya girince ya da biri Portal ekle ile girince burada görünür."}</td></tr>`;
 }
+
+$("list").addEventListener("click",async e=>{
+  const b=e.target.closest("button[data-del]");if(!b||!window.aoSb)return;
+  b.disabled=true;
+  const {error}=await window.aoSb.from("dragon_portals").delete().eq("id",b.dataset.del);
+  if(error){b.textContent="Olmadı";return}
+  await load();
+});
 
 // Kendi toplayıcın: portal paylaşabiliyor mu?
 async function collector(){

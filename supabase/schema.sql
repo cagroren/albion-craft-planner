@@ -586,6 +586,10 @@ begin
     gone_at = case when (p->>'closes') is not null or d.gone_at < now() then excluded.gone_at else d.gone_at end,
     last_seen = now(),
     raw = coalesce(excluded.raw, d.raw);
+  -- Toplayıcı kesin zamanla gördüyse aynı portalın elle girilmiş kaydı silinir
+  if (p->>'closes') is not null then
+    delete from public.dragon_portals where manual and zone = z and kind = k and abs(extract(epoch from closes_at - cl)) < 480;
+  end if;
   delete from public.dragon_portals where gone_at < now() - interval '1 day';
 end $$;
 revoke all on function public.report_dragon_portal(jsonb) from public, anon;
@@ -618,3 +622,37 @@ begin
 end $$;
 revoke all on function public.mark_portal_time(text, integer) from public, anon;
 grant execute on function public.mark_portal_time(text, integer) to authenticated;
+
+-- ELLE PORTAL (yeni eklendi): dünya haritasında görülen portal Portallar sekmesinden girilir.
+-- opens: açılış (unix sn). Aynı haritada aynı tür 8 dk içinde zaten varsa eklenmez. Giren kendi elle kaydını silebilir.
+alter table public.dragon_portals add column if not exists manual boolean not null default false;
+drop policy if exists "elle portal silme" on public.dragon_portals;
+create policy "elle portal silme" on public.dragon_portals for delete using (manual and seen_by = auth.uid() and public.is_member());
+
+create or replace function public.add_dragon_portal(z text, k text, opens double precision) returns void
+language plpgsql security definer set search_path = public as $$
+declare
+  op timestamptz := to_timestamp(opens);
+  cl timestamptz;
+begin
+  if not public.is_member() then raise exception 'Sadece guild üyeleri ekleyebilir'; end if;
+  if k !~ '^DRAGON_AREA_(ORANGE|BLACK)_(SMALL|MEDIUM|LARGE)$' or z is null or length(z) not between 1 and 40 then
+    raise exception 'Geçersiz portal';
+  end if;
+  if op is null or op < now() - interval '15 minutes' or op > now() + interval '4 hours' then
+    raise exception 'Sayaç geçersiz';
+  end if;
+  cl := op + case when k like '%SMALL' then interval '10 minutes' else interval '5 minutes' end;
+  if exists (select 1 from public.dragon_portals where zone = z and kind = k and gone_at > now()
+             and abs(extract(epoch from closes_at - cl)) < 480) then
+    raise exception 'Bu portal zaten listede';
+  end if;
+  if (select count(*) from public.dragon_portals where manual and seen_by = auth.uid() and first_seen > now() - interval '1 minute') >= 10 then
+    raise exception 'Çok hızlı ekliyorsun, biraz bekle';
+  end if;
+  insert into public.dragon_portals (id, zone, kind, opens_at, closes_at, exact, manual, gone_at, seen_by, seen_name)
+  values (z || '|' || k || '|elle|' || floor(extract(epoch from cl))::bigint, z, k, op, cl, true, true,
+          cl + interval '5 minutes', auth.uid(), (select name from public.profiles where id = auth.uid()));
+end $$;
+revoke all on function public.add_dragon_portal(text, text, double precision) from public, anon;
+grant execute on function public.add_dragon_portal(text, text, double precision) to authenticated;
