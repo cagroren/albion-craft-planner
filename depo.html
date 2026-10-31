@@ -85,7 +85,7 @@ td.n,th.n{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
 <section>
   <div class="row"><span class="live" id="cState">Bağlanıyor</span><span class="st" id="cInfo"></span><span class="sp"></span><button class="p" id="sync">Oyundan güncelle</button><button id="addM">+ Elle depo ekle</button></div>
   <ol class="how">
-    <li>DPS Meter toplayıcısı açıkken oyunda <b>bankayı aç ve her sekmeye bir kez tıkla</b>; her şehrin bankası ayrı açılır. Ada ya da evdeki <b>sandıkları aç</b>. İçerikleri kendiliğinden buraya gelir.</li>
+    <li>DPS Meter toplayıcısı açıkken bu sayfa birkaç saniyede bir kendiliğinden güncellenir. Oyunda <b>bankayı aç ve her sekmeye bir kez tıkla</b>; her şehrin bankası ayrı açılır. Ada ya da evdeki <b>sandıkları aç</b>. İçerikleri kendiliğinden buraya gelir.</li>
     <li>Hangi deponun hesaba katılacağını aşağıdan seç. Seçtiklerin <b>Craft, Cooking, Alchemy, Refining ve Farming</b> sekmelerinde "depoda" olarak düşülür.</li>
     <li>Toplayıcı yoksa ya da bir şey eksik kaldıysa depoyu <b>elle</b> de girip düzeltebilirsin.</li>
   </ol>
@@ -149,7 +149,12 @@ async function loadNames(){
 async function col(path,opt){const c=new AbortController();setTimeout(()=>c.abort(),3000);const r=await fetch(API+path,Object.assign({signal:c.signal,cache:"no-store"},opt||{}));if(!r.ok)throw new Error("HTTP "+r.status);return r.json()}
 const appFlag=()=>{try{return !!JSON.parse(localStorage.getItem("aodps1")||"{}").app}catch(e){return false}};
 let launched=false;
+// manual: düğmeyle; "auto": sayfa açıkken birkaç saniyede bir, değişiklik yoksa hiçbir şeye dokunmaz
+let syncing=false;
 async function sync(manual){
+  if(syncing)return;syncing=true;try{await sync1(manual)}finally{syncing=false}
+}
+async function sync1(manual){
   let j;
   try{j=await col("/storage")}catch(e){
     let st=null;try{st=await col("/status")}catch(_){}
@@ -163,17 +168,22 @@ async function sync(manual){
   let n=0;OTHER=[];
   (j.stores||[]).forEach(s=>{
     if(D.hidden[s.key]&&s.t<=D.hidden[s.key])return;
-    delete D.hidden[s.key];
+    if(D.hidden[s.key]){delete D.hidden[s.key];n++}
     const items={};(s.items||[]).forEach(x=>{const k=x.q?x.item+"#"+x.q:x.item;items[k]=(items[k]||0)+x.qty});
     const old=D.stores[s.key];
     if(!old&&s.kind==="chest"&&!s.island){OTHER.push({...s,items});return}  // dünyadaki sandıklar sorulur
     if(old&&old.t>=s.t)return;
     D.stores[s.key]={name:old&&old.rn?old.name:s.name,rn:old&&old.rn,zone:s.zone,kind:s.kind,t:s.t,on:old?old.on:true,city:old&&old.city,items};n++;
   });
+  const oth=OTHER.map(s=>s.key+s.t).join();
+  if(manual==="auto"&&!n&&oth===lastOth)return;
+  lastOth=oth;
   save();
-  $("cInfo").textContent=(j.character?j.character+" · ":"")+(n?n+" depo güncellendi":"Yeni bir şey yok")+". Bankada her sekmeye tıklayınca o sekme gelir.";
+  $("cInfo").textContent=(j.character?j.character+" · ":"")+(n?n+" depo güncellendi ("+new Date().toLocaleTimeString("tr-TR",{hour:"2-digit",minute:"2-digit"})+")":"Yeni bir şey yok")+". Oyunda banka sekmesi ya da sandık açınca kendiliğinden gelir.";
   render();
 }
+let lastOth="";
+setInterval(()=>{if(!document.hidden&&$("ov").hidden)sync("auto")},5000);
 $("sync").onclick=()=>sync(true);
 
 // ---------- depolar
