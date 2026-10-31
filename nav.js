@@ -10,8 +10,8 @@
   var URL_OF={};GROUPS.forEach(function(g){g[1].forEach(function(t){URL_OF[t[0]]=t[2]})});
   var HASH={"#food":"food","#craft":"craft","#bm":"bm","#db":"db","#farm":"farm","#refine":"refine","#enchant":"enchant","#alchemy":"alchemy"};
   var path=location.pathname.replace(/\.html$/,"");
-  var page=/\/depo$/.test(path)?"depo":/\/gather$/.test(path)?"gather":/\/builds$/.test(path)?"builds":/\/destiny$/.test(path)?"destiny":/\/dps$/.test(path)?"dps":/\/maps$/.test(path)?"maps":/\/portals$/.test(path)?"portals":(HASH[location.hash]||"alchemy");
-  var isIndex=!/\/(builds|destiny|dps|maps|portals|depo|gather)$/.test(path);
+  var page=/\/yenilikler$/.test(path)?"yenilikler":/\/depo$/.test(path)?"depo":/\/gather$/.test(path)?"gather":/\/builds$/.test(path)?"builds":/\/destiny$/.test(path)?"destiny":/\/dps$/.test(path)?"dps":/\/maps$/.test(path)?"maps":/\/portals$/.test(path)?"portals":(HASH[location.hash]||"alchemy");
+  var isIndex=!/\/(builds|destiny|dps|maps|portals|depo|gather|yenilikler)$/.test(path);
   var store=function(k,v){try{v===undefined?localStorage.removeItem(k):localStorage.setItem(k,v)}catch(e){}};
   var load=function(k){try{return localStorage.getItem(k)}catch(e){return null}};
 
@@ -31,6 +31,8 @@
     +".nvg a:hover{color:var(--ink,#e6e9ee);background:var(--card2,#151b23)}"
     +".nvg a.on{background:var(--acc2,#7a3e16);color:var(--accT,#ffd6b3);border-color:#b8602a}"
     +".nvg a:focus-visible{outline:2px solid var(--acc,#f0883e);outline-offset:2px}"
+    +".nvn{display:inline-flex;align-items:center;gap:6px;align-self:center;font:600 13px/1.2 Inter,system-ui,sans-serif;color:var(--mut,#8b95a3);text-decoration:none;padding:8px 10px;border-radius:9px}"
+    +".nvn:hover{color:var(--ink,#e6e9ee)}.nvn.on{color:var(--accT,#ffd6b3)}.nvn i{width:8px;height:8px;border-radius:50%;background:var(--acc,#f0883e);display:none}.nvn.unread i{display:inline-block}"
     +"@media(max-width:700px){.nvg{flex:1 1 100%}.nvg a{padding:7px 10px;font-size:13px}}";
   var st=document.createElement("style");st.textContent=css;document.head.appendChild(st);
 
@@ -41,7 +43,9 @@
       var on=t[0]===page;
       return '<a href="'+t[2]+'" data-k="'+t[0]+'" class="'+(on?"on":"")+(t[3]?" pin":"")+'"'+(on?' aria-current="page"':"")+'>'+t[1]+'</a>';
     }).join("")+'</div>';
-  }).join("");
+  }).join("")
+    // Güncelleme notları: okunmamış not varsa noktalı (auth.js en son notun tarihini aoNotesLatest'e yazar)
+    +'<a class="nvn'+(page==="yenilikler"?" on":"")+((load("aoNotesLatest")||"")>(load("aoNotesSeen")||"")?" unread":"")+'" href="yenilikler.html" title="Güncelleme notları"><i></i>Yenilikler</a>';
   function apply(off,admin){
     OFF={off:off||[],admin:!!admin};
     el.querySelectorAll("a[data-k]").forEach(function(a){
@@ -53,7 +57,7 @@
     el.querySelectorAll(".nvg").forEach(function(g){g.hidden=!g.querySelector("a[data-k]:not([hidden])")});
   }
   apply(OFF.off,OFF.admin);
-  window.aoNav={page:page,apply:apply,home:function(){for(var k in URL_OF)if(!isOff(k))return URL_OF[k];return "./"},set:function(off,admin){store("aoTabsOff",JSON.stringify({off:off||[],admin:!!admin}));apply(off,admin)}};
+  window.aoNav={page:page,apply:apply,notes:function(u){var a=el.querySelector(".nvn");if(a)a.classList.toggle("unread",!!u)},home:function(){for(var k in URL_OF)if(!isOff(k))return URL_OF[k];return "./"},set:function(off,admin){store("aoTabsOff",JSON.stringify({off:off||[],admin:!!admin}));apply(off,admin)}};
   // Ana sayfa içindeki sekmeler sadece #'i değiştirir; sayfa sekmeyi açılışta okuduğu için yeniden yüklenir
   el.addEventListener("click",function(e){
     var a=e.target.closest&&e.target.closest("a[data-k]");if(!a||e.ctrlKey||e.metaKey||e.shiftKey||e.button)return;

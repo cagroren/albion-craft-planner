@@ -7,6 +7,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - The owner writes Turkish; answer in Turkish. UI text, code comments and commit messages are Turkish too.
 - Flow for every change: implement → test locally → commit locally → ask **"Canlıya alayım mı?"**. Push (and publish a DPS release) only after an explicit yes in that turn. Vercel deploys `main` automatically on push.
 - Commit with `git commit -F <file>` (PowerShell breaks multi-line `-m`).
+- **Update notes:** every change users can see gets a plain-Turkish bullet in `data/changelog.json` (newest entry first; add to today's entry or create `{date,title,items}`), committed with the change. No technical jargon, no internal/dev-only changes. Users see new notes once as a popup (`auth.js` `notesPopup`) and on `yenilikler.html`; `nav.js` shows an unread dot (`aoNotesLatest` vs `aoNotesSeen`).
 - `index.html`, `destiny.html`, `builds.html`, `admin.html` are large: Grep first, then Read with offset/limit. For multi-line edits a small Python replace script (`assert s.count(old)==1`) written to the scratchpad is more reliable than shell heredocs.
 
 ## What this is

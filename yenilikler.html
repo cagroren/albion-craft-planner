@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Albion Yenilikler</title><link rel="manifest" href="manifest.webmanifest"><link rel="icon" href="icon-192.png"><meta name="theme-color" content="#0b0f14"><link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap">
+<script src="config.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<script src="auth.js"></script>
+<style>
+:root{--bg:#0b0f14;--card:#11161d;--card2:#151b23;--in:#0d1218;--ink:#e6e9ee;--mut:#8b95a3;--line:#252d38;--line2:#323c49;--acc:#f0883e;--acc2:#7a3e16;--accT:#ffd6b3;--good:#3fb950;--bad:#f85149;--warn:#e3b341;color-scheme:dark}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 "Inter",system-ui,-apple-system,"Segoe UI",sans-serif;padding:20px 16px;-webkit-font-smoothing:antialiased}
+main{max-width:860px;margin:auto}
+h1{font:800 30px/1.2 "Inter",system-ui,sans-serif;letter-spacing:-.01em;margin:0}
+section{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:20px;margin-bottom:16px}
+.dt{font:700 12px/1.4 "Inter",system-ui,sans-serif;letter-spacing:.12em;text-transform:uppercase;color:var(--acc);margin:0 0 4px}
+.tt{font-size:19px;font-weight:800;margin:0 0 10px}
+ul{margin:0;padding-left:20px;color:#c3cad4}
+li{margin:6px 0}
+.new{display:inline-block;margin-left:8px;padding:1px 8px;border-radius:20px;font-size:11px;font-weight:800;letter-spacing:.04em;color:#0b0f14;background:var(--acc);vertical-align:middle}
+.st{color:var(--mut);font-size:13px}
+@media(max-width:700px){body{padding:12px 16px}section{padding:16px;border-radius:14px}h1{font-size:24px}}
+</style>
+</head>
+<body>
+<main>
+<nav id="topnav"></nav><script src="nav.js"></script>
+<div style="display:flex;align-items:center;gap:12px;margin:14px 0 16px"><img src="logo.png" alt="KVF" width="48" height="48"><h1>Yenilikler</h1></div>
+<div id="list"><section><div class="st">Yükleniyor...</div></section></div>
+</main>
+<script>
+(function(){
+  const esc=t=>String(t==null?"":t).replace(/&/g,"&amp;").replace(/</g,"&lt;");
+  const day=d=>new Date(d+"T12:00:00").toLocaleDateString("tr-TR",{day:"numeric",month:"long",year:"numeric"});
+  let seen="";try{seen=localStorage.getItem("aoNotesSeen")||""}catch(e){}
+  fetch("data/changelog.json",{cache:"no-cache"}).then(r=>r.json()).then(L=>{
+    document.getElementById("list").innerHTML=L.map(n=>`<section><div class="dt">${esc(day(n.date))}${!seen||n.date>seen?'<span class="new">YENİ</span>':""}</div><div class="tt">${esc(n.title)}</div><ul>${n.items.map(i=>`<li>${esc(i)}</li>`).join("")}</ul></section>`).join("");
+    // Bu sayfayı açan bütün notları görmüş sayılır: bir daha "Yenilikler" penceresi çıkmaz
+    try{if(L[0])localStorage.setItem("aoNotesSeen",L[0].date)}catch(e){}
+    if(window.aoNav&&window.aoNav.notes)window.aoNav.notes(false);
+  }).catch(()=>{document.getElementById("list").innerHTML='<section><div class="st">Notlar yüklenemedi, sayfayı yenile.</div></section>'});
+})();
+</script>
+</body>
+</html>

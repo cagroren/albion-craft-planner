@@ -190,7 +190,7 @@
     setTimeout(portalShare,wait);
   }
   async function infoPopup(){
-    const page=window.aoNav&&window.aoNav.page;if(!page||page==="builds"||page==="maps"||page==="depo")return;
+    const page=window.aoNav&&window.aoNav.page;if(!page||page==="builds"||page==="maps"||page==="depo"||page==="yenilikler")return;
     const kind=page==="dps"||page==="destiny"||page==="portals"?"dps":"data";
     try{if(LS.getItem("aoPopNo_"+kind)||sessionStorage.getItem("aoPop_"+kind))return}catch(e){return}
     let st=null;
@@ -206,8 +206,35 @@
     try{sessionStorage.setItem("aoPop_"+kind,"1")}catch(e){}
     showInfo(kind,st);
   }
+  // Yenilikler: data/changelog.json'daki en yeni not görülmediyse bir kez pencere; menüdeki noktayı da günceller
+  async function notesPopup(){
+    let L;try{L=await fetch("data/changelog.json",{cache:"no-cache"}).then(r=>r.json())}catch(e){return false}
+    if(!Array.isArray(L)||!L.length)return false;
+    const latest=L[0].date,seen=get("aoNotesSeen")||"";
+    put("aoNotesLatest",latest);
+    if(window.aoNav&&window.aoNav.notes)window.aoNav.notes(latest>seen);
+    if(latest<=seen||(window.aoNav&&window.aoNav.page==="yenilikler"))return false;
+    const N=L.filter(n=>!seen||n.date>seen).slice(0,seen?3:1);
+    const day=d=>new Date(d+"T12:00:00").toLocaleDateString("tr-TR",{day:"numeric",month:"long"});
+    const o=document.createElement("div");o.id="aoNotes";o.setAttribute("role","dialog");o.setAttribute("aria-modal","true");o.setAttribute("aria-label","Yenilikler");
+    o.innerHTML=`<style>#aoNotes{position:fixed;inset:0;z-index:61;background:rgba(0,0,0,.55);display:flex;align-items:center;justify-content:center;padding:16px}
+      #aoNotes .ic{max-width:520px;width:100%;max-height:calc(100vh - 32px);overflow:auto;background:var(--card,#11161d);border:1px solid var(--line2,#323c49);border-radius:16px;padding:22px;color:var(--ink,#e6e9ee);font:15px/1.55 Inter,system-ui,sans-serif;box-shadow:0 16px 40px rgba(0,0,0,.5)}
+      #aoNotes h3{margin:0 0 12px;font:800 20px/1.3 Inter,system-ui,sans-serif;letter-spacing:0;text-transform:none;color:var(--ink,#e6e9ee)}
+      #aoNotes .d{font:700 11px/1.4 Inter,system-ui,sans-serif;letter-spacing:.12em;text-transform:uppercase;color:var(--acc,#f0883e);margin:14px 0 2px}
+      #aoNotes b{display:block;margin:0 0 4px}#aoNotes ul{margin:0;padding-left:20px;color:#c3cad4}#aoNotes li{margin:4px 0}
+      #aoNotes .bt{display:flex;gap:8px;justify-content:flex-end;margin-top:16px}
+      #aoNotes .bt a,#aoNotes .bt button{font:inherit;font-size:14px;font-weight:700;padding:10px 14px;border-radius:10px;border:1px solid #5a3a24;background:transparent;color:var(--acc,#f0883e);cursor:pointer;text-decoration:none}
+      #aoNotes .bt button{border-color:#b8602a;background:var(--acc2,#7a3e16);color:var(--accT,#ffd6b3)}</style>
+      <div class="ic"><h3>Yenilikler</h3>${N.map(n=>`<div class="d">${esc(day(n.date))}</div><b>${esc(n.title)}</b><ul>${n.items.map(i=>`<li>${esc(i)}</li>`).join("")}</ul>`).join("")}
+      <div class="bt"><a href="yenilikler.html">Bütün notlar</a><button type="button">Tamam</button></div></div>`;
+    const done=()=>{put("aoNotesSeen",latest);if(window.aoNav&&window.aoNav.notes)window.aoNav.notes(false);o.remove()};
+    o.querySelector("button").onclick=done;o.querySelector(".bt a").onclick=()=>put("aoNotesSeen",latest);
+    o.addEventListener("click",e=>{if(e.target===o)done()});o.addEventListener("keydown",e=>{if(e.key==="Escape")done()});
+    document.body.appendChild(o);o.querySelector("button").focus();
+    return true;
+  }
   function showInfo(kind,st){
-    if(document.getElementById("aoInfo"))return;
+    if(document.getElementById("aoInfo")||document.getElementById("aoNotes"))return;
     const s=document.createElement("style");
     s.textContent="#aoInfo{position:fixed;inset:0;z-index:60;background:rgba(0,0,0,.55);display:flex;align-items:center;justify-content:center;padding:16px}"
       +"#aoInfo .ic{max-width:480px;width:100%;max-height:calc(100vh - 32px);overflow:auto;background:var(--card,#11161d);border:1px solid var(--line2,#323c49);border-radius:16px;padding:22px;color:var(--ink,#e6e9ee);font:15px/1.55 Inter,system-ui,sans-serif;box-shadow:0 16px 40px rgba(0,0,0,.5);position:relative}"
@@ -288,7 +315,8 @@
       else{
         sb.rpc("touch").then(()=>{},()=>{});
         feedbackUI();
-        setTimeout(()=>infoPopup().catch(()=>{}),2000);
+        // Önce yenilikler; o açıldıysa kurulum penceresi bu açılışta çıkmaz (iki pencere üst üste binmesin)
+        setTimeout(async()=>{const shown=await notesPopup().catch(()=>false);if(!shown)infoPopup().catch(()=>{})},1500);
         setTimeout(portalShare,3000);
         // Panel istatistikleri için sayfa açılışı (ana sayfada sekme: #craft, #farm...)
         const pg=location.pathname.replace(/^\/|\.html$/g,"").replace(/^index$/,"")||"#"+(location.hash.slice(1).split(/[=&]/)[0]||"alchemy");

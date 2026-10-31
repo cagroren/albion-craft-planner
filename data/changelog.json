@@ -1,0 +1,62 @@
+[
+  {"date": "2026-10-31", "title": "Gathering sekmesi, fiyat grafikleri ve savaş raporu", "items": [
+    "Yeni Gathering sekmesi: Destiny Board'daki toplama spec'lerine göre saatlik kazanç ve en kârlı kaynak sıralaması.",
+    "Item Database'te bir eşya açınca son günlerin fiyat ve satış adedi grafiği.",
+    "DPS Meter'a Kill / Death sekmesi: partideyken kimi kestiğin ve kime öldüğün, iki tarafın seti ikonlarla ve IP'leriyle. Toplayıcının görmediği ölümler resmî killboard'dan tamamlanır.",
+    "Depo: toplam stokta eşyaların fiyatı ve kalitesi, \"Bununla ne craftlayabilirim\"de Use focus ve hangi şehirde yapmanın en kârlı olduğu.",
+    "Alışveriş listesi toparlandı: kopyala düğmesi adın yanında, sayılar ortalı ve hizalı."
+  ]},
+  {"date": "2026-10-29", "title": "Gerçek IP, yan el swap'ı ve Destiny craft hesabı", "items": [
+    "Parti setlerinde ortalama IP: oyunda bir oyuncuyu \"İncele\" dersen gerçek IP'si, incelemediklerinde tahmini IP görünür.",
+    "Builds: yan ele de swap eklenebilir; çift elli silah seçince yan el otomatik kapanır.",
+    "Destiny Board: Combat, Crafting, Refining… her kategorinin planı ayrı. Craft spec'inde \"kaç tane craftlarsam 100 olur\" tablosu (T4.0–T8.4) ve study hesabı.",
+    "DPS Meter'daki Loot ve Log sekmeleri şimdilik gizlendi."
+  ]},
+  {"date": "2026-10-27", "title": "Maps, Depo, Top Stats ve otomatik spec'ler", "items": [
+    "Yeni Maps sekmesi: Avalon yolunun adını yaz, haritanın içindeki kaynaklar, sandıklar, dungeon'lar ve portallar oyunun açısından çizilmiş hâliyle gelsin.",
+    "Yeni Depo sekmesi: bankadaki ve ada sandıklarındaki malzemeler oyundan okunur; Craft, Cooking, Alchemy, Refining ve Farming'de \"depoda / alınacak\" olarak düşülür.",
+    "Craft, Cooking, Alchemy, Farming ve Refining'deki spec'ler Destiny Board'dan kendiliğinden doluyor.",
+    "DPS Meter'a Top Stats: en büyük vuruş, 5/10 saniyelik burst, hasar türü ve vurulan hedef sayısı."
+  ]},
+  {"date": "2026-10-24", "title": "Parti setleri", "items": [
+    "DPS Meter'da partideki oyuncuların 10 slot ekipmanı: tier/eşdeğer sınırı, boş yemek/iksir/binek uyarıları ve rol dağılımı."
+  ]},
+  {"date": "2026-10-22", "title": "Swap'lar, Enchant tablosu ve küçük düzeltmeler", "items": [
+    "Builds: kafa, zırh, ayakkabı ve iksir için de swap; \"+ Swap\" düğmesi daha belirgin.",
+    "Enchant Yükseltme: bütün yollar tek tabloda, her hedefte kâr; eksik fiyatı tablodan yazabilirsin.",
+    "Destiny Board: combat spec'lerinde 100 üstü sadece credit ile gösteriliyor.",
+    "DPS Meter: partide arkadaşının kestiği mobdan sana düşen silver da sayılıyor.",
+    "Sağ alttaki balondan geri bildirim gönderebilirsin.",
+    "Albion Data Client ya da DPS Meter yoksa nasıl kurulacağını anlatan pencere ve tek tıkla indirme.",
+    "VPN ile Craft sekmesinin sürekli yenilenmesi düzeltildi."
+  ]},
+  {"date": "2026-10-21", "title": "Guild'e özel site ve kendini güncelleyen DPS Meter", "items": [
+    "Site artık sadece Kal Vas Flam Discord'unda Üye rolü olanlara açık.",
+    "DPS Meter toplayıcısı siteden kendiliğinden açılıyor, yeni sürüm çıkınca \"Güncelle\" ile kendini güncelliyor ve Albion Data Client'ı da başlatıyor.",
+    "Destiny Board: her mastery bölümünde toplu seçip plana ekleme; respec silver'ı sadece 100 üstü için."
+  ]},
+  {"date": "2026-10-20", "title": "Destiny Board ve yeni menü", "items": [
+    "Yeni Destiny Board sekmesi: seviyeler oyundan otomatik okunur, oyunla birebir respec maliyeti, Discord hesabına kaydedilen plan.",
+    "Farming baştan yazıldı: spec'ler, focus, ada ayarları, otlar ve hayvanlar.",
+    "Tarifler sayfa açılınca yükleniyor, plana ekleyince fiyatlar çekiliyor ve dakikada bir yenileniyor.",
+    "Gruplu yeni üst menü; son açtığın sekmeyi hatırlıyor."
+  ]},
+  {"date": "2026-10-18", "title": "Builds ve journal'lar", "items": [
+    "Yeni Builds sayfası: build ve grup build paylaşımı, Discord'da görselli link önizlemesi.",
+    "Craft'a journal hesabı: boş journal'lar alışveriş listesinde, dolular satışta.",
+    "Craft spec listesi oyunun Destiny Board'una göre düzenlendi."
+  ]},
+  {"date": "2026-10-17", "title": "Farming, Refining ve Enchant", "items": [
+    "Farming, Refining ve Enchant Yükseltme sekmeleri eklendi; elindeki eşyayı yükseltmenin kâr dökümü."
+  ]},
+  {"date": "2026-10-16", "title": "Cooking ve Craft spec'leri", "items": [
+    "Cooking: Butcher, Ingredient ve Bait spec'leri; ⧉ düğmesi adı tier.enchant ile kopyalar.",
+    "Craft: mastery ağacında kategorinin bütün eşyalarının spec'i.",
+    "DPS Meter: skill dökümü, combat fame credit ve oturumu duraklatma."
+  ]},
+  {"date": "2026-10-15", "title": "İlk sürüm", "items": [
+    "Alchemy, Cooking ve Craft hesaplayıcıları; günlük bonuslar oyundan otomatik.",
+    "Discord ile giriş ve bulut kayıt.",
+    "DPS Meter sekmesi ve bilgisayarda çalışan toplayıcı: hasar, heal, fame, silver, might, favor ve faction takibi."
+  ]}
+]
