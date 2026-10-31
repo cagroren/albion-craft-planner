@@ -36,6 +36,11 @@ td small{display:block;color:var(--mut);font-size:12px;font-weight:500}
 .ok{color:var(--good);font-weight:700}.wn{color:var(--warn);font-weight:700}
 tr.new td{background:rgba(240,136,62,.08)}
 .empty{color:var(--mut);padding:18px 6px;text-align:center}
+.tm{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:10px}
+.tm>div{background:var(--card2);border:1px solid var(--line);border-radius:12px;padding:12px 14px;display:flex;flex-direction:column;gap:4px}
+.tm .nx{font-size:20px;font-weight:800;font-variant-numeric:tabular-nums}
+.tm .nx.ok{color:var(--good)}.tm .nx.wn{color:var(--warn)}
+.tm button{align-self:flex-start;margin-top:6px;padding:6px 10px;font-size:13px}
 .note{border:1px solid rgba(227,179,65,.5);background:rgba(227,179,65,.06);border-radius:12px;padding:10px 14px;font-size:14px;margin:0 0 12px}
 details summary{cursor:pointer;font-weight:700;color:var(--acc)}
 .how{margin:8px 0 0;padding-left:20px;color:#c3cad4;font-size:14px}.how li{margin:3px 0}
@@ -46,6 +51,12 @@ details summary{cursor:pointer;font-weight:700;color:var(--acc)}
 <main>
 <nav id="topnav"></nav><script src="nav.js"></script>
 <div style="display:flex;align-items:center;gap:12px;margin:14px 0 16px"><img src="logo.png" alt="KVF" width="48" height="48"><h1>Dragon Portalları</h1></div>
+
+<section>
+  <h2>Sonraki portallar</h2>
+  <p class="st" style="margin:0 0 12px">Her portal türü oyunda tek bir sayaçla bütün haritalarda aynı anda açılır. Son açılış biliniyorsa sonraki açılışın aralığı oyun dosyalarındaki sürelerden hesaplanır. Oyunda yeni açılan bir portal görürsen "Şimdi açıldı"ya bas, herkesin sayacı düzelsin; toplayıcısı açık üyelerin gördükleri kendiliğinden sayılır.</p>
+  <div class="tm" id="tm"></div>
+</section>
 
 <section>
   <div class="row">
@@ -129,10 +140,62 @@ function announce(list){
   }
 }
 
+// Açılma aralıkları (sn): treasuredistribution.xml GlobalEventGroup DRAGON_AREA_ENTRANCE_* activationtimemin/max.
+// Medium ve Large'da oyun aralığı oyuncu yoğunluğuna göre biraz kaydırabiliyor (activityquotient).
+const KINDS=[["ORANGE","SMALL",900,960],["BLACK","SMALL",2100,3300],["ORANGE","MEDIUM",3600,4200],["BLACK","MEDIUM",3600,4200],["ORANGE","LARGE",9000,10800],["BLACK","LARGE",9000,10800]];
+const LIFE={SMALL:600,MEDIUM:300,LARGE:300};
+let last={};  // tür -> {t: son açılış (ms), by}
+async function loadTimes(sb){
+  const [a,b]=await Promise.all([sb.from("dragon_portal_times").select("kind,last_at,by_name"),
+    sb.from("dragon_portals").select("kind,first_seen,closes_at,exact,seen_name").order("first_seen",{ascending:false}).limit(300)]);
+  const L={};
+  const add=(k,t,by)=>{if(k&&t&&(!L[k]||t>L[k].t))L[k]={t,by}};
+  (a.data||[]).forEach(r=>add(r.kind,Date.parse(r.last_at),r.by_name));
+  // Toplayıcının gördüğü portal: kapanış zamanı biliniyorsa açılış = kapanış - açık kalma süresi
+  (b.data||[]).forEach(r=>{const k=parse(r.kind);add(r.kind,r.exact&&k.s?Date.parse(r.closes_at)-LIFE[k.s]*1e3:Date.parse(r.first_seen),r.seen_name)});
+  last=L;
+}
+const dk=s=>s<3600?Math.round(s/60)+" dk":(s/3600).toFixed(1).replace(".",",")+" sa";
+function renderTimes(){
+  const now=Date.now();
+  $("tm").innerHTML=KINDS.map(([c,sz,mn,mx])=>{
+    const k=`DRAGON_AREA_${c}_${sz}`,l=last[k],life=LIFE[sz];
+    let st,cls="",note="";
+    if(!l)st="Bilinmiyor",note="Henüz açılış görülmedi.";
+    else{
+      const t0=l.t,age=(now-t0)/1e3;
+      if(age<life){st=`Açık · ${mmss(life-age)} kaldı`;cls="ok"}
+      else{
+        // Son açılıştan sonraki pencere; geçtiyse sonraki turlara kaydırılır (her turda belirsizlik büyür)
+        let a=mn,b=mx,n=0;while(t0+b*1e3<now&&n<50){a+=mn;b+=mx;n++}
+        const sa=(t0+a*1e3-now)/1e3,sb=(t0+b*1e3-now)/1e3;
+        if(n>3)st="Bilinmiyor",note="Son açılış çok eski; yeni açılışı işaretle.";
+        else{
+          st=sa>0?`${dk(sa)} – ${dk(sb)} sonra`:`Şu an açılabilir · en geç ${dk(sb)}`;cls=sa>0?"":"wn";
+          if(n)note=`${n} tur tahmini (son açılış görülmedi), aralık geniş.`;
+        }
+      }
+      note=`Son açılış ${ago(t0)}${l.by?" · "+esc(l.by):""}`+(note?"<br>"+note:"");
+    }
+    return `<div><span class="bd ${c}"><i></i>${SIZE[sz][0]} · ${COLOR[c][0]}</span>
+      <small class="st">${mx<=4200?mn/60+"–"+mx/60+" dk'da":String(mn/3600).replace(".",",")+"–"+mx/3600+" saatte"} bir · ${life/60} dk açık · ${SIZE[sz][1]}</small>
+      <span class="nx ${cls}">${st}</span><small class="st">${note}</small>
+      <button type="button" data-k="${k}">Şimdi açıldı</button></div>`;
+  }).join("");
+}
+$("tm").addEventListener("click",async e=>{
+  const b=e.target.closest("button[data-k]");if(!b||!window.aoSb)return;
+  b.disabled=true;b.textContent="Kaydediliyor…";
+  const {error}=await window.aoSb.rpc("mark_portal_time",{k:b.dataset.k});
+  if(error){b.textContent="Olmadı: "+error.message;return}
+  await load();
+});
+
 async function load(){
   const sb=window.aoSb;if(!sb)return;
   const {data:{session}}=await sb.auth.getSession();
   if(!session){$("list").innerHTML='<tr><td colspan="6" class="empty">Portalları görmek için giriş yap.</td></tr>';return}
+  loadTimes(sb).then(renderTimes,()=>{});
   const {data,error}=await sb.from("dragon_portals").select("id,zone,kind,x,y,closes_at,exact,gone_at,first_seen,seen_name")
     .gt("gone_at",new Date().toISOString()).order("first_seen",{ascending:false}).limit(200);
   if(error){$("info").textContent="Liste okunamadı: "+error.message;return}
@@ -182,7 +245,7 @@ async function collector(){
 
 window.addEventListener("aoportals",load);
 document.addEventListener("DOMContentLoaded",()=>{setTimeout(load,1200);collector()});
-setInterval(load,15e3);setInterval(collector,30e3);setInterval(render,1e3);
+setInterval(load,15e3);setInterval(collector,30e3);setInterval(()=>{render();renderTimes()},1e3);renderTimes();
 })();
 </script>
 </body>

@@ -590,3 +590,27 @@ begin
 end $$;
 revoke all on function public.report_dragon_portal(jsonb) from public, anon;
 grant execute on function public.report_dragon_portal(jsonb) to authenticated;
+
+-- PORTAL ZAMANLARI (yeni eklendi): her portal türü oyunda tek bir global sayaçla açılır; Portallar sekmesi
+-- son açılıştan sonrakini tahmin eder. Toplayıcının gördükleri dragon_portals'tan, elle "Şimdi açıldı" buradan gelir.
+create table if not exists public.dragon_portal_times (
+  kind text primary key check (kind ~ '^DRAGON_AREA_(ORANGE|BLACK)_(SMALL|MEDIUM|LARGE)$'),
+  last_at timestamptz not null,
+  by_name text
+);
+alter table public.dragon_portal_times enable row level security;
+drop policy if exists "portal zamanı okuma" on public.dragon_portal_times;
+create policy "portal zamanı okuma" on public.dragon_portal_times for select using (public.is_member());
+
+create or replace function public.mark_portal_time(k text) returns void
+language plpgsql security definer set search_path = public as $$
+begin
+  if not public.is_member() or k !~ '^DRAGON_AREA_(ORANGE|BLACK)_(SMALL|MEDIUM|LARGE)$' then return; end if;
+  insert into public.dragon_portal_times as t (kind, last_at, by_name)
+  values (k, now(), (select name from public.profiles where id = auth.uid()))
+  -- Aynı açılışa birkaç kişi basarsa ilk basış geçerli kalır
+  on conflict (kind) do update set last_at = excluded.last_at, by_name = excluded.by_name
+  where t.last_at < now() - interval '3 minutes';
+end $$;
+revoke all on function public.mark_portal_time(text) from public, anon;
+grant execute on function public.mark_portal_time(text) to authenticated;
