@@ -24,7 +24,7 @@ import webbrowser
 import zlib
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-VERSION = 25                 # GitHub'daki dps-vN sürümüyle aynı olmalı (güncelleme kontrolü bunu karşılaştırır)
+VERSION = 26                 # GitHub'daki dps-vN sürümüyle aynı olmalı (güncelleme kontrolü bunu karşılaştırır)
 PORT = int(os.environ.get("ALBION_DPS_PORT") or 47700)
 COMBAT_GAP_SECONDS = 5       # vuruşlar arası bundan uzun boşluk "savaş süresi"ne sayılmaz
 FP = 10000.0                 # oyunun sabit noktalı sayı çarpanı
@@ -213,8 +213,12 @@ ROAD_REC = DestinyRecorder("yol-kayit", "Avalon yolu")
 SCAN_REC = DestinyRecorder("yol-kesif", "Avalon keşif")
 
 
+SCAN_ZONE = {"zone": None}   # ChangeCluster cevabından hemen öğrenilen bölge (Join'den önce gelen paketler kaçmasın)
+
+
 def road_scan(kind, code, p, zone):
     """Avalon yolundayken bilinmeyen paketleri de kaydeder (portal hedefinin nerede geldiğini bulmak için)."""
+    zone = SCAN_ZONE["zone"] or zone
     if not (zone or "").startswith("TNL-") or code is None:
         return
     names = EV_NAMES if kind == "event" else OP_NAMES
@@ -1440,6 +1444,11 @@ class Tracker:
 
     def on_response(self, _code, p):
         code = to_int(p.get(253))
+        if ROAD_OP.get(code) == "ChangeCluster" and isinstance(p.get(0), str):
+            # Yeni bölge burada belli olur; Join birkaç saniye sonra gelir. Her yol girişinde kayıt sınırı sıfırlanır.
+            SCAN_ZONE["zone"] = p[0]
+            if p[0].startswith("TNL-"):
+                SCAN_REC.counts.clear()
         road_scan("response", code, p, self.zone)
         if code in ROAD_OP:
             ROAD_REC.write("response", code, ROAD_OP[code], dict(p, zone=self.zone))
