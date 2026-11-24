@@ -951,8 +951,8 @@ const pM=m=>m in man.mats?man.mats[m]:((px.mats[m]&&px.mats[m].sell)||0);
 const pO=(id,o)=>id in man.outs?man.outs[id]:((px.outs[id]&&px.outs[id][o?"sell":"buy"])||0);
 // ---------- En ucuz yol: alışveriş listesindeki ara malzemeyi pazardan almak mı, kendin üretmek mi?
 // Tarifler items.json'dan (IVM) zincirleme çözülür; birden çok tarifi olanın (Arcane Essence) en ucuzu seçilir.
-// Genel yazıldı (id ve tarif üzerinden); şimdilik yalnız Alchemy'de açık.
-const CHEAP=!FOOD&&!CRAFT&&!BM&&!DB&&!/^#(farm|refine|enchant)$/.test(location.hash);
+// Alchemy, Cooking ve Craft'ta açık. Enchantlı malzeme id'leri "T5_PLANKS_LEVEL1@1" biçiminde.
+const CHEAP=!BM&&!DB&&!/^#(farm|refine|enchant)$/.test(location.hash);
 const CP=(()=>{let o;try{o=JSON.parse(localStorage.getItem("aocheap1"))}catch(e){}o=o&&typeof o==="object"?o:{};o.sel=o.sel||{};return o})();
 const cpSave=()=>{try{localStorage.setItem("aocheap1",JSON.stringify(CP))}catch(e){}};
 const cpOpen=new Set(),CPRC={};
@@ -960,15 +960,23 @@ let cpM={},cpS=null;
 if(CHEAP)document.querySelector(".shopT").classList.add("cp9"),document.querySelector(".shopT thead tr").insertAdjacentHTML("beforeend","<th>Pazardan al</th><th>Kendin üret</th><th>Seçilen</th>");
 function cpRecipes(id){
   if(CPRC[id])return CPRC[id];
-  const it=IVM[id];if(!it)return [];
-  const food=it["@craftingcategory"]==="food";
-  return CPRC[id]=arr(it.craftingrequirements).map(c=>({mats:arr(c.craftresource).map(r=>[r["@uniquename"],+r["@count"]||0,r["@maxreturnamount"]==="0"]).filter(m=>m[0]&&m[1]>0),out:+c["@amountcrafted"]||1,biv:batchIV(c),silver:+c["@silver"]||0,food}))
+  const it=IVM[id.replace(/@\d$/,"")];if(!it)return [];
+  const cat=it["@craftingcategory"]||"";
+  return CPRC[id]=arr(it.craftingrequirements).map(c=>({mats:arr(c.craftresource).map(r=>{const e=+r["@enchantmentlevel"]||0;return [r["@uniquename"]+(e?"@"+e:""),+r["@count"]||0,r["@maxreturnamount"]==="0"]}).filter(m=>m[0]&&m[1]>0),out:+c["@amountcrafted"]||1,biv:batchIV(c),silver:+c["@silver"]||0,st:/TRANSMUTE/.test(c["@craftbuttonlocaoverride"]||"")?{n:"Transmute (dönüştürme)",bc:"",cb:0}:cpStation(id,cat)}))
     .filter(r=>r.mats.length&&!r.mats.some(m=>/JOURNAL|_FAVOR_|QUESTITEM|TOKEN/.test(m[0])));
 }
 // Zincirdeki bütün malzemeler (fiyat çekmek için)
 function cpIds(ids){const s=new Set();const go=(id,d)=>cpRecipes(id).forEach(r=>r.mats.forEach(([m])=>{if(!s.has(m)&&d<8){s.add(m);go(m,d+1)}}));ids.forEach(i=>go(i,0));return [...s]}
-// Ara malzemenin istasyonu: yemek kategorisi (alkol, tereyağı) Cooking'de (bonus şehri Caerleon), diğerleri Alchemy'de (Brecilien)
-const cpRR=r=>{const cb=$("craftCity").value===(r.food?"Caerleon":"Brecilien");return 1-1/(1+(num("lpbBase")+(cb?num("lpbCity"):0)+(CP.foc?num("lpbFocus"):0))/100)};
+// Ara malzemenin istasyonu ve bonus şehri: işlenmiş malzemeler Refining'de (şehirde +%40, Refining sekmesindeki gibi),
+// yemek malzemeleri ve et Cooking'de (Caerleon), extract/essence Alchemy'de (Brecilien). Üretim şehri sekmedeki craft şehri.
+const CPRB={ore:"Thetford",wood:"Fort Sterling",fiber:"Lymhurst",hide:"Martlock",rock:"Bridgewatch"};
+function cpStation(id,cat){
+  if(CPRB[cat])return {n:"Refining",bc:CPRB[cat],cb:40};
+  if(cat==="food"||/^meat_/.test(cat)||/FISHCHOPS|_FISH_/.test(id))return {n:cat==="food"?"Cooking":"Kasap (Cooking)",bc:"Caerleon",cb:num("lpbCity")};
+  if(/ALCHEMY/.test(id))return {n:"Alchemy",bc:"Brecilien",cb:num("lpbCity")};
+  return {n:/ARTEFACT/.test(id)?"Artefact":"Craft",bc:"",cb:0};
+}
+const cpRR=r=>{const cb=r.st.bc&&$("craftCity").value===r.st.bc;return 1-1/(1+(num("lpbBase")+(cb?r.st.cb:0)+(CP.foc?num("lpbFocus"):0))/100)};
 // Birim maliyet: pazar (mk), en ucuz tarif (alt, rc) ve seçilen yol (how: otomatik ya da elle)
 function cpNode(id,dep=0){
   if(cpM[id])return cpM[id];
@@ -1008,8 +1016,8 @@ const cpQ=n=>fmt(Math.ceil(n-1e-6));
 function cpLines(t,dep){
   const o=cpNode(t.id),tr=x=>`<tr class="cpd"><td colspan="9" style="padding-left:${14+dep*22}px">↳ ${x}</td></tr>`,dh=t.h>0?` <small>(${cpQ(t.h)} tanesi depoda)</small>`:"",nm=id=>esc(label(id));
   if(t.how==="uret"){
-    const a=t.alt,ret=a.r.mats.some(x=>!x[2])&&a.rr>0,st=a.r.food?"Cooking":"Alchemy";
-    const how=`${st} istasyonunda <b>${cpQ(t.crafts)} kez</b> üret · geri dönüş ${ret?"%"+(a.rr*100).toFixed(1).replace(".",",")+(CP.foc?" (focus'lu)":" (focus'suz)"):"yok"} · istasyon ücreti ${fmt(t.fee)}`;
+    const a=t.alt,ret=a.r.mats.some(x=>!x[2])&&a.rr>0,S=a.r.st,cc=$("craftCity").value;
+    const how=`${S.n} istasyonunda <b>${cpQ(t.crafts)} kez</b> üret · geri dönüş ${ret?"%"+(a.rr*100).toFixed(1).replace(".",",")+(CP.foc?" (focus'lu)":" (focus'suz)"):"yok"}${ret&&S.bc?(S.bc===cc?` <small>(${esc(cc)} bonusu dahil)</small>`:` <small>(bonus şehri ${esc(S.bc)}, orada daha yüksek)</small>`):""} · istasyon ücreti ${fmt(t.fee)}`;
     let h=tr(dep?`${img(t.id)}<b>${cpQ(t.need)} ${nm(t.id)}</b> üret${dh}: ${how}`:`Nasıl üretilir: ${how}`);
     const ok=o.alts.filter(x=>isFinite(x.u)).sort((x,y)=>x.u-y.u);
     if(o.alts.length>1){const per=x=>`1 tanesi ${x.r.out} ${nm(t.id)} verir → ${nm(t.id)} başına ${fmt(x.u)}`,b=ok.find(x=>x!==a);
@@ -1027,7 +1035,7 @@ function cpCells(m,net,h,buy){
   S.trees[m]=mt;cpLeaves(t,S.acc);
   if(buy>0){if(mk!=null&&isFinite(t.cost)){S.all+=mk;S.best+=t.cost}else S.miss.push(m)}
   const sv=mk&&mt&&isFinite(mt.cost)?(mk-mt.cost)/mk:null,op=cpOpen.has(m);
-  const mkd=!o.alts.length?`<span class="s">Üretilmez${(IVM[m]||{})["@shopcategory"]==="farming"?" (Farming'den gelir)":""}</span>`:!mt?'<span class="s">fiyat yok</span>':buy<=0?'<span class="s">-</span>':`<b class="${u?"pos":""}">${fmt(mt.cost)}</b>${sv!=null?` <span class="bd ${sv>0?"bd-g":"bd-r"}">${sv>0?"−":"+"}%${Math.abs(sv*100).toFixed(0)}</span>`:""} <button class="l ic" data-cpo="${esc(m)}" aria-expanded="${op}" aria-label="Üretim zincirini göster" title="Üretim zinciri">${op?"▴":"▾"}</button>`;
+  const mkd=!o.alts.length?`<span class="s">Üretilmez${{farming:" (Farming'den gelir)",resources:" (toplanır)"}[(IVM[m.replace(/@\d$/,"")]||{})["@shopcategory"]]||""}</span>`:!mt?'<span class="s">fiyat yok</span>':buy<=0?'<span class="s">-</span>':`<b class="${u?"pos":""}">${fmt(mt.cost)}</b>${sv!=null?` <span class="bd ${sv>0?"bd-g":"bd-r"}">${sv>0?"−":"+"}%${Math.abs(sv*100).toFixed(0)}</span>`:""} <button class="l ic" data-cpo="${esc(m)}" aria-expanded="${op}" aria-label="Üretim zincirini göster" title="Üretim zinciri">${op?"▴":"▾"}</button>`;
   const can=!!o.alt&&o.mk>0;
   return `<td data-l="Pazardan al">${buy<=0?'<span class="s">-</span>':mk==null?'<span class="s">fiyat yok</span>':`<span class="${u?"cpst":""}">${fmt(mk)}</span>`}</td><td data-l="Kendin üret" style="white-space:nowrap">${mkd}</td><td data-l="Seçilen"><button class="bd cpsel ${t.how==="uret"?"bd-g":"cpal"}" data-cps="${esc(m)}"${can?"":" disabled"} title="${can?"Tıkla: "+(t.how==="uret"?"pazardan al":"kendin üret"):"Tek seçenek var"}">${t.how==="uret"?"Üret":"Al"}</button>${o.man?'<br><small class="s">elle</small>':""}</td>`;
 }
@@ -1036,7 +1044,7 @@ function cpAfter(){
   const S=cpS,bar=$("cpBar"),fin=$("cpFin"),d=S.all-S.best;
   if(!Object.keys(S.trees).length){bar.hidden=fin.hidden=true;return}
   bar.hidden=false;
-  bar.innerHTML=`<button class="cpsw${CP.on?" on":""}" id="cpOn" aria-pressed="${!!CP.on}"><i></i>En ucuz yolu kullan</button><div class="cpk"><small>Hepsini pazardan al</small><b>${fmt(S.all)}</b></div><div class="cpk"><small>${Object.keys(CP.sel).length?"Seçtiğin yol":"En ucuz yol"}</small><b>${fmt(S.best)}</b></div><div class="cpk"><small>Kazanç</small><b class="${d>0?"pos":""}">${fmt(d)}${S.all>0&&d>0?` (−%${(d/S.all*100).toFixed(0)})`:""}</b></div><label class="c tgc" style="flex-basis:100%;margin:0"><input type="checkbox" id="cpFoc"${CP.foc?" checked":""}> Ara malzemeleri (schnapps, tereyağı) focus'la üreteceğim</label>`
+  bar.innerHTML=`<button class="cpsw${CP.on?" on":""}" id="cpOn" aria-pressed="${!!CP.on}"><i></i>En ucuz yolu kullan</button><div class="cpk"><small>Hepsini pazardan al</small><b>${fmt(S.all)}</b></div><div class="cpk"><small>${Object.keys(CP.sel).length?"Seçtiğin yol":"En ucuz yol"}</small><b>${fmt(S.best)}</b></div><div class="cpk"><small>Kazanç</small><b class="${d>0?"pos":""}">${fmt(d)}${S.all>0&&d>0?` (−%${(d/S.all*100).toFixed(0)})`:""}</b></div><label class="c tgc" style="flex-basis:100%;margin:0"><input type="checkbox" id="cpFoc"${CP.foc?" checked":""}> Ara malzemeleri (${CRAFT?"bar, plank, kumaş, deri, taş blok":FOOD?"un, ekmek, et, tereyağı, schnapps":"schnapps, tereyağı, extract"}) focus'la üreteceğim</label>`
     +(S.miss.length?`<p class="s neg" style="flex-basis:100%;margin:0">Fiyatı olmayan ${S.miss.length} kalem toplamlara katılmadı: ${listNames(new Set(S.miss))}.</p>`:"")
     +`<p class="s" style="flex-basis:100%;margin:0"><b>Kendin üret</b> = o malzemeyi senin üretmenin maliyeti: ham maddesi + istasyon ücreti, geri dönen kısım düşülerek. Her adımda ucuz olan seçilir, fark %5'ten azsa "Al" önerilir. Satırdaki ▾ ile nasıl üretileceğini görürsün, Al / Üret'e tıklayıp seçimi değiştirebilirsin. Düğme açıkken plandaki kâr da bu maliyetle hesaplanır.</p>`;
   const L=Object.entries(S.acc).map(([id,n])=>[id,Math.ceil(n-1e-6)]).filter(x=>x[1]>0);

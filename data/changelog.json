@@ -1,6 +1,7 @@
 [
   {"date": "2026-11-24", "title": "Maps'te canlı takip, portal hedefleri ve Alchemy'de en ucuz yol", "items": [
     "Alchemy: alışveriş listesi artık schnapps, tereyağı ve arcane extract gibi ara malzemeleri pazardan almakla kendin üretmenin maliyetini karşılaştırıyor. Essence için pençe, diş ve tüy çeşitlerinden en ucuzunu buluyor. \"En ucuz yolu kullan\" düğmesiyle pazardan gerçekten alman gerekenlerin son listesi çıkıyor. Al / Üret seçimini her satırda kendin de değiştirebilirsin.",
+    "Aynı \"en ucuz yol\" karşılaştırması artık Cooking ve Craft'ta da var. Craft'ta bar, plank, kumaş, deri ve taş bloğu cevherden kendin işlemenin maliyeti (bonus şehri dahil), Cooking'de un, ekmek, tereyağı, schnapps ve et için kendin yapmanın maliyeti gösteriliyor.",
     "Alchemy: ara malzemeleri focus'la üretip üretmeyeceğini ayrıca seçebilirsin (varsayılan: focus'suz). Satırdaki ▾ ile açılan üretim adımları daha anlaşılır yazıldı.",
     "Maps: DPS Meter açıkken bulunduğun Avalon haritası kendiliğinden açılır (istersen kapatabilirsin).",
     "Maps: haritadaki her portalın nereye açıldığı, hedef haritanın tier'ı, türü, sandıkları, dungeon ve boss sayısı ile kapanmaya kalan süre gösterilir. Hedefe tıklayınca o harita açılır.",
