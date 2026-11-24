@@ -24,7 +24,7 @@ import webbrowser
 import zlib
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-VERSION = 24                 # GitHub'daki dps-vN sürümüyle aynı olmalı (güncelleme kontrolü bunu karşılaştırır)
+VERSION = 25                 # GitHub'daki dps-vN sürümüyle aynı olmalı (güncelleme kontrolü bunu karşılaştırır)
 PORT = int(os.environ.get("ALBION_DPS_PORT") or 47700)
 COMBAT_GAP_SECONDS = 5       # vuruşlar arası bundan uzun boşluk "savaş süresi"ne sayılmaz
 FP = 10000.0                 # oyunun sabit noktalı sayı çarpanı
@@ -105,6 +105,14 @@ ROAD_EV = {448: "NewTunnelExit", 524: "NewTunnelExitTemp", 215: "NewExit", 323: 
 ROAD_OP = {294: "UsePortalEntrance", 296: "QueryPortalBinding", 41: "ChangeCluster"}
 ROAD_DEST = re.compile(r"^(TNL-\d+|\d{4}|[A-Z0-9]{2,}-[A-Z0-9-]+)$")
 MAX_LINKS = 400
+# Keşif kaydı: Avalon yolundayken (bölge TNL-...) gelen bütün istek/cevaplar ve olaylar yol-kesif/ klasörüne yazılır.
+# Portala tıklayınca hedefin hangi pakette geldiğini bulmak için; her koddan sınırlı sayıda, sık gelenler atlanır.
+EV_NAMES, OP_NAMES = {}, {}
+SCAN_SKIP = re.compile(r"^(Move|ForcedMovement|MoveSpeed|HealthUpdate|EnergyUpdate|CastHit|CastHits|CastStart|CastSpell|"
+                       r"CastFinished|CastCancel|ChannelingEnded|ActiveSpellEffectsUpdate|Attack|InCombatStateUpdate|"
+                       r"RegenerationHealthChanged|RegenerationEnergyChanged|RegenerationMountHealthChanged|"
+                       r"CharacterEquipmentChanged|Leave|Ping|Heartbeat|UpdateFame|TimeSync)$")
+SCAN_MAX_EV, SCAN_MAX_OP = 15, 60
 LINK_TTL = 24 * 3600         # öğrenilen bağlantı en çok bu kadar tutulur (yollar en geç 1 günde değişir)
 
 
@@ -202,6 +210,22 @@ class DestinyRecorder:
 DESTINY = DestinyRecorder()
 PORTAL_REC = DestinyRecorder("portal-kayit", "Portal")
 ROAD_REC = DestinyRecorder("yol-kayit", "Avalon yolu")
+SCAN_REC = DestinyRecorder("yol-kesif", "Avalon keşif")
+
+
+def road_scan(kind, code, p, zone):
+    """Avalon yolundayken bilinmeyen paketleri de kaydeder (portal hedefinin nerede geldiğini bulmak için)."""
+    if not (zone or "").startswith("TNL-") or code is None:
+        return
+    names = EV_NAMES if kind == "event" else OP_NAMES
+    name = names.get(code) or f"Kod{code}"
+    if SCAN_SKIP.search(name):
+        return
+    key = f"{kind}:{name}"
+    if SCAN_REC.counts.get(key, 0) >= (SCAN_MAX_EV if kind == "event" else SCAN_MAX_OP):
+        SCAN_REC.counts[key] += 1
+        return
+    SCAN_REC.write(kind, code, key, dict(p, zone=zone))
 
 
 def parse_exit(p):
@@ -392,6 +416,7 @@ def update_codes():
         ot = fetch_text(CODES_URL.format("OperationCodes"), "OperationCodes.cs")
         if et:
             e = parse_enum(et)
+            EV_NAMES.update({v: k for k, v in e.items()})
             if all(k in e for k in EV):
                 EV.update({k: e[k] for k in EV})
             d = {v: k for k, v in e.items() if DESTINY_NAME.search(k)}
@@ -408,6 +433,7 @@ def update_codes():
                 PORTAL_EV.update(d)
         if ot:
             o = parse_enum(ot)
+            OP_NAMES.update({v: k for k, v in o.items()})
             if all(k in o for k in OP):
                 OP.update({k: o[k] for k in OP})
             d = {v: k for k, v in o.items() if DESTINY_NAME.search(k)}
@@ -1183,6 +1209,7 @@ class Tracker:
         if code is None:
             return
         self.events += 1
+        road_scan("event", code, p, self.zone)
         if code in DESTINY_EV:
             name = DESTINY_EV[code]
             DESTINY.write("event", code, name, p)
@@ -1392,6 +1419,7 @@ class Tracker:
         # Auto-respec durumu eskiden buradan tahmin ediliyordu ama yanlış "açık" gösteriyordu;
         # artık sadece UpdateReSpecPoints olayından (silver kesildi mi) belirleniyor.
         code = to_int(p.get(253))
+        road_scan("request", code, p, self.zone)
         if code in DESTINY_OP:
             DESTINY.write("request", code, DESTINY_OP[code], p)
         if code in PORTAL_OP:
@@ -1412,6 +1440,7 @@ class Tracker:
 
     def on_response(self, _code, p):
         code = to_int(p.get(253))
+        road_scan("response", code, p, self.zone)
         if code in ROAD_OP:
             ROAD_REC.write("response", code, ROAD_OP[code], dict(p, zone=self.zone))
         if code in PORTAL_OP or has_dragon(p):
@@ -1539,7 +1568,7 @@ class Tracker:
             now = time.time()
             return {"zone": self.zone, "character": self.local_name, "pos": self.pos, "now": now,
                     "links": [l for l in self.links if now - l["t"] < LINK_TTL and (not l["closes"] or l["closes"] > now)],
-                    "exits": [dict(e, oid=o) for o, e in self.exits.items()], "rec": ROAD_REC.status()}
+                    "exits": [dict(e, oid=o) for o, e in self.exits.items()], "rec": ROAD_REC.status(), "scan": SCAN_REC.status()}
 
     def on_portal(self, p):
         if not self.zone:
