@@ -968,7 +968,7 @@ function cpRecipes(id){
 // Zincirdeki bütün malzemeler (fiyat çekmek için)
 function cpIds(ids){const s=new Set();const go=(id,d)=>cpRecipes(id).forEach(r=>r.mats.forEach(([m])=>{if(!s.has(m)&&d<8){s.add(m);go(m,d+1)}}));ids.forEach(i=>go(i,0));return [...s]}
 // Ara malzemenin istasyonu: yemek kategorisi (alkol, tereyağı) Cooking'de (bonus şehri Caerleon), diğerleri Alchemy'de (Brecilien)
-const cpRR=r=>{const cb=$("craftCity").value===(r.food?"Caerleon":"Brecilien");return 1-1/(1+(num("lpbBase")+(cb?num("lpbCity"):0)+($("foc").checked?num("lpbFocus"):0))/100)};
+const cpRR=r=>{const cb=$("craftCity").value===(r.food?"Caerleon":"Brecilien");return 1-1/(1+(num("lpbBase")+(cb?num("lpbCity"):0)+(CP.foc?num("lpbFocus"):0))/100)};
 // Birim maliyet: pazar (mk), en ucuz tarif (alt, rc) ve seçilen yol (how: otomatik ya da elle)
 function cpNode(id,dep=0){
   if(cpM[id])return cpM[id];
@@ -1006,13 +1006,18 @@ function cpTree(id,n,stk,dep,how){
 function cpLeaves(t,acc){if(t.how==="uret")t.kids.forEach(k=>cpLeaves(k,acc));else if(t.need>0)acc[t.id]=(acc[t.id]||0)+t.need}
 const cpQ=n=>fmt(Math.ceil(n-1e-6));
 function cpLines(t,dep){
-  const o=cpNode(t.id),pad=`colspan="9" style="padding-left:${14+dep*22}px"`,dh=t.h>0?` <small>(depodan ${cpQ(t.h)})</small>`:"";
+  const o=cpNode(t.id),tr=x=>`<tr class="cpd"><td colspan="9" style="padding-left:${14+dep*22}px">↳ ${x}</td></tr>`,dh=t.h>0?` <small>(${cpQ(t.h)} tanesi depoda)</small>`:"",nm=id=>esc(label(id));
   if(t.how==="uret"){
-    const a=t.alt,oth=o.alts.filter(x=>isFinite(x.u)&&x!==a).sort((x,y)=>x.u-y.u),ret=a.r.mats.some(x=>!x[2])&&a.rr>0;
-    let h=`<tr class="cpd"><td ${pad}>↳ ${dep?img(t.id)+`<b>${cpQ(t.need)} ${esc(label(t.id))}</b> üret${dh}`:`<b>${cpQ(t.crafts)} craft</b>`} · ${a.r.food?"Cooking":"Alchemy"} istasyonu · ${ret?"return %"+(a.rr*100).toFixed(1).replace(".",",")+($("foc").checked?" (focus'lu)":" (focussuz)"):"return yok"} · istasyon ücreti ≈ ${fmt(t.fee)}${o.alts.length>1?` · <span class="pos">${o.alts.length} tarif içinde en ucuzu: ${esc(label(a.r.mats[0][0]))}</span>${oth[0]?` <small>(sonraki ${esc(label(oth[0].r.mats[0][0]))}: birim ${fmt(oth[0].u)}, seçilen ${fmt(a.u)})</small>`:""}`:""}</td></tr>`;
+    const a=t.alt,ret=a.r.mats.some(x=>!x[2])&&a.rr>0,st=a.r.food?"Cooking":"Alchemy";
+    const how=`${st} istasyonunda <b>${cpQ(t.crafts)} kez</b> üret · geri dönüş ${ret?"%"+(a.rr*100).toFixed(1).replace(".",",")+(CP.foc?" (focus'lu)":" (focus'suz)"):"yok"} · istasyon ücreti ${fmt(t.fee)}`;
+    let h=tr(dep?`${img(t.id)}<b>${cpQ(t.need)} ${nm(t.id)}</b> üret${dh}: ${how}`:`Nasıl üretilir: ${how}`);
+    const ok=o.alts.filter(x=>isFinite(x.u)).sort((x,y)=>x.u-y.u);
+    if(o.alts.length>1){const per=x=>`1 tanesi ${x.r.out} ${nm(t.id)} verir → ${nm(t.id)} başına ${fmt(x.u)}`,b=ok.find(x=>x!==a);
+      h+=tr(`<span class="pos">Hangisinden? ${o.alts.length} seçenek arasında en ucuzu <b>${nm(a.r.mats[0][0])}</b></span> (${per(a)})${b?` · ikinci en ucuz ${nm(b.r.mats[0][0])} (${nm(t.id)} başına ${fmt(b.u)})`:""}`)}
     t.kids.forEach(k=>h+=cpLines(k,dep+1));return h;
   }
-  return `<tr class="cpd"><td ${pad}>↳ ${img(t.id)}${t.need>0?`<b>${cpQ(t.need)} ${esc(label(t.id))}</b> al${o.mk>0?` (${fmt(o.mk)}) = ${fmt(t.cost)}`:' <span class="neg">fiyat yok</span>'}`:`<b>${esc(label(t.id))}</b> depodakiler yetiyor`}${dh}${o.alt&&dep>0?` <small>· üretmek birim ${fmt(o.rc)}</small>`:""}</td></tr>`;
+  if(t.need<=0)return tr(`${img(t.id)}<b>${nm(t.id)}</b>: depodakiler yetiyor${dh}`);
+  return tr(`${img(t.id)}<b>${cpQ(t.need)} ${nm(t.id)}</b> pazardan al${o.mk>0?`: ${cpQ(t.need)} × ${fmt(o.mk)} = <b>${fmt(t.cost)}</b>`:' <span class="neg">(fiyat yok)</span>'}${dh}${o.alt&&dep>0?` <small>(üretmek tanesi ${fmt(o.rc)}, almak daha uygun)</small>`:""}`);
 }
 function cpStart(STK){cpS={stk:Object.assign({},STK),all:0,best:0,miss:[],acc:{},trees:{}}}
 function cpCells(m,net,h,buy){
@@ -1031,13 +1036,14 @@ function cpAfter(){
   const S=cpS,bar=$("cpBar"),fin=$("cpFin"),d=S.all-S.best;
   if(!Object.keys(S.trees).length){bar.hidden=fin.hidden=true;return}
   bar.hidden=false;
-  bar.innerHTML=`<button class="cpsw${CP.on?" on":""}" id="cpOn" aria-pressed="${!!CP.on}"><i></i>En ucuz yolu kullan</button><div class="cpk"><small>Hepsini pazardan al</small><b>${fmt(S.all)}</b></div><div class="cpk"><small>${Object.keys(CP.sel).length?"Seçtiğin yol":"En ucuz yol"}</small><b>${fmt(S.best)}</b></div><div class="cpk"><small>Kazanç</small><b class="${d>0?"pos":""}">${fmt(d)}${S.all>0&&d>0?` (−%${(d/S.all*100).toFixed(0)})`:""}</b></div>`
+  bar.innerHTML=`<button class="cpsw${CP.on?" on":""}" id="cpOn" aria-pressed="${!!CP.on}"><i></i>En ucuz yolu kullan</button><div class="cpk"><small>Hepsini pazardan al</small><b>${fmt(S.all)}</b></div><div class="cpk"><small>${Object.keys(CP.sel).length?"Seçtiğin yol":"En ucuz yol"}</small><b>${fmt(S.best)}</b></div><div class="cpk"><small>Kazanç</small><b class="${d>0?"pos":""}">${fmt(d)}${S.all>0&&d>0?` (−%${(d/S.all*100).toFixed(0)})`:""}</b></div><label class="c tgc" style="flex-basis:100%;margin:0"><input type="checkbox" id="cpFoc"${CP.foc?" checked":""}> Ara malzemeleri (schnapps, tereyağı) focus'la üreteceğim</label>`
     +(S.miss.length?`<p class="s neg" style="flex-basis:100%;margin:0">Fiyatı olmayan ${S.miss.length} kalem toplamlara katılmadı: ${listNames(new Set(S.miss))}.</p>`:"")
-    +`<p class="s" style="flex-basis:100%;margin:0">Kendin üret: malzemenin oyundaki tarifiyle, return rate'in, focus ayarın ve istasyon ücretinle hesaplanır; zincirin her adımında ucuz olan seçilir. Fark %5'ten azsa "Al" kalır. Al / Üret etiketine tıklayıp elle değiştirebilirsin. Düğme açıkken plandaki kâr da bu maliyetle hesaplanır.</p>`;
+    +`<p class="s" style="flex-basis:100%;margin:0"><b>Kendin üret</b> = o malzemeyi senin üretmenin maliyeti: ham maddesi + istasyon ücreti, geri dönen kısım düşülerek. Her adımda ucuz olan seçilir, fark %5'ten azsa "Al" önerilir. Satırdaki ▾ ile nasıl üretileceğini görürsün, Al / Üret'e tıklayıp seçimi değiştirebilirsin. Düğme açıkken plandaki kâr da bu maliyetle hesaplanır.</p>`;
   const L=Object.entries(S.acc).map(([id,n])=>[id,Math.ceil(n-1e-6)]).filter(x=>x[1]>0);
   fin.hidden=!CP.on;
   fin.innerHTML=CP.on?`<div class="row" style="align-items:center;gap:10px;margin:0"><h3 style="margin:0">Pazardan alınacaklar (en ucuz yol)</h3><button class="l" id="cpCopy">Kopyala</button></div><div class="cpfin">${L.map(([id,n])=>`<div>${img(id)}<b>${fmt(n)}</b>&nbsp;<span>${esc(label(id))}</span>${cpb(id)}</div>`).join("")||'<span class="s">Depodakiler yetiyor.</span>'}</div>`:"";
   $("cpOn").onclick=()=>{CP.on=!CP.on;cpSave();calc()};
+  $("cpFoc").onchange=e=>{CP.foc=e.target.checked;cpSave();calc()};
   const cc=$("cpCopy");if(cc)cc.onclick=()=>cpText(L.map(([id,n])=>n+" "+(cpName(id)||label(id))).join("\n"),cc);
   document.querySelectorAll("[data-cps]").forEach(b=>b.onclick=()=>{const m=b.dataset.cps,o=cpNode(m),nw=o.how==="uret"?"al":"uret";if(nw===o.auto)delete CP.sel[m];else CP.sel[m]=nw;cpSave();calc()});
   document.querySelectorAll("[data-cpo]").forEach(b=>b.onclick=()=>{const m=b.dataset.cpo;if(cpOpen.has(m))cpOpen.delete(m);else cpOpen.add(m);calc()});
