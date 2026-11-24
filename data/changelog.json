@@ -1,4 +1,9 @@
 [
+  {"date": "2026-11-24", "title": "Maps'te canlı takip ve portal hedefleri", "items": [
+    "Maps: DPS Meter açıkken bulunduğun Avalon haritası kendiliğinden açılır (istersen kapatabilirsin).",
+    "Maps: haritadaki her portalın nereye açıldığı, hedef haritanın tier'ı, türü, sandıkları, dungeon ve boss sayısı ile kapanmaya kalan süre gösterilir. Hedefe tıklayınca o harita açılır.",
+    "Portaldan geçince DPS Meter bağlantıyı kendisi öğrenir; bilinmeyen portalların hedefini elle de girebilirsin (sadece sende görünür)."
+  ]},
   {"date": "2026-10-31", "title": "Gathering, Portallar, fiyat grafikleri ve savaş raporu", "items": [
     "Yeni Portallar sekmesi: guild'in gördüğü Dragon (Ancient Lands) portalları canlı listede; bir sonraki small, medium ve large portalın açılmasına kalan süre.",
     "DPS Meter'ın yeni sürümü çıkınca, toplayıcıyı kullanan bütün sekmelerin üstünde \"Güncelle\" uyarısı çıkıyor.",

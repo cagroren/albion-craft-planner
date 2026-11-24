@@ -59,6 +59,26 @@ td.nm img{width:32px;height:32px}
 .mtools label i{width:10px;height:10px;border-radius:50%;display:inline-block}
 .tip{position:absolute;pointer-events:none;background:var(--card2);border:1px solid var(--line2);border-radius:8px;padding:4px 8px;font-size:12px;white-space:nowrap;z-index:5}
 .src{font-size:12px;color:var(--mut);margin-top:16px}
+.live{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-top:12px;padding-top:12px;border-top:1px solid var(--line);font-size:14px}
+.lv{font-size:10px;font-weight:800;letter-spacing:.1em;border-radius:20px;padding:4px 12px;border:1px solid var(--line2);color:var(--mut);text-transform:uppercase}
+.lv.on{color:var(--good);border-color:rgba(63,185,80,.6);background:rgba(63,185,80,.12)}
+.live label{display:inline-flex;align-items:center;gap:6px;color:var(--mut);cursor:pointer}
+.live input{accent-color:var(--acc)}
+.pl{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:10px}
+.po{background:var(--card2);border:1px solid var(--line);border-radius:12px;padding:12px;display:flex;flex-direction:column;gap:6px}
+.po.k{border-color:#2b6f78}
+.po .h{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.po .n{width:24px;height:24px;border-radius:50%;background:#123848;border:1px solid #39c5cf;color:#bff3f7;font-weight:800;font-size:12px;display:flex;align-items:center;justify-content:center;flex:none}
+.po a{color:var(--ink);font-weight:800;text-decoration:none}.po a:hover{color:var(--accT)}
+.po .sm{display:flex;gap:6px;flex-wrap:wrap;font-size:12px}
+.po .sm span:not(.tb){background:var(--in);border:1px solid var(--line);border-radius:7px;padding:1px 7px;font-weight:700}
+.po .cl{font-size:12px;font-weight:700;color:var(--warn)}
+.po .src2{font-size:11px;color:var(--mut)}
+.po button{padding:4px 10px;font-size:13px}
+.po .ed{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+.po .ed input{padding:6px 8px;font-size:14px}
+.po .ed .ac{min-width:180px}
+.po .ed .ac input{font-size:14px;padding:6px 8px}
 .src a{color:var(--mut)}
 </style>
 </head>
@@ -72,6 +92,7 @@ td.nm img{width:32px;height:32px}
   </div>
   <div class="rec" id="rec"></div>
   <div class="st" id="info" style="margin-top:8px">Yükleniyor...</div>
+  <div class="live"><span class="lv" id="lvS">Canlı takip</span><span id="lvT" class="st">DPS Meter'a bağlanılıyor...</span><span class="sp" style="flex:1"></span><label><input type="checkbox" id="lvF"> Bulunduğum haritayı otomatik aç</label></div>
 </section>
 <div id="out"></div>
 <div class="src">Veri: oyunun açık dökümleri, <a href="https://github.com/ao-data/ao-bin-dumps" target="_blank" rel="noopener">ao-data/ao-bin-dumps</a> (world, cluster ve template dosyaları). Kaynak sayıları oyunun kendi hesabıdır (düğüm + kaynak yaratıkları); sandık/boss/dungeon yerleri şablonlardan çıkarılır, sandık renkleri lootchests.xml'deki minimap işaretinden, çizim şematiktir.</div>
@@ -151,6 +172,7 @@ function show(r){
     <div class="head">${tb(L.t)}<h3>${esc(r.n)}</h3><span class="pill">${esc(ty[0])}</span>${r.on?"":`<span class="pill off">Oyunda kapalı</span>`}</div>
     <div class="st" style="margin-top:6px">${esc(ty[1])}${ty[1]?" · ":""}${esc(r.id)} · ${esc(r.ty)}</div>
   </section>
+  <section><div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:12px"><h2 style="margin:0">Portallar · nereye açılıyor?</h2><span class="st" id="plN"></span></div><div id="pl"></div></section>
   <div class="lay"><div>
     <section><div class="kv">
       <div><span>Tier</span><b>T${L.t}</b></div>
@@ -169,6 +191,7 @@ function show(r){
     <div class="mapw" id="mw"></div>
     <div class="st" style="margin-top:8px">İkonların üzerine gel: tür ve tier görünür. Yollar, sandıklar ve portallar oyunun kendi harita dosyalarından çizilir.</div>
   </section></div>`;
+  drawPortals();
   draw();
 }
 const TER={};
@@ -253,7 +276,8 @@ async function draw(){
   const pts=[];
   if(!LS.hide.r)res.forEach(g=>pts.push(["r",g]));
   L.p.forEach(p=>{if(p[0]!=="r"&&!LS.hide[p[0]])pts.push([p[0],p])});
-  if(!LS.hide.p)r.pt.forEach(q=>pts.push(["p",["p","",0,q[0],q[1]]]));
+  const PL=portalLinks(r);
+  if(!LS.hide.p)r.pt.forEach((q,i)=>pts.push(["p",["p","",i,q[0],q[1]]]));
   const xy=([k,o])=>k==="r"?P(o.x,o.z):P(o[3],o[4]);
   pts.sort((a,b)=>xy(a)[1]-xy(b)[1]);  // arkadakiler önce
   const icon=([k,o])=>{const [X,Y]=xy([k,o]);
@@ -263,7 +287,8 @@ async function draw(){
     const t=esc(lab(o));
     if(k==="c"){const c=CH[o[1]][1],w=o[1]==="group"?1.3:1;
       return `<g data-t="${t}" transform="translate(${X} ${Y}) scale(${u*w})"><ellipse cx="0" cy="1.4" rx="3.2" ry="1.2" fill="#000" opacity=".4"/><circle cx="0" cy="-2.6" r="2.6" fill="${c}" opacity=".35"/><path d="M-2.6 -1.2L0 0.2L2.6 -1.2V1L0 2.4L-2.6 1Z" fill="#7d8794"/><path d="M-2.6 -1.2L0 -2.6L2.6 -1.2L0 0.2Z" fill="#c4ccd6"/><path d="M-1.5 -1.6L0 -2.4L1.5 -1.6L0 -0.8Z" fill="${c}"/><path d="M-2.6 -0.3L0 1.1L2.6 -0.3" fill="none" stroke="${c}" stroke-width=".35"/></g>`}
-    if(k==="p")return `<g data-t="${t}" transform="translate(${X} ${Y}) scale(${u})"><ellipse cx="0" cy="1.3" rx="3.4" ry="1.3" fill="#000" opacity=".35"/><circle cx="0" cy="-1" r="3" fill="#123848" stroke="#39c5cf" stroke-width=".6"/><path d="M0 -1m-1.9 0a1.9 1.9 0 1 1 1.9 1.9a1.2 1.2 0 1 1 -1.2 -1.2" fill="none" stroke="#bff3f7" stroke-width=".55" stroke-linecap="round"/></g>`;
+    if(k==="p"){const i=o[2],L2=PL[i],dn=L2?destName(L2.dest):"";
+      return `<g data-t="${esc(`Portal ${i+1}: `+(dn?dn+" → tıkla":"hedefi bilinmiyor"))}" data-pi="${i}" style="cursor:pointer" transform="translate(${X} ${Y}) scale(${u})"><ellipse cx="0" cy="1.3" rx="3.4" ry="1.3" fill="#000" opacity=".35"/><circle cx="0" cy="-1" r="3" fill="${dn?"#0f4d55":"#123848"}" stroke="${dn?"#7ff0f7":"#39c5cf"}" stroke-width=".6"/><text x="0" y="0.1" text-anchor="middle" font-size="3.2" font-weight="800" fill="#e8fdff" font-family="Inter,sans-serif">${i+1}</text>${dn?`<text x="4" y="-0.2" font-size="2.6" font-weight="700" fill="#e8fdff" stroke="#0b0f14" stroke-width=".7" paint-order="stroke" font-family="Inter,sans-serif">${esc(dn)}</text>`:""}</g>`}
     if(k==="d")return `<g data-t="${t}" transform="translate(${X} ${Y}) scale(${u})"><ellipse cx="0" cy="1.3" rx="3" ry="1.1" fill="#000" opacity=".4"/><path d="M-2.4 1V-1.4A2.4 2.4 0 0 1 2.4 -1.4V1Z" fill="#4b2a6e" stroke="#b77cff" stroke-width=".5"/><path d="M-1.1 1V-0.9A1.1 1.1 0 0 1 1.1 -0.9V1Z" fill="#14081f"/></g>`;
     if(k==="h")return `<g data-t="${t}" transform="translate(${X} ${Y}) scale(${u})"><ellipse cx="0" cy="1.2" rx="2.4" ry=".9" fill="#000" opacity=".35"/><path d="M-1.6 1V-1.2H1.6V1Z" fill="#9aa3ad"/><path d="M-2 -1.2L0 -2.6L2 -1.2Z" fill="#c0392b"/><path d="M0 -2.6V-4.4" stroke="#ddd" stroke-width=".2"/><path d="M0 -4.4L1.2 -4L0 -3.6Z" fill="#e74c3c"/></g>`;
     return `<g data-t="${t}" transform="translate(${X} ${Y}) scale(${u})"><path d="M0 -2.4L1.6 0.6H-1.6Z" fill="#f85149" stroke="#0a0e12" stroke-width=".3"/></g>`};
@@ -273,6 +298,85 @@ async function draw(){
     ${ter}${pts.map(icon).join("")}</svg><div class="tip" id="tip" hidden></div>`;
 }
 const lab=p=>{const [k,sub,t]=p;return k==="c"?`${CH[sub][0]} (${CH[sub][2]})`:k==="b"?`${LV[sub]} boss`:k==="d"?(sub.endsWith("AVA")?"Avalon Raid Dungeon":`${LV[sub.split(":")[0]]} dungeon (${FAC[sub.split(":")[1]]||""}) T${t}`):k==="h"?"Hideout alanı":"Portal yeri (bağlantı oyunda değişir)"};
+
+// ---------- canlı takip: bulunulan harita ve portalların hedefi
+// Bağlantılar iki yerden gelir: DPS Meter toplayıcısı (/roads; oyundan okunan ve portaldan geçince öğrenilen)
+// ve elle girilenler (localStorage aoroads1, sadece bu hesapta). Yollar en geç 1 gün içinde değiştiği için eskiler gizlenir.
+const API="http://127.0.0.1:47700",TTL=86400;
+let LIVE={zone:null,links:[],ok:false},ZN={},editing=null;
+const RL=(()=>{try{return JSON.parse(localStorage.getItem("aoroads1")||"{}")}catch(e){return {}}})();
+const saveRL=()=>{try{localStorage.setItem("aoroads1",JSON.stringify(RL))}catch(e){}};
+LS.follow=LS.follow!==false;
+const byId=id=>rows.find(x=>x.id===id);
+const destName=d=>{const r=byId(d);if(r)return r.n;d=String(d||"");return (ZN[d]||d).replace(/ Market$/,"")};
+const left=c=>{if(!c)return "";const m=Math.round((c-Date.now()/1e3)/60);return m<=0?"kapandı":m<60?`${m} dk sonra kapanır`:`${Math.floor(m/60)} sa ${m%60} dk sonra kapanır`};
+function portalLinks(r){
+  // her portal yeri için en yeni bağlantı: {dest, closes, src, t}
+  const now=Date.now()/1e3,out={};
+  const put=(i,l)=>{if(!out[i]||l.t>out[i].t)out[i]=l};
+  LIVE.links.filter(l=>l.zone===r.id&&l.x!=null).forEach(l=>{
+    let bi=-1,bd=1e9;r.pt.forEach((q,i)=>{const d=Math.hypot(q[0]-l.x,q[1]-l.y);if(d<bd){bd=d;bi=i}});
+    if(bi>=0&&bd<90)put(bi,{dest:l.dest,closes:l.closes,src:l.src==="oyun"?"DPS Meter (oyundan)":"DPS Meter (portaldan geçtin)",t:l.t})});
+  (RL[r.id]||[]).forEach(l=>{if(now-l.t<TTL&&(!l.closes||l.closes>now))put(l.i,{dest:l.dest,closes:l.closes,src:"elle girdin",t:l.t,man:1})});
+  return out;
+}
+function summary(d){
+  const r=byId(d);if(!r)return '<div class="sm"><span>Avalon dışı bölge</span></div>';
+  const s=r.L.s,sum=o=>Object.values(o||{}).reduce((a,v)=>a+(typeof v==="object"?Object.values(v).reduce((x,y)=>x+y,0):v),0);
+  const ch=Object.keys(CH).filter(k=>s.c&&s.c[k]).map(k=>`<span style="color:${CH[k][1]}">${sum({x:s.c[k]})} ${CH[k][0].split(" ")[0].toLowerCase()}</span>`).join("");
+  const dg=sum(s.d),bs=sum(s.b),ty=(TYPE[r.ty]||[r.ty])[0];
+  return `<div class="sm">${tb(r.L.t)}<span>${esc(ty)}</span>${ch||'<span>sandık yok</span>'}${dg?`<span>${dg} dungeon</span>`:""}${bs?`<span>${bs} boss</span>`:""}${r.L.h?"<span>hideout alanı</span>":""}</div>`;
+}
+function drawPortals(){
+  const r=cur;if(!r||!$("pl"))return;
+  const PL=portalLinks(r),known=Object.keys(PL).length;
+  const loose=LIVE.links.filter(l=>l.zone===r.id&&l.x==null&&!Object.values(PL).some(p=>p.dest===l.dest));
+  $("plN").textContent=`${known}/${r.pt.length} portalın hedefi biliniyor`;
+  $("pl").innerHTML=`<div class="pl">${r.pt.map((q,i)=>{const L2=PL[i];
+    if(editing===i)return `<div class="po k"><div class="h"><span class="n">${i+1}</span><b>Portal ${i+1} nereye açılıyor?</b></div>
+      <div class="ed"><div class="ac"><input id="eQ" placeholder="Harita adı" autocomplete="off"><div class="dd" id="eD" hidden></div></div></div>
+      <div class="ed"><span class="st">Kapanmaya kalan:</span><input id="eH" type="number" min="0" max="48" placeholder="sa" style="width:64px"><input id="eM" type="number" min="0" max="59" placeholder="dk" style="width:64px"></div>
+      <div class="ed"><button id="eS">Kaydet</button><button id="eX">Vazgeç</button>${L2&&L2.man?'<button id="eR" style="color:var(--bad)">Sil</button>':""}</div></div>`;
+    return `<div class="po${L2?" k":""}"><div class="h"><span class="n">${i+1}</span>${L2?`<a href="#${encodeURIComponent(destName(L2.dest))}" data-go="${esc(L2.dest)}">${esc(destName(L2.dest))}</a>`:'<span class="st">Hedefi bilinmiyor</span>'}<span style="flex:1"></span><button data-ed="${i}">${L2?"Düzelt":"Hedefi gir"}</button></div>
+      ${L2?summary(L2.dest)+(L2.closes?`<div class="cl">${left(L2.closes)}</div>`:"")+`<div class="src2">${esc(L2.src)}</div>`:""}</div>`}).join("")}</div>
+    ${loose.length?`<div class="st" style="margin-top:10px">Konumu okunamayan bağlantı: ${loose.map(l=>`<a href="#" data-go="${esc(l.dest)}">${esc(destName(l.dest))}</a>`).join(", ")}</div>`:""}`;
+  if(editing!=null){
+    let M=[],h=0;const q=$("eQ");q.focus();
+    const sug=()=>{M=find(q.value).slice(0,8);h=0;$("eD").innerHTML=M.map((x,j)=>`<div data-j="${j}" class="${j===h?"on":""}">${tb(x.L.t)}<b>${esc(x.n)}</b></div>`).join("");$("eD").hidden=!M.length};
+    q.oninput=sug;q.onkeydown=e=>{if(e.key==="Enter"&&M[h]){e.preventDefault();q.value=M[h].n;$("eD").hidden=true}};
+    $("eD").onmousedown=e=>{const d=e.target.closest("[data-j]");if(d){e.preventDefault();q.value=M[+d.dataset.j].n;$("eD").hidden=true}};
+    $("eX").onclick=()=>{editing=null;drawPortals()};
+    if($("eR"))$("eR").onclick=()=>{RL[r.id]=(RL[r.id]||[]).filter(l=>l.i!==editing);saveRL();editing=null;drawPortals();draw()};
+    $("eS").onclick=()=>{const d=rows.find(x=>x.nn===norm(q.value));if(!d){q.focus();q.style.borderColor="var(--bad)";return}
+      const hh=+$("eH").value||0,mm=+$("eM").value||0,now=Date.now()/1e3;
+      RL[r.id]=(RL[r.id]||[]).filter(l=>l.i!==editing&&now-l.t<TTL).concat([{i:editing,dest:d.id,closes:hh||mm?now+hh*3600+mm*60:null,t:now}]);saveRL();
+      editing=null;drawPortals();draw()};
+  }
+}
+async function poll(){
+  let j=null;
+  try{const c=new AbortController();setTimeout(()=>c.abort(),2500);const x=await fetch(API+"/roads",{signal:c.signal,cache:"no-store"});if(x.ok)j=await x.json()}catch(e){}
+  if(!j){
+    let st=null;try{const c=new AbortController();setTimeout(()=>c.abort(),2500);const x=await fetch(API+"/status",{signal:c.signal,cache:"no-store"});if(x.ok)st=await x.json()}catch(e){}
+    LIVE.ok=false;$("lvS").className="lv";
+    $("lvT").innerHTML=st?`DPS Meter açık ama bu sürüm (v${esc(st.version)}) yolları okuyamıyor; v24 gerekli. Portal hedeflerini elle girebilirsin.`:`DPS Meter açık değil. Açıkken bulunduğun Avalon haritası kendiliğinden açılır; portal hedeflerini elle de girebilirsin.`;
+    return;
+  }
+  const changed=JSON.stringify(j.links)!==JSON.stringify(LIVE.links);
+  const zc=j.zone!==LIVE.zone;LIVE={zone:j.zone,links:j.links||[],ok:true};
+  $("lvS").className="lv on";$("lvS").textContent="Canlı";
+  const r=byId(j.zone);
+  if(zc&&r&&LS.follow&&cur!==r&&document.activeElement!==$("q"))pick(r);
+  else if(changed&&cur&&editing==null){drawPortals();draw()}
+  $("lvT").innerHTML=j.zone?(r?`${esc(j.character||"")} şu an <b>${esc(r.n)}</b> haritasında${cur!==r?` · <a href="#" id="lvGo">aç</a>`:""}`:`${esc(j.character||"")} şu an ${esc(destName(j.zone))} bölgesinde (Avalon yolu değil)`):"Oyuna girince bulunduğun harita görünür.";
+  if($("lvGo"))$("lvGo").onclick=e=>{e.preventDefault();pick(r);poll()};
+}
+document.addEventListener("click",e=>{
+  const g=e.target.closest("[data-go]");if(g){e.preventDefault();const r=byId(g.dataset.go);if(r)pick(r);return}
+  const ed=e.target.closest("[data-ed]");if(ed){editing=+ed.dataset.ed;drawPortals();return}
+  const pi=e.target.closest("[data-pi]");if(pi&&cur){const L2=portalLinks(cur)[+pi.dataset.pi];if(L2&&byId(L2.dest))pick(byId(L2.dest));else{editing=+pi.dataset.pi;drawPortals();$("pl").scrollIntoView({block:"nearest"})}return}
+});
+setInterval(()=>{if(cur&&editing==null&&$("pl"))drawPortals()},30000);  // kalan süreler
 
 document.addEventListener("click",e=>{
   const o=e.target.closest("#dd [data-i]");if(o){pick(list[+o.dataset.i]);return}
@@ -297,10 +401,13 @@ $("q").addEventListener("keydown",e=>{
 });
 
 recent();
+$("lvF").checked=LS.follow;$("lvF").onchange=()=>{LS.follow=$("lvF").checked;saveLS();if(LS.follow&&LIVE.zone&&byId(LIVE.zone))pick(byId(LIVE.zone))};
+fetch("data/zones.json").then(r=>r.json()).then(z=>{ZN=z;if(cur)drawPortals()}).catch(()=>{});
 fetch("data/maps.json").then(r=>r.json()).then(j=>{
   D=j;index();
   const h=decodeURIComponent(location.hash.slice(1));const r=h&&rows.find(x=>x.nn===norm(h));
   if(r){$("q").value=r.n;show(r)}
+  poll();setInterval(poll,4000);
 }).catch(e=>{$("info").textContent="Harita verisi yüklenemedi: "+e.message});
 })();
 </script>

@@ -80,9 +80,10 @@ Static site (no build step, no framework, no test suite) for the Albion Online g
 - Only `cluster/world.xml` is used: `world_europe.xml`/`world_asia.xml` in the dump stopped updating in 2024/2023 and are stale (owner confirmed Hebitos-Atontum is T6 in game, as in world.xml). `S` rows end with the enabled flag; `L` holds layouts by cluster file.
 - Resource counts come from the game's own `distribution` in world.xml; chest/boss/dungeon positions from active template layers. Road chest colour follows the chest type (`lootchests.xml` minimap marker): solo = green, group (veteran) = blue, raid (elite) = gold. The T4/T6/T8 in chest tile names is not the colour.
 - albionmaps.com.br has no API or reuse terms; do not copy its data or images.
+- Live tracking: the page polls collector `/roads` (v24+) every 4 s. `zone` is the current cluster id (e.g. `TNL-001` = `S[i][0]`); with "otomatik aç" on, that map opens. `links` are `{zone,x,y,dest,closes,t,src}`: `src:"oyun"` parsed heuristically from exit events (`NewTunnelExit` etc., raw copies in `dps-meter/yol-kayit/`, field layout not yet verified in game), `src:"geçiş"` learned on zone change (arrival position from the Join response → the portal you arrived at leads back; the used exit leads forward). A link is matched to the nearest portal position `S[i][4]` within 90 units. Manual destinations: `localStorage.aoroads1` `{zone:[{i,dest,closes,t}]}` (own account only), hidden after 24 h or when closed.
 
 ### DPS Meter collector (`dps-meter/albion_dps.py`)
-- Passive Photon packet sniffer (scapy + Npcap, ported from AlbionOnline-StatisticsAnalysis). HTTP API on `127.0.0.1:47700` (`/status`, `/fights`, `/destiny`, `/loot`, `/storage`, `/end`, `/pause`, `/resume`, `/update`); only the site origin and localhost may call it.
+- Passive Photon packet sniffer (scapy + Npcap, ported from AlbionOnline-StatisticsAnalysis). HTTP API on `127.0.0.1:47700` (`/status`, `/fights`, `/destiny`, `/loot`, `/storage`, `/portals`, `/roads`, `/end`, `/pause`, `/resume`, `/update`); only the site origin and localhost may call it.
 - Windowed tray app (pystray):
   - Registers the `albiondps://` protocol in HKCU so pages can launch it.
   - Runs a single instance (`SO_EXCLUSIVEADDRUSE`).

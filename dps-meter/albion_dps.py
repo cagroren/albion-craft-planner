@@ -12,6 +12,7 @@ Protokol çözümü, açık kaynak AlbionOnline-StatisticsAnalysis (GPL-3.0)
 projesinin kaynak kodu incelenerek Python'a uyarlanmıştır.
 """
 import json
+import math
 import os
 import re
 import struct
@@ -23,7 +24,7 @@ import webbrowser
 import zlib
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-VERSION = 23                 # GitHub'daki dps-vN sürümüyle aynı olmalı (güncelleme kontrolü bunu karşılaştırır)
+VERSION = 24                 # GitHub'daki dps-vN sürümüyle aynı olmalı (güncelleme kontrolü bunu karşılaştırır)
 PORT = int(os.environ.get("ALBION_DPS_PORT") or 47700)
 COMBAT_GAP_SECONDS = 5       # vuruşlar arası bundan uzun boşluk "savaş süresi"ne sayılmaz
 FP = 10000.0                 # oyunun sabit noktalı sayı çarpanı
@@ -92,6 +93,19 @@ PORTAL_EV = {687: "DragonIncursionClusterState", 694: "NewDragonAreaEntrance", 6
              650: "NewMapMarkerTimer", 651: "RemoveMapMarkerTimer", 139: "ClusterInfoUpdate", 447: "MinimapPositionMarkers",
              383: "NewLocationMarker"}
 PORTAL_MAX_PER = 400   # sık gelen işaret mesajları kaydı doldurmasın
+
+# Avalon yolları (Maps sekmesi canlı takip): bulunulan haritadaki çıkışlar (NewTunnelExit vb.) ham hâliyle yol-kayit/
+# klasörüne yazılır ve içlerinden hedef harita (TNL-..., ya da bölge numarası) ile kapanma zamanı tahminle okunur.
+# Ayrıca bir çıkış kullanılıp yeni bölgeye girilince bağlantı kesin olarak öğrenilir: varılan yerdeki portal
+# geldiğin haritaya, kullandığın çıkış da gittiğin haritaya açılır.
+ROAD_NAME = re.compile(r"^(NewTunnelExit|NewTunnelExitTemp|NewExit|NewPortalExit|NewPortalEntrance|ExitUsed|"
+                       r"ExitEnterStart|ExitEnterFinished|NewHideoutExit)$")
+ROAD_EV = {448: "NewTunnelExit", 524: "NewTunnelExitTemp", 215: "NewExit", 323: "NewPortalExit",
+           322: "NewPortalEntrance", 462: "ExitUsed", 421: "NewHideoutExit"}
+ROAD_OP = {294: "UsePortalEntrance", 296: "QueryPortalBinding", 41: "ChangeCluster"}
+ROAD_DEST = re.compile(r"^(TNL-\d+|\d{4}|[A-Z0-9]{2,}-[A-Z0-9-]+)$")
+MAX_LINKS = 400
+LINK_TTL = 24 * 3600         # öğrenilen bağlantı en çok bu kadar tutulur (yollar en geç 1 günde değişir)
 
 
 def has_dragon(v, depth=0):
@@ -187,6 +201,30 @@ class DestinyRecorder:
 
 DESTINY = DestinyRecorder()
 PORTAL_REC = DestinyRecorder("portal-kayit", "Portal")
+ROAD_REC = DestinyRecorder("yol-kayit", "Avalon yolu")
+
+
+def parse_exit(p):
+    """Çıkış olayından konum, hedef ve kapanma zamanı tahmini (alan düzeni oyunla doğrulanmadı)."""
+    now = time.time()
+    dest, pos, closes = None, None, None
+    for k in sorted(p, key=lambda x: x if isinstance(x, int) else 999):
+        if k in (252, 253):
+            continue
+        v = p[k]
+        if isinstance(v, str):
+            u = v.strip()
+            if not dest and ROAD_DEST.match(u):
+                dest = u
+        elif isinstance(v, (list, tuple)):
+            if len(v) == 2 and pos is None and all(isinstance(a, (int, float)) for a in v):
+                pos = [round(float(v[0]), 1), round(float(v[1]), 1)]
+        elif k != 0:
+            t = ticks_to_unix(v)
+            if t and now < t < now + 2 * 86400 and not closes:
+                closes = t
+    return {"oid": to_int(p.get(0)), "x": pos[0] if pos else None, "y": pos[1] if pos else None,
+            "dest": dest, "closes": closes}
 
 
 def ticks_to_unix(v):
@@ -360,6 +398,10 @@ def update_codes():
             if d:
                 DESTINY_EV.clear()
                 DESTINY_EV.update(d)
+            d = {v: k for k, v in e.items() if ROAD_NAME.search(k)}
+            if "NewTunnelExit" in d.values():
+                ROAD_EV.clear()
+                ROAD_EV.update(d)
             d = {v: k for k, v in e.items() if PORTAL_NAME.search(k)}
             if "NewDragonAreaEntrance" in d.values():
                 PORTAL_EV.clear()
@@ -372,6 +414,10 @@ def update_codes():
             if d:
                 DESTINY_OP.clear()
                 DESTINY_OP.update(d)
+            d = {v: k for k, v in o.items() if k in ("UsePortalEntrance", "QueryPortalBinding", "ChangeCluster")}
+            if "ChangeCluster" in d.values():
+                ROAD_OP.clear()
+                ROAD_OP.update(d)
             d = {v: k for k, v in o.items() if PORTAL_NAME.search(k) or k == "GetClusterMapInfo"}
             if "GetClusterMapInfo" in d.values():
                 PORTAL_OP.clear()
@@ -878,6 +924,12 @@ class Tracker:
         self.store_dirty = False
         self.burst = {}          # oyuncu adı -> son 10 sn'deki vuruşlar [(zaman, hasar)] (Top Stats: burst hasar)
         self.portals = {}        # "bölge|nesne" -> görülen Dragon portalı (Portallar sekmesi /portals'tan okur)
+        self.exits = {}          # bulunulan bölgedeki çıkışlar: nesne -> {"x","y","dest","closes","name"}
+        self.exit_used = None    # son kullanılan çıkış (bölge değişince bağlantı olarak kaydedilir)
+        self.pos = None          # bölgeye girişteki konum (varılan portalı bulmak için)
+        self.links = []          # öğrenilen yol bağlantıları: {"zone","x","y","dest","closes","t","src"}
+        self.links_dirty = False
+        self.load_links()
         self.load_saved()
         self.load_live()
         self.load_loot()
@@ -1139,6 +1191,10 @@ class Tracker:
                     self.board.full_info(self.local_name, p)
                 elif name == "FullAchievementProgressInfo":
                     self.board.progress(self.local_name, p)
+        if code in ROAD_EV:
+            ROAD_REC.write("event", code, ROAD_EV[code], dict(p, zone=self.zone))
+            with self.lock:
+                self.on_exit(ROAD_EV[code], p)
         if code in PORTAL_EV or has_dragon(p):
             name = PORTAL_EV.get(code) or f"Bilinmeyen{code}"
             portal_rec("event", code, name, p, self.zone)
@@ -1340,6 +1396,12 @@ class Tracker:
             DESTINY.write("request", code, DESTINY_OP[code], p)
         if code in PORTAL_OP:
             portal_rec("request", code, PORTAL_OP[code], p, self.zone)
+        if code in ROAD_OP:
+            ROAD_REC.write("request", code, ROAD_OP[code], dict(p, zone=self.zone))
+            with self.lock:
+                o = to_int(p.get(0))
+                if o in self.exits:
+                    self.exit_used = dict(self.exits[o], zone=self.zone, t=time.time())
         if code == OP["ContainerOpen"]:
             # 0: sandık/ceset nesnesi, 2: sandığın guid'i. İçerik cevaptan sonra AttachItemContainer ile gelir.
             g = guid_key(p.get(2))
@@ -1350,6 +1412,8 @@ class Tracker:
 
     def on_response(self, _code, p):
         code = to_int(p.get(253))
+        if code in ROAD_OP:
+            ROAD_REC.write("response", code, ROAD_OP[code], dict(p, zone=self.zone))
         if code in PORTAL_OP or has_dragon(p):
             portal_rec("response", code, PORTAL_OP.get(code) or f"BilinmeyenCevap{code}", p, self.zone)
         if code in DESTINY_OP:
@@ -1394,12 +1458,88 @@ class Tracker:
                     self.relogin = False
                     self.local_id, self.local_name = oid, name
                     self.objects[oid] = {"name": name, "t": time.time()}
+                old_zone = self.zone
                 self.zone = str(p.get(8)) if p.get(8) is not None else None
+                self.on_zone_change(old_zone, p)
                 rs = p.get(43)
                 if isinstance(rs, (list, tuple)) and len(rs) > 1:
                     self.credits_total = (to_int(rs[1]) or 0) / FP
                 log(f"Bölgeye girildi. Karakter: {self.local_name}")
                 self.note("zone", zone=self.zone, character=self.local_name)
+
+    # ---- Avalon yolları ----
+    def load_links(self):
+        try:
+            with open(os.path.join(CACHE_DIR, "yollar.json"), encoding="utf-8") as fh:
+                self.links = [l for l in json.load(fh) if time.time() - l["t"] < LINK_TTL]
+        except Exception:
+            self.links = []
+
+    def save_links(self):
+        try:
+            os.makedirs(CACHE_DIR, exist_ok=True)
+            with open(os.path.join(CACHE_DIR, "yollar.json"), "w", encoding="utf-8") as fh:
+                json.dump(self.links, fh)
+        except Exception as e:
+            log("Yol kaydı yazılamadı:", e)
+
+    def add_link(self, zone, x, y, dest, closes, src):
+        if not zone or not dest or zone == dest:
+            return
+        now = time.time()
+        # aynı portal (aynı haritada 60 birimden yakın) için eski kayıt silinir
+        self.links = [l for l in self.links if now - l["t"] < LINK_TTL and not (
+            l["zone"] == zone and (x is None or l["x"] is None or math.hypot(l["x"] - x, l["y"] - y) < 60)
+            and (l["dest"] == dest or x is not None))]
+        self.links.append({"zone": zone, "x": x, "y": y, "dest": dest, "closes": closes, "t": now, "src": src})
+        self.links = self.links[-MAX_LINKS:]
+        self.links_dirty = True
+        log(f"Yol bağlantısı: {zone} -> {dest} ({src})")
+        self.note("road", zone=zone, dest=dest)
+
+    def on_exit(self, name, p):
+        if name == "ExitUsed":
+            o = to_int(p.get(0))
+            if o in self.exits:
+                self.exit_used = dict(self.exits[o], zone=self.zone, t=time.time())
+            return
+        if name in ("ExitEnterStart", "ExitEnterFinished"):
+            return
+        e = parse_exit(p)
+        if e["oid"] is None:
+            return
+        e["name"] = name
+        self.exits[e["oid"]] = e
+        if e["dest"] and e["x"] is not None:
+            self.add_link(self.zone, e["x"], e["y"], e["dest"], e["closes"], "oyun")
+
+    def on_zone_change(self, old, p):
+        """Yeni bölgeye girildi: kullanılan çıkış eski haritada yeni haritaya, varılan portal yeni haritada eski haritaya açılır."""
+        self.exits = {}
+        pos = None
+        for k in sorted(p, key=lambda x: x if isinstance(x, int) else 999):
+            v = p[k]
+            if k not in (252, 253) and isinstance(v, (list, tuple)) and len(v) == 2 and all(isinstance(a, float) for a in v):
+                pos = [round(v[0], 1), round(v[1], 1)]
+                break
+        self.pos = pos
+        new = self.zone
+        if not old or not new or old == new:
+            self.exit_used = None
+            return
+        u = self.exit_used
+        if u and u.get("zone") == old and time.time() - u["t"] < 120:
+            self.add_link(old, u.get("x"), u.get("y"), new, u.get("closes"), "geçiş")
+        if "TNL-" in str(old) or "TNL-" in str(new):
+            self.add_link(new, pos[0] if pos else None, pos[1] if pos else None, old, None, "geçiş")
+        self.exit_used = None
+
+    def road_data(self):
+        with self.lock:
+            now = time.time()
+            return {"zone": self.zone, "character": self.local_name, "pos": self.pos, "now": now,
+                    "links": [l for l in self.links if now - l["t"] < LINK_TTL and (not l["closes"] or l["closes"] > now)],
+                    "exits": [dict(e, oid=o) for o, e in self.exits.items()], "rec": ROAD_REC.status()}
 
     def on_portal(self, p):
         if not self.zone:
@@ -1686,6 +1826,9 @@ class Tracker:
             if self.store_dirty:
                 self.store_dirty = False
                 self.save_stores()
+            if self.links_dirty:
+                self.links_dirty = False
+                self.save_links()
 
     def status(self):
         with self.lock:
@@ -1854,6 +1997,8 @@ def make_handler(tracker):
                     self.send_json(list(reversed(tracker.evlog)))
             elif path == "/storage":
                 self.send_json(tracker.storage_data())
+            elif path == "/roads":
+                self.send_json(tracker.road_data())
             elif path == "/portals":
                 self.send_json(tracker.portal_data())
             else:
